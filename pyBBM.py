@@ -3,7 +3,7 @@
 # twisted imports
 from twisted.words.protocols.irc import IRCClient
 from twisted.internet import reactor
-from twisted.internet.protocol import ClientFactory
+from twisted.internet.protocol import ReconnectingClientFactory
 from twisted.internet.threads import deferToThread
 from twisted.python import log
 
@@ -12,29 +12,69 @@ from time import asctime, time, localtime
 from os import getcwdu
 from os.path import join
 from sys import stdout
-
-class Server:
-	def __init__(self, host, port, channels):
-		self.host = host
-		self.port = port
-		self.channels = channels
+from Queue import Queue
+#bbm imports
+from db import DBaccess
 
 class Settings:
 	nick = "testBBM"
-	servers = [Server("irc.rizon.net", 6667, ["#lololol"])]
-	modules = ["samplemodule"]
+	modules = set(["core", "samplemodule"])
+	servers = []
 	cwd = getcwdu()
+	commandprefix = "."
+	dbQueue = Queue()
+	dbThread = DBaccess(dbQueue)
+
+class Server:
+	def __init__(self, host, port, channels, modules=None):
+		self.host = host
+		self.port = port
+		self.channels = channels
+		if modules:
+			self.modules = set(modules)
+		else:
+			self.modules = Settings.modules
+			
+Settings.servers.append(Server("irc.rizon.net", 6667, ["#lololol"]))
+
+class Event:
+	def __init__(self, type=None, args=None, data=None, user=None, channel=None, msg=None, modes=None, setting=None):
+		self.type = type
+		self.args = args
+		self.data = data #misc used for stuff like created(self, when), and myInfo(self, servername, version, umodes, cmodes), etc
+		#I wonder if we can merge args and data
+		#should use this for one of the kickee or kicker
+		self.user = user
+		self.channel = channel
+		self.msg = msg
+		self.modes = modes
+		self.setting = setting #True for + modes
+		
+		
+#dispatcher should have a HOST->list of modules mapping which then gets turn into a HOST->list of mappings
+# when requesting a dispatch, depending on the botinst.host, will determine what set of mappings are checked.
+# this allows only certain modules per server
 
 class Dispatcher:
 	def __init__(self, modules):
 		self.modules = modules
-		self.items = []
-		self.botinst = None
+		self.hostmap = {}
+		#mapping from friendlyname => list I guess
+		# have seperate mappings for speed?
+		self.commandmapping = {}
+		self.textmapping = {}
+		self.mappings = {}
+	
+	def addhostmodules(self, host, modules):
+		self.modules.update(modules)
+		self.hostmap[host] = modules
 		
 	def reload(self, callback=None):
 		print "LOADING..."
 		#reload all modules I guess
-		self.items = []
+		self.commandmapping = {}
+		self.textmapping = {}
+		self.mappings = {}
 		notloaded = []
 		from imp import find_module, load_module
 		for mod in self.modules:
@@ -45,35 +85,76 @@ class Dispatcher:
 				except Exception as e:
 					notloaded.append((mod, str(e)))
 					f.close()
+					continue
 			except Exception as e:
 				notloaded.append((mod, str(e)))
-			#do stuff with module.mapping
-			type, regex, function = module.mapping
-			self.items.append((type, regex, function))
-			
-	def dispatch(self, type, data):
-		if not self.botinst:
+				continue
+			#do stuff with module.mappings
+			self.commandmapping[mod] = []
+			self.textmapping[mod] = []
+			self.mappings[mod] = []
+			for mapping in module.mappings:
+				if mapping.command:
+					self.commandmapping[mod].append(mapping)
+				elif mapping.regex:
+					self.textmapping[mod].append(mapping)
+				else:
+					self.mappings[mod].append(mapping)
+		if notloaded:
+			print "WARNING: MODULE(S) NOT LOADED: %s" % notloaded
+		
+	
+	#event should be Event instance
+	def dispatch(self, botinst, event):
+		if not botinst:
 			print "THIS SHOULDN'T HAPPEN"
 			return
-		print self.items
-		for item in self.items:
-			if "ALL" in item[0] or type in item[0]:
-				print "DISPATCHING?"
-				if item[1].match(data["msg"]):
-					print "DISPATCHING!"
-					#dispatch
-					d = deferToThread(item[2], type, data)
-					#add callback and errback
-					d.addCallbacks(self.botinst.moduledata, self.botinst.moduleerr)
-			
+		#should probably take into account some module priorities or something(?) do priorities actually matter?
+		# the threadpool won't exactly ensure ordering or anything... priorities are probably useless(?)
+		if event.msg:
+			if event.msg.startswith(Settings.commandprefix):
+				command, rest = event.msg.split(" ", 1)
+				#look at each mapping in "commands" set of modules
+				for module in self.commandmapping:
+					if module in self.hostmap[botinst.factory.host]:
+						#if module is allowed on this server:
+						#look at each mapping in the module
+						for mapping in self.commandmapping[module]:
+							if mapping.command == command:
+								#FINALLY DISPATCH
+								self._dispatchreally(mapping.function, event, botinst)
+			else:
+				#if not a command, throw it at the text regexes
+				for module in self.textmapping:
+					if module in self.hostmap[botinst.factory.host]:
+						for mapping in self.textmapping[module]:
+							if mapping.regex.match(event.msg):
+								#DISPATCH
+								self._dispatchreally(mapping.function, event, botinst)
+		else:
+			# non msg events, i.e. everything else:
+			for module in self.mappings:
+				if module in self.hostmap[botinst.factory.host]:
+					for mapping in self.mappings[module]:
+						if "ALL" in mapping.type or event.type in mapping.type:
+							#dispatch now?
+							self._dispatchreally(mapping.function, event, botinst)					
+						
+	def _dispatchreally(self, func, event, botinst):
+		d = deferToThread(func, event, botinst, Settings.dbQueue)
+		#add callback and errback
+		d.addCallbacks(botinst.moduledata, botinst.moduleerr)
 
 class BBMBot(IRCClient):
 	"""BBM"""
 
 	nickname = "testBBM"
-
+	#lineRate = 1
+	
 	def connectionMade(self):
 		IRCClient.connectionMade(self)
+		#reset connection factory delay:
+		self.factory.resetDelay()
 		# do we restart the message queues here?
 		#self.outbound = Queue() whatever
 
@@ -81,73 +162,57 @@ class BBMBot(IRCClient):
 		IRCClient.connectionLost(self, reason)
 		print "[disconnected at %s]" % asctime(localtime(time()))
 
-
 	# callbacks for events
 
 	def signedOn(self):
 		"""Called when bot has succesfully signed on to server."""
+		print "[Signed on]"
 		for chan in self.factory.channels:
 			self.join(chan)
+		Settings.dispatcher.dispatch(self, Event(type="signedOn"))
 
 	def joined(self, channel):
 		"""This will get called when the bot joins the channel."""
 		print "[I have joined %s]" % channel
+		Settings.dispatcher.dispatch(self, Event(type="joined", channel=channel))
 
 	def privmsg(self, user, channel, msg):
 		"""This will get called when the bot receives a message."""
 		user = user.split('!', 1)[0]
 		print "<%s> %s" % (user, msg)
-		
-		# Check to see if they're sending me a private message
-		#do we do let modules do this? Or should we define this as a "type" of message
-		#if channel == self.nickname:
-			#pm
-
-		self.factory.dispatcher.dispatch("MSG", {"user" : user, "channel" : channel, "msg" : msg})
+		Settings.dispatcher.dispatch(self, Event(type="privmsg", user=user, channel=channel, msg=msg))
 
 	def action(self, user, channel, msg):
 		"""This will get called when the bot sees someone do an action."""
 		user = user.split('!', 1)[0]
 		print "* %s %s" % (user, msg)
-		self.factory.dispatcher.dispatch("ACTION", {"user" : user, "channel" : channel, "msg" : msg})
-		
+		Settings.dispatcher.dispatch(self, Event(type="action", user=user, channel=channel, msg=msg))
 
-	def irc_NICK(self, prefix, params):
+	def userRenamed(self, oldname, newname):
 		"""Called when an IRC user changes their nickname."""
-		old_nick = prefix.split('!')[0]
-		new_nick = params[0]
-		print "%s is now known as %s" % (old_nick, new_nick)
+		print "%s is now known as %s" % (oldname, newname)
+		Settings.dispatcher.dispatch(self, Event(type="userRenamed", user=oldname, data=newname))
 
-
+	
+	#def myInfo(self, servername, version, umodes, cmodes):
+		#We could always use this to get server hostname
+		
 	# override the method that determines how a nickname is changed on
 	# collisions. The default method appends an underscore.
 	#Just kidding
 	# def alterCollidedNick(self, nickname):
-		# """
-		# Generate an altered version of a nickname that caused a collision in an
-		# effort to create an unused related name for subsequent registration.
-		# """
-		# return nickname + '^'
 		
 	#callback to handle module returns
-	#do we sanitize input?
-	#def moduledata(self, type, data):
-	def moduledata(self, result):	
-		type, data = result
-		print type, data
-		if type == "MSG":
-			self.msg(data["dest"], data["msg"])
-		elif type == "ACTION":
-			self.describe(data["dest"], data["msg"])
-		elif type == "NOTICE":
-			self.notice(data["dest"], data["msg"])
+	#do we sanitize input? lol what input
+	def moduledata(self, result):
+		pass
 	
 	def moduleerr(self, data):
 		print "error:", data
 
 
 
-class BBMBotFactory(ClientFactory):
+class BBMBotFactory(ReconnectingClientFactory):
 	"""A factory for BBMBot.
 	A new protocol instance will be created each time we connect to the server.
 	"""
@@ -155,39 +220,41 @@ class BBMBotFactory(ClientFactory):
 	# the class of the protocol to build when new connection is made
 	protocol = BBMBot
 
-	def __init__(self, channels, modules):
+	def __init__(self, host, channels):
+		#reconnect settings
+		self.host = host
+		self.maxDelay = 60
+		self.factor = 1.6180339887498948
 		self.channels = channels
-		#setup dispatcher I guess
-		self.dispatcher = Dispatcher(modules)
-		self.dispatcher.reload()
 	
-	def buildProtocol(self, address):
-		proto = ClientFactory.buildProtocol(self, address)
-		self.dispatcher.botinst = proto
-		return proto
-	
-	def clientConnectionLost(self, connector, reason):
-		"""If we get disconnected, reconnect to server."""
-		connector.connect()
+	# def buildProtocol(self, address):
+		# proto = ReconnectingClientFactory.buildProtocol(self, address)
+		# self.dispatcher.botinst = proto
+		# return proto
 
-	def clientConnectionFailed(self, connector, reason):
-		print "connection failed:", reason
-		reactor.stop()
 
 
 if __name__ == '__main__':
 	# initialize logging
 	log.startLogging(stdout)
-
-	#setup dispatcher
 	
+	#setup dispatcher
+	Settings.dispatcher = Dispatcher(Settings.modules)
 	# create factory protocol and application
 	#f = BBMBotFactory(sys.argv[1], sys.argv[2])
 	for server in Settings.servers:
-		
-		f = BBMBotFactory(server.channels, Settings.modules)
+		server.f = BBMBotFactory(server.host, server.channels)
+		Settings.dispatcher.addhostmodules(server.host, server.modules)
+	
+	Settings.dispatcher.reload()
+	
+	#start db thread:
+	Settings.dbThread.start()
+	for server in Settings.servers:
 		# connect factory to this host and port
-		reactor.connectTCP(server.host, server.port, f)
-
+		reactor.connectTCP(server.host, server.port, server.f)
+	
 	# run bot
 	reactor.run()
+	Settings.dbQueue.put("STOP")
+	Settings.dbThread.join()

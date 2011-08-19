@@ -1,6 +1,8 @@
 #compiled stuff
 *.py[co]
 
+#datafolder
+data/
 
 #archives
 *.7z

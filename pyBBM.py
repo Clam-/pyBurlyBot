@@ -9,33 +9,10 @@ from twisted.python import log
 
 # system imports
 from time import asctime, time, localtime
-from os import getcwdu
 from os.path import join
 from sys import stdout
-from Queue import Queue
 #bbm imports
-from db import DBaccess
-
-class Settings:
-	nick = "testBBM"
-	modules = set(["core", "samplemodule"])
-	servers = []
-	cwd = getcwdu()
-	commandprefix = "."
-	dbQueue = Queue()
-	dbThread = DBaccess(dbQueue)
-
-class Server:
-	def __init__(self, host, port, channels, modules=None):
-		self.host = host
-		self.port = port
-		self.channels = channels
-		if modules:
-			self.modules = set(modules)
-		else:
-			self.modules = Settings.modules
-			
-Settings.servers.append(Server("irc.rizon.net", 6667, ["#lololol"]))
+from settings import Settings
 
 class Event:
 	def __init__(self, type=None, args=None, data=None, user=None, channel=None, msg=None, modes=None, setting=None):
@@ -49,7 +26,6 @@ class Event:
 		self.msg = msg
 		self.modes = modes
 		self.setting = setting #True for + modes
-		
 		
 #dispatcher should have a HOST->list of modules mapping which then gets turn into a HOST->list of mappings
 # when requesting a dispatch, depending on the botinst.host, will determine what set of mappings are checked.
@@ -65,9 +41,9 @@ class Dispatcher:
 		self.textmapping = {}
 		self.mappings = {}
 	
-	def addhostmodules(self, host, modules):
+	def addhostmodules(self, name, modules):
 		self.modules.update(modules)
-		self.hostmap[host] = modules
+		self.hostmap[name] = modules
 		
 	def reload(self, callback=None):
 		print "LOADING..."
@@ -89,56 +65,40 @@ class Dispatcher:
 			except Exception as e:
 				notloaded.append((mod, str(e)))
 				continue
+			
+			module.init(Settings.dbQueue)
 			#do stuff with module.mappings
-			self.commandmapping[mod] = []
-			self.textmapping[mod] = []
 			self.mappings[mod] = []
 			for mapping in module.mappings:
-				if mapping.command:
-					self.commandmapping[mod].append(mapping)
-				elif mapping.regex:
-					self.textmapping[mod].append(mapping)
-				else:
-					self.mappings[mod].append(mapping)
-		if notloaded:
-			print "WARNING: MODULE(S) NOT LOADED: %s" % notloaded
+				self.mappings[mod].append(mapping)
+		
+		if notloaded: print "WARNING: MODULE(S) NOT LOADED: %s" % notloaded
+		else: print "All done."
 		
 	
 	#event should be Event instance
 	def dispatch(self, botinst, event):
-		if not botinst:
-			print "THIS SHOULDN'T HAPPEN"
-			return
-		#should probably take into account some module priorities or something(?) do priorities actually matter?
-		# the threadpool won't exactly ensure ordering or anything... priorities are probably useless(?)
-		if event.msg:
-			if event.msg.startswith(Settings.commandprefix):
-				command, rest = event.msg.split(" ", 1)
-				#look at each mapping in "commands" set of modules
-				for module in self.commandmapping:
-					if module in self.hostmap[botinst.factory.host]:
-						#if module is allowed on this server:
-						#look at each mapping in the module
-						for mapping in self.commandmapping[module]:
-							if mapping.command == command:
-								#FINALLY DISPATCH
+		name = botinst.factory.server.name
+		msg = event.msg
+		command = ""
+		if msg and msg.startswith(Settings.commandprefix):
+			command = msg.split(" ", 1)[0][1:]
+		#check for type match first:
+		for module in self.mappings:
+			if module in self.hostmap[name]:
+				for mapping in self.mappings[module]:
+					if "ALL" in mapping.type or event.type in mapping.type:
+						#type match
+						if mapping.command == None and mapping.regex == None:
+							#dispatch asap
+							self._dispatchreally(mapping.function, event, botinst)
+						#check command, then check text
+						elif msg:
+							if mapping.command and (command == mapping.command):
+								#dispatch
 								self._dispatchreally(mapping.function, event, botinst)
-			else:
-				#if not a command, throw it at the text regexes
-				for module in self.textmapping:
-					if module in self.hostmap[botinst.factory.host]:
-						for mapping in self.textmapping[module]:
-							if mapping.regex.match(event.msg):
-								#DISPATCH
-								self._dispatchreally(mapping.function, event, botinst)
-		else:
-			# non msg events, i.e. everything else:
-			for module in self.mappings:
-				if module in self.hostmap[botinst.factory.host]:
-					for mapping in self.mappings[module]:
-						if "ALL" in mapping.type or event.type in mapping.type:
-							#dispatch now?
-							self._dispatchreally(mapping.function, event, botinst)					
+							elif mapping.regex and (mapping.regex.match(msg)):
+								self._dispatchreally(mapping.function, event, botinst)			
 						
 	def _dispatchreally(self, func, event, botinst):
 		d = deferToThread(func, event, botinst, Settings.dbQueue)
@@ -167,7 +127,7 @@ class BBMBot(IRCClient):
 	def signedOn(self):
 		"""Called when bot has succesfully signed on to server."""
 		print "[Signed on]"
-		for chan in self.factory.channels:
+		for chan in self.factory.server.channels:
 			self.join(chan)
 		Settings.dispatcher.dispatch(self, Event(type="signedOn"))
 
@@ -220,12 +180,11 @@ class BBMBotFactory(ReconnectingClientFactory):
 	# the class of the protocol to build when new connection is made
 	protocol = BBMBot
 
-	def __init__(self, host, channels):
+	def __init__(self, serversettings):
 		#reconnect settings
-		self.host = host
+		self.server = serversettings
 		self.maxDelay = 60
 		self.factor = 1.6180339887498948
-		self.channels = channels
 	
 	# def buildProtocol(self, address):
 		# proto = ReconnectingClientFactory.buildProtocol(self, address)
@@ -242,15 +201,17 @@ if __name__ == '__main__':
 	Settings.dispatcher = Dispatcher(Settings.modules)
 	# create factory protocol and application
 	#f = BBMBotFactory(sys.argv[1], sys.argv[2])
-	for server in Settings.servers:
-		server.f = BBMBotFactory(server.host, server.channels)
-		Settings.dispatcher.addhostmodules(server.host, server.modules)
-	
-	Settings.dispatcher.reload()
+	for servername in Settings.servers:
+		server = Settings.servers[servername]
+		server.f = BBMBotFactory(server)
+		Settings.dispatcher.addhostmodules(server.name, server.modules)
 	
 	#start db thread:
 	Settings.dbThread.start()
-	for server in Settings.servers:
+	Settings.dispatcher.reload()
+	
+	for servername in Settings.servers:
+		server = Settings.servers[servername]
 		# connect factory to this host and port
 		reactor.connectTCP(server.host, server.port, server.f)
 	

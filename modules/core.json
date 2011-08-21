@@ -1,0 +1,13 @@
+{
+	"settings" :
+	{
+		"admins" : ["Clam"]
+	},
+	"servers" :
+	{
+		"rizon" :
+		{
+			"admins" : ["Clam"]
+		}
+	}
+}

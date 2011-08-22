@@ -50,25 +50,18 @@ class Settings:
 							#let's keep everything as dicts for now, sry Griff
 							cls.servers[server["name"]] = server
 							cls.deunicode(server)
-						else:
-							for sopt in server:
-								cls.servers[server["name"]][sopt] = server[sopt]
-								cls.deunicode(cls.servers[server["name"]])
-							Settings.servers[server["name"]] = server
-							Settings.deunicode(server)
 							if "modules" in server:
 								server["modules"] = OrderedSet(server["modules"])
 						else:
 							for sopt in server:
 								if sopt == "modules":
-									Settings.servers[server["name"]][sopt] = OrderedSet(server[sopt])
+									cls.servers[server["name"]][sopt] = OrderedSet(server[sopt])
 								else:
-									Settings.servers[server["name"]][sopt] = server[sopt]
-								Settings.deunicode(Settings.servers[server["name"]])
+									cls.servers[server["name"]][sopt] = server[sopt]
+								cls.deunicode(cls.servers[server["name"]])
 				elif opt == "nick": 
 					cls.__dict__[opt] = newsets[opt].encode("utf-8")
 				elif opt == "modules":
-					cls.__dict__[opt] = set(newsets[opt])
 					cls.__dict__[opt] = OrderedSet(newsets[opt])
 				else:
 					cls.__dict__[opt] = newsets[opt]

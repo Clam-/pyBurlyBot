@@ -182,7 +182,7 @@ class BBMBot(IRCClient):
 		"""
 		Called when a user changes their nickname.
 		"""
-		nick = string.split(prefix,'!', 1)[0]
+		nick = prefix.split('!', 1)[0]
 		if nick == self.nickname:
 			self.nickChanged(params[0])
 		else:

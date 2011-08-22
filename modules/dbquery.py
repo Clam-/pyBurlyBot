@@ -4,14 +4,15 @@ from settings import Settings
 from Queue import Queue
 
 def dbquery(event, botinst, db):
-	if event.nick in Settings.getModuleOption("core", "admins", botinst.factory.server["name"]):
+	if event.nick in Settings.getModuleOption("core", "admins", botinst.servername):
 
 		results = Queue()
-		query = event.msg.lstrip(Settings.getOption("commandprefix", botinst.factory.server["name"])+"dbquery")
+		query = event.msg.lstrip(Settings.getOption("commandprefix", botinst.servername)+"dbquery")
 		botinst.msg(event.channel, "Running: %s" % query)
 		db.put((query, results))
 		result = results.get()
 		if result[0] == "SUCCESS":
+			print "GOOD"
 			#good
 			for row in result[1]:
 				nrow = []

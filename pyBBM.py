@@ -18,7 +18,7 @@ from settings import Settings
 
 
 class Event:
-	def __init__(self, type=None, args=None, data=None, hostmask=None, channel=None, msg=None, modes=None, setting=None):
+	def __init__(self, type=None, args=None, hostmask=None, channel=None, msg=None):
 		self.type = type
 		# Consider args as a dict of uncommon event attributes
 		self.args = args
@@ -37,43 +37,42 @@ class Event:
 				self.ident = ident
 				self.host = host
 		# This can be a user, too. Should probably do something to distinguish
+		# I think module should distinguish (if channel==user) this is a real PM	-Clam
 		self.channel = channel
 		if msg: self.msg = msg.decode("utf-8")
 		else: self.msg = msg
 		# Should be args?
-		self.modes = modes
-		self.setting = setting #True for + modes
+		# yes, let's put modes and settings in args, since it's only for modestuff
 		
 #dispatcher should have a HOST->list of modules mapping which then gets turn into a HOST->list of mappings
 # when requesting a dispatch, depending on the botinst.host, will determine what set of mappings are checked.
 # this allows only certain modules per server
 
 class Dispatcher:
-	def __init__(self, modules):
-		self.modules = modules
-		self.hostmap = {}
-		#mapping from friendlyname => list I guess
-		# have seperate mappings for speed?
-		self.commandmapping = {}
-		self.textmapping = {}
-		self.mappings = {}
+	modules = []
+	hostmap = {}
+	mappings = {}
 	
-	def addhostmodules(self, name, modules):
-		for mod in modules:
-			self.modules.add(mod)
-		self.hostmap[name] = modules
-		
-	def reload(self, callback=None):
+	@classmethod
+	def reload(cls, callback=None):
 		print "LOADING..."
 		moddir = join(Settings.cwd, "modules")
+		
 		#reload all modules I guess
-		self.commandmapping = {}
-		self.textmapping = {}
-		self.mappings = {}
+		#here we should get modules from settings... Assume settings has been updated first.
+		cls.modules = Settings.modules
+		cls.hostmap = {}
+		for server in Settings.servers.values():
+			modules = Settings.getOption("modules", server["name"])
+			for mod in modules:
+				cls.modules.add(mod)
+			cls.hostmap[server["name"]] = modules
+		
+		cls.mappings = {}
 		notloaded = []
 		from imp import find_module, load_module
 		Settings.moduledict = {}
-		for mod in self.modules:
+		for mod in cls.modules:
 			try:
 				(f, pathname, description) = find_module(mod, [moddir])
 				try:
@@ -85,14 +84,13 @@ class Dispatcher:
 			except Exception as e:
 				notloaded.append((mod, str(e)))
 				continue
-			
 			try:
 				if module.init(Settings.dbQueue):
 					Settings.moduledict[mod] = module
 					#do stuff with module.mappings
-					self.mappings[mod] = []
+					cls.mappings[mod] = []
 					for mapping in module.mappings:
-						self.mappings[mod].append(mapping)
+						cls.mappings[mod].append(mapping)
 				else:
 					notloaded.append((mod, "Error in init()"))
 			except Exception as e:
@@ -102,33 +100,33 @@ class Dispatcher:
 		else: print "All done."
 		
 	
-	#event should be Event instance
-	def dispatch(self, botinst, event):
-		name = botinst.factory.server["name"]
+	@classmethod
+	def dispatch(cls, botinst, event):
+		name = botinst.servername
 		msg = event.msg
 		command = ""
-		if msg and msg.startswith(Settings.getOption("commandprefix", botinst.factory.server["name"])):
+		if msg and msg.startswith(Settings.getOption("commandprefix", name)):
 			#case insensitive match?
 			#also this means that commands can't have spaces in them, and lol command prefix can't be a space
 			command = msg.split(" ", 1)[0][1:].lower()
 		#check for type match first:
-		for module in self.mappings:
-			if module in self.hostmap[name]:
-				for mapping in self.mappings[module]:
+		for module in cls.mappings:
+			if module in cls.hostmap[name]:
+				for mapping in cls.mappings[module]:
 					if "ALL" in mapping.type or event.type in mapping.type:
 						#type match
 						if mapping.command == None and mapping.regex == None:
 							#dispatch asap
-							self._dispatchreally(mapping.function, event, botinst)
+							cls._dispatchreally(mapping.function, event, botinst)
 						#check command, then check text
 						elif msg:
 							if mapping.command and (command == mapping.command):
 								#dispatch
-								self._dispatchreally(mapping.function, event, botinst)
+								cls._dispatchreally(mapping.function, event, botinst)
 							elif mapping.regex and (mapping.regex.match(msg)):
-								self._dispatchreally(mapping.function, event, botinst)
-						
-	def _dispatchreally(self, func, event, botinst):
+								cls._dispatchreally(mapping.function, event, botinst)
+	@staticmethod					
+	def _dispatchreally(func, event, botinst):
 		d = deferToThread(func, event, botinst, Settings.dbQueue)
 		#add callback and errback
 		d.addCallbacks(botinst.moduledata, botinst.moduleerr)
@@ -155,56 +153,54 @@ class BBMBot(IRCClient):
 	def signedOn(self):
 		"""Called when bot has succesfully signed on to server."""
 		print "[Signed on]"
-		for chan in self.factory.server["channels"]:
+		for chan in Settings.servers[self.servername]["channels"]:
 			if isinstance(chan, list):
 				if len(chan) > 1: self.join(chan[0], chan[1])
 				else: self.join(chan[0])
 			else: self.join(chan)
-		Settings.dispatcher.dispatch(self, Event(type="signedOn"))
+		Dispatcher.dispatch(self, Event(type="signedOn"))
 
 	def joined(self, channel):
 		"""This will get called when the bot joins the channel."""
 		print "[I have joined %s]" % channel
-		Settings.dispatcher.dispatch(self, Event(type="joined", channel=channel))
+		Dispatcher.dispatch(self, Event(type="joined", channel=channel))
 
 	def privmsg(self, hostmask, channel, msg):
 		"""This will get called when the bot receives a message."""
-		print "<%s> %s" % (nick, msg)
-		Settings.dispatcher.dispatch(self, Event(type="privmsg", hostmask=hostmask, channel=channel, msg=msg))
+		Dispatcher.dispatch(self, Event(type="privmsg", hostmask=hostmask, channel=channel, msg=msg))
 
 	def action(self, hostmask, channel, msg):
 		"""This will get called when the bot sees someone do an action."""
-		nick = hostmask.split('!', 1)[0]
-		print "* %s %s" % (nick, msg)
-		Settings.dispatcher.dispatch(self, Event(type="action", hostmask=hostmask, channel=channel, msg=msg))
+		Dispatcher.dispatch(self, Event(type="action", hostmask=hostmask, channel=channel, msg=msg))
 
-	def irc_NICK(self, prefix, params):
+	def irc_NICK(self, hostmask, params):
 		"""
 		Called when a user changes their nickname.
 		"""
-		nick = prefix.split('!', 1)[0]
+		nick = hostmask.split('!', 1)[0]
 		if nick == self.nickname:
 			self.nickChanged(params[0])
 		else:
-			self.userRenamed(prefix, params[0])
+			self.userRenamed(nick, params[0])
+		Dispatcher.dispatch(self, Event(type="irc_NICK", hostmask=hostmask, args={'newname': params[0]}))
 		
-	def userRenamed(self, hostmask, newname):
-		"""Called when an IRC user changes their nickname."""
-		print "%s is now known as %s" % (hostmask.split('!', 1)[0], newname)
-		Settings.dispatcher.dispatch(self, Event(type="userRenamed", hostmask=hostmask, args={'newname': newname}))
 	
 	#overriding msg
+	# need to consider dipatching this event and allow for some override somehow
 	def msg(self, user, msg, length=None):
 		msg = msg.encode("utf-8")
 		if length: IRCClient.msg(self, user, msg, length)
 		else: IRCClient.msg(self, user, msg)
+	
 	#def myInfo(self, servername, version, umodes, cmodes):
 		#We could always use this to get server hostname
+		# more like dispatch
 		
 	# override the method that determines how a nickname is changed on
 	# collisions. The default method appends an underscore.
-	#Just kidding
-	# def alterCollidedNick(self, nickname):
+	#Just kidding, actually let's do this after all - user option
+	def alterCollidedNick(self, nickname):
+		return nickname + Settings.getOption("nicksuffix", self.servername)
 		
 	#callback to handle module returns
 	#do we sanitize input? lol what input
@@ -224,16 +220,16 @@ class BBMBotFactory(ReconnectingClientFactory):
 	# the class of the protocol to build when new connection is made
 	protocol = BBMBot
 
-	def __init__(self, serversettings):
+	def __init__(self, servername):
 		#reconnect settings
-		self.server = serversettings
+		self.servername = servername
 		self.maxDelay = 60
 		self.factor = 1.6180339887498948
 	
 	def buildProtocol(self, address):
 		proto = ReconnectingClientFactory.buildProtocol(self, address)
-		proto.nickname = Settings.getOption("nick", self.server["name"])
-		#Maybe add serversettings to the BBMBot instance here? Or leave it as instance.factory.server
+		proto.nickname = Settings.getOption("nick", self.servername)
+		proto.servername = self.servername
 		return proto
 
 
@@ -261,24 +257,17 @@ if __name__ == '__main__':
 	else:
 		print "Settings file not found, running with defaults..."
 	Settings.reload()
+	#doing it this way so no circular reference, if we refactor dispatcher out of this file we can do away with it
+	# it's only used for core.reload
+	Settings.dispatcher = Dispatcher 
+	Settings.dbThread.start()
+	Dispatcher.reload()
 	
-	#setup dispatcher
-	Settings.dispatcher = Dispatcher(Settings.modules)
 	# create factory protocol and application
 	#f = BBMBotFactory(sys.argv[1], sys.argv[2])
 	for servername in Settings.servers:
 		server = Settings.servers[servername]
-		server["factory"] = BBMBotFactory(server)
-		Settings.dispatcher.addhostmodules(servername, Settings.getOption("modules", server["name"]))
-	
-	#start db thread:
-	Settings.dbThread.start()
-	Settings.dispatcher.reload()
-	
-	for servername in Settings.servers:
-		server = Settings.servers[servername]
-		# connect factory to this host and port
-		reactor.connectTCP(server["host"], server["port"], server["factory"])
+		reactor.connectTCP(server["host"], server["port"], BBMBotFactory(server["name"]))
 	
 	# run bot
 	reactor.run()

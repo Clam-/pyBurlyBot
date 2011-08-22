@@ -37,6 +37,8 @@ class Settings:
 			else:
 				channels[index] = channels[index].encode("utf-8")
 		server["nick"] = server["nick"].encode("utf-8")
+		if "nicksuffix" in server:
+			server["nicksuffix"] = server["nicksuffix"].encode("utf-8")
 	
 	@classmethod
 	def _loadsettings(cls, filename):
@@ -63,6 +65,8 @@ class Settings:
 					cls.__dict__[opt] = newsets[opt].encode("utf-8")
 				elif opt == "modules":
 					cls.__dict__[opt] = OrderedSet(newsets[opt])
+				elif opt == "nicksuffix":
+					cls.__dict__[opt] = newsets[opt].encode("utf-8")
 				else:
 					cls.__dict__[opt] = newsets[opt]
 	

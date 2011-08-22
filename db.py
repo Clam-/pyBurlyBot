@@ -46,6 +46,7 @@ class DBaccess(Thread):
 					print "EXCEPTION 1 IS: %s" % e1
 					print "EXCEPTION 2 IS: %s" % e2
 		print "SHUTTING DOWN DB THREAD"
+		dbcon.commit()
 		dbcon.close()
 	# how should we deal with commits and stuff, can you even commit with execute? 
 	# You can if you change transactional mode. Dont' really know which way should go

@@ -7,7 +7,7 @@ from Queue import Queue
 
 
 def userupdate(event, botinst, db):
-	#update last seen and such
+	#check if exists, then update
 	pass
 
 #init should always be here to setup needed DB tables or objects or whatever
@@ -22,7 +22,7 @@ def init(db):
 			db.put(('''
 create table user(
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	nick TEXT,
+	nick TEXT UNIQUE,
 	host TEXT,
 	lastseen DATE
 );''', results))

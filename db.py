@@ -2,7 +2,7 @@ from threading import Thread
 try:
 	from pysqlite2 import dbapi2 as sqlite3
 except:
-	print "WUT"
+	import sqlite3
 #DB handler
 
 from os.path import exists, join, isfile

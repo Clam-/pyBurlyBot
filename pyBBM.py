@@ -18,20 +18,29 @@ from settings import Settings
 
 
 class Event:
-	def __init__(self, type=None, args=None, data=None, user=None, channel=None, msg=None, modes=None, setting=None):
+	def __init__(self, type=None, args=None, data=None, hostmask=None, channel=None, msg=None, modes=None, setting=None):
 		self.type = type
+		# Consider args as a dict of uncommon event attributes
 		self.args = args
-		self.data = data #misc used for stuff like created(self, when), and myInfo(self, servername, version, umodes, cmodes), etc
-		#I wonder if we can merge args and data
-		#should use this for one of the kickee or kicker
-		self.user = user
+		self.hostmask = hostmask
 		self.nick = None
-		if user:
-			nick = user.split('!', 1)[0] #griff recommendation
-			if nick: self.nick = nick 
+		self.ident = None
+		self.host = None
+		if hostmask:
+			try:
+				nick, ident = hostmask.split('!', 1)
+				ident, host = ident.split('@', 1)
+			except ValueError:
+				pass
+			else:
+				self.nick = nick
+				self.ident = ident
+				self.host = host
+		# This can be a user, too. Should probably do something to distinguish
 		self.channel = channel
 		if msg: self.msg = msg.decode("utf-8")
 		else: self.msg = msg
+		# Should be args?
 		self.modes = modes
 		self.setting = setting #True for + modes
 		
@@ -117,7 +126,7 @@ class Dispatcher:
 								#dispatch
 								self._dispatchreally(mapping.function, event, botinst)
 							elif mapping.regex and (mapping.regex.match(msg)):
-								self._dispatchreally(mapping.function, event, botinst)			
+								self._dispatchreally(mapping.function, event, botinst)
 						
 	def _dispatchreally(self, func, event, botinst):
 		d = deferToThread(func, event, botinst, Settings.dbQueue)
@@ -158,22 +167,31 @@ class BBMBot(IRCClient):
 		print "[I have joined %s]" % channel
 		Settings.dispatcher.dispatch(self, Event(type="joined", channel=channel))
 
-	def privmsg(self, user, channel, msg):
+	def privmsg(self, hostmask, channel, msg):
 		"""This will get called when the bot receives a message."""
-		nick = user.split('!', 1)[0]
 		print "<%s> %s" % (nick, msg)
-		Settings.dispatcher.dispatch(self, Event(type="privmsg", user=user, channel=channel, msg=msg))
+		Settings.dispatcher.dispatch(self, Event(type="privmsg", hostmask=hostmask, channel=channel, msg=msg))
 
-	def action(self, user, channel, msg):
+	def action(self, hostmask, channel, msg):
 		"""This will get called when the bot sees someone do an action."""
-		nick = user.split('!', 1)[0]
+		nick = hostmask.split('!', 1)[0]
 		print "* %s %s" % (nick, msg)
-		Settings.dispatcher.dispatch(self, Event(type="action", user=user, channel=channel, msg=msg))
+		Settings.dispatcher.dispatch(self, Event(type="action", hostmask=hostmask, channel=channel, msg=msg))
 
-	def userRenamed(self, oldname, newname):
+	def irc_NICK(self, prefix, params):
+		"""
+		Called when a user changes their nickname.
+		"""
+		nick = prefix.split('!', 1)[0]
+		if nick == self.nickname:
+			self.nickChanged(params[0])
+		else:
+			self.userRenamed(prefix, params[0])
+		
+	def userRenamed(self, hostmask, newname):
 		"""Called when an IRC user changes their nickname."""
-		print "%s is now known as %s" % (oldname, newname)
-		Settings.dispatcher.dispatch(self, Event(type="userRenamed", user=oldname, data=newname))
+		print "%s is now known as %s" % (hostmask.split('!', 1)[0], newname)
+		Settings.dispatcher.dispatch(self, Event(type="userRenamed", hostmask=hostmask, args={'newname': newname}))
 	
 	#overriding msg
 	def msg(self, user, msg, length=None):

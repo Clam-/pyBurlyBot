@@ -1,0 +1,18 @@
+{
+	"nick" : "testBM",
+	"modules" : ["core", "samplemodule"],
+	"commandprefix" : "!",
+	"servers" : 
+	[
+		{
+			"name" : "rizon",
+			"nick" : "testBMr",
+			"host" : "irc.rizon.net",
+			"port" : 6667,
+			"channels" : [["#lololol", null]],
+			"modules" : ["core", "samplemodule"],
+			"commandprefix" : ","
+		}
+	]
+	
+}

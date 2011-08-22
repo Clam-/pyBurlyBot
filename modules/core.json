@@ -1,13 +1,13 @@
 {
 	"settings" :
 	{
-		"admins" : ["Clam"]
+		"admins" : ["Clam", "Grau"]
 	},
 	"servers" :
 	{
 		"rizon" :
 		{
-			"admins" : ["Clam"]
+			"admins" : ["Clam", "Grau"]
 		}
 	}
 }

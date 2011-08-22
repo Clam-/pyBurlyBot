@@ -41,8 +41,9 @@ class Event:
 		self.channel = channel
 		if msg: self.msg = msg.decode("utf-8")
 		else: self.msg = msg
-		# Should be args?
-		# yes, let's put modes and settings in args, since it's only for modestuff
+		# Set by dispatcher, for convenience in module
+		self.command = None
+		self.input = None
 		
 #dispatcher should have a HOST->list of modules mapping which then gets turn into a HOST->list of mappings
 # when requesting a dispatch, depending on the botinst.host, will determine what set of mappings are checked.
@@ -105,10 +106,22 @@ class Dispatcher:
 		name = botinst.servername
 		msg = event.msg
 		command = ""
+		input = ""
 		if msg and msg.startswith(Settings.servers[name].commandprefix):
 			#case insensitive match?
 			#also this means that commands can't have spaces in them, and lol command prefix can't be a space
-			command = msg.split(" ", 1)[0][1:].lower()
+			#all are good to me, if you want a case sensitive match you can do your command as a regex - griff
+			command = msg.split(" ", 1)
+			if len(command) > 1:
+				command, input = command
+			else:
+				command = command[0]
+			# Only one character prefix? okay... (jk it's fine) - griff
+			command = command[1:]
+			# Maintain case for event, for funny things like replying in all caps
+			event.command, event.input = (command, input)
+			command = command.lower()
+
 		#check for type match first:
 		for module in cls.mappings:
 			if module in cls.hostmap[name]:

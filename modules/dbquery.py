@@ -7,7 +7,7 @@ def dbquery(event, botinst, db):
 	if event.nick in Settings.getModuleOption("core", "admins", botinst.servername):
 
 		results = Queue()
-		query = event.msg.lstrip(Settings.getOption("commandprefix", botinst.servername)+"dbquery")
+		query = event.input
 		botinst.msg(event.channel, "Running: %s" % query)
 		db.put((query, results))
 		result = results.get()

@@ -63,10 +63,10 @@ class Dispatcher:
 		cls.modules = Settings.modules
 		cls.hostmap = {}
 		for server in Settings.servers.values():
-			modules = Settings.getOption("modules", server["name"])
+			modules = server.modules
 			for mod in modules:
 				cls.modules.add(mod)
-			cls.hostmap[server["name"]] = modules
+			cls.hostmap[server.name] = modules
 		
 		cls.mappings = {}
 		notloaded = []
@@ -105,7 +105,7 @@ class Dispatcher:
 		name = botinst.servername
 		msg = event.msg
 		command = ""
-		if msg and msg.startswith(Settings.getOption("commandprefix", name)):
+		if msg and msg.startswith(Settings.servers[name].commandprefix):
 			#case insensitive match?
 			#also this means that commands can't have spaces in them, and lol command prefix can't be a space
 			command = msg.split(" ", 1)[0][1:].lower()
@@ -153,7 +153,7 @@ class BBMBot(IRCClient):
 	def signedOn(self):
 		"""Called when bot has succesfully signed on to server."""
 		print "[Signed on]"
-		for chan in Settings.servers[self.servername]["channels"]:
+		for chan in Settings.servers[self.servername].channels:
 			if isinstance(chan, list):
 				if len(chan) > 1: self.join(chan[0], chan[1])
 				else: self.join(chan[0])
@@ -180,9 +180,10 @@ class BBMBot(IRCClient):
 		nick = hostmask.split('!', 1)[0]
 		if nick == self.nickname:
 			self.nickChanged(params[0])
+			Dispatcher.dispatch(self, Event(type="nickChanged", hostmask=hostmask, args={'newname': params[0]}))
 		else:
 			self.userRenamed(nick, params[0])
-		Dispatcher.dispatch(self, Event(type="irc_NICK", hostmask=hostmask, args={'newname': params[0]}))
+			Dispatcher.dispatch(self, Event(type="userRenamed", hostmask=hostmask, args={'newname': params[0]}))
 		
 	
 	#overriding msg
@@ -200,7 +201,7 @@ class BBMBot(IRCClient):
 	# collisions. The default method appends an underscore.
 	#Just kidding, actually let's do this after all - user option
 	def alterCollidedNick(self, nickname):
-		return nickname + Settings.getOption("nicksuffix", self.servername)
+		return nickname + Settings.servers[self.servername].nicksuffix
 		
 	#callback to handle module returns
 	#do we sanitize input? lol what input
@@ -228,7 +229,7 @@ class BBMBotFactory(ReconnectingClientFactory):
 	
 	def buildProtocol(self, address):
 		proto = ReconnectingClientFactory.buildProtocol(self, address)
-		proto.nickname = Settings.getOption("nick", self.servername)
+		proto.nickname = Settings.servers[self.servername].nick
 		proto.servername = self.servername
 		return proto
 
@@ -265,9 +266,8 @@ if __name__ == '__main__':
 	
 	# create factory protocol and application
 	#f = BBMBotFactory(sys.argv[1], sys.argv[2])
-	for servername in Settings.servers:
-		server = Settings.servers[servername]
-		reactor.connectTCP(server["host"], server["port"], BBMBotFactory(server["name"]))
+	for server in Settings.servers.values():
+		reactor.connectTCP(server.host, server.port, BBMBotFactory(server.name))
 	
 	# run bot
 	reactor.run()

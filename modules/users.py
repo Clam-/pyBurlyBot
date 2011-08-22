@@ -23,7 +23,8 @@ def init(db):
 create table user(
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	nick TEXT,
-	host TEXT
+	host TEXT,
+	lastseen DATE
 );''', results))
 			# should probably make sure this returns valid
 			result = results.get()

@@ -7,15 +7,21 @@ def dbquery(event, botinst, db):
 	if event.nick in Settings.getModuleOption("core", "admins", botinst.factory.server["name"]):
 
 		results = Queue()
-		db.put(("SELECT name FROM sqlite_master WHERE name='alias'", results))
+		query = event.msg.lstrip(Settings.getOption("commandprefix", botinst.factory.server["name"])+"dbquery")
+		botinst.msg(event.channel, "Running: %s" % query)
+		db.put((query, results))
 		result = results.get()
 		if result[0] == "SUCCESS":
 			#good
 			for row in result[1]:
 				nrow = []
-				for col in row:
-					nrow.append((col))
-				botinst.msg(event.channel, str(nrow))
+				for key in row.keys():
+					nrow.append((key, row[key]))
+				botinst.msg(event.channel, repr(nrow))
+				it = []
+				for i in row:
+					it.append(i)
+				botinst.msg(event.channel, "Iter thing: %s" % repr(it))
 		else:
 			botinst.msg(event.channel, "Error in query: %s" % result[1])
 

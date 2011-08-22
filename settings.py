@@ -20,9 +20,9 @@ class Settings:
 	
 	loadable = set(["nick", "modules", "servers", "commandprefix"])
 	
-	@staticmethod
-	def addServer(server):
-		Settings.servers[server.name] = server
+	@classmethod
+	def addServer(cls, server):
+		cls.servers[server.name] = server
 	
 	#this is kinda lame
 	@staticmethod
@@ -37,59 +37,59 @@ class Settings:
 				channels[index] = channels[index].encode("utf-8")
 		server["nick"] = server["nick"].encode("utf-8")
 	
-	@staticmethod
-	def _loadsettings(filename):
+	@classmethod
+	def _loadsettings(cls, filename):
 		newsets = load(open(filename, "rb"))
-		for opt in Settings.loadable:
+		for opt in cls.loadable:
 			if opt in newsets:
 				if opt == "servers":
 					for server in newsets[opt]:
-						if server["name"] not in Settings.servers:
+						if server["name"] not in cls.servers:
 							#create server object and assign,
 							#let's keep everything as dicts for now, sry Griff
-							Settings.servers[server["name"]] = server
-							Settings.deunicode(server)
+							cls.servers[server["name"]] = server
+							cls.deunicode(server)
 						else:
 							for sopt in server:
-								Settings.servers[server["name"]][sopt] = server[sopt]
-								Settings.deunicode(Settings.servers[server["name"]])
+								cls.servers[server["name"]][sopt] = server[sopt]
+								cls.deunicode(cls.servers[server["name"]])
 				elif opt == "nick": 
-					Settings.__dict__[opt] = newsets[opt].encode("utf-8")
+					cls.__dict__[opt] = newsets[opt].encode("utf-8")
 				elif opt == "modules":
-					Settings.__dict__[opt] = set(newsets[opt])
+					cls.__dict__[opt] = set(newsets[opt])
 				else:
-					Settings.__dict__[opt] = newsets[opt]
+					cls.__dict__[opt] = newsets[opt]
 	
-	@staticmethod
-	def reload():
+	@classmethod
+	def reload(cls):
 		#load defaults.json, then override with user options
-		Settings._loadsettings(join(Settings.cwd, "defaults.json"))
+		cls._loadsettings(join(cls.cwd, "defaults.json"))
 				
-		if Settings.configfile:
+		if cls.configfile:
 			#attempt to load user options
-			Settings._loadsettings(Settings.configfile)
+			cls._loadsettings(cls.configfile)
 		#load module options now?
-		moddir = join(Settings.cwd, "modules")
-		for module in Settings.modules:
+		moddir = join(cls.cwd, "modules")
+		for module in cls.modules:
 			fname = join(moddir, "%s.json" % module)
 			if exists(fname):
-				Settings.moduleopts[module] = load(open(fname, "rb"))
+				cls.moduleopts[module] = load(open(fname, "rb"))
 		
 	#some helper methods
-	@staticmethod
-	def getOption(option, server=None):
-		if server and (server in Settings.servers) and (option in Settings.servers[server]):
-			return Settings.servers[server][option]
+	@classmethod
+	def getOption(cls, option, server=None):
+		if server and (server in cls.servers) and (option in cls.servers[server]):
+			return cls.servers[server][option]
 		else:
-			return Settings.__dict__[option] #???
+			return cls.__dict__[option] #???
 	
-	@staticmethod		
-	def getModuleOption(module, option, server=None):
-		if module in Settings.moduleopts:
-			if server and server in Settings.moduleopts[module]["servers"]:
-				return Settings.moduleopts[module]["servers"][server][option]
+	@classmethod
+	def getModuleOption(cls, module, option, server=None):
+		if module in cls.moduleopts:
+			if server and server in cls.moduleopts[module]["servers"]:
+				return cls.moduleopts[module]["servers"][server][option]
 			else:
-				return Settings.moduleopts[module][option]
+				return cls.moduleopts[module][option]
 		
 	#should have some set option helper methods I guess
 	

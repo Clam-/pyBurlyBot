@@ -5,11 +5,11 @@ from db import DBaccess
 from Queue import Queue
 
 from json import load
-
+from util.libs import OrderedSet
 
 class Settings:
 	nick = "nick"
-	modules = set(["core", "samplemodule"])
+	modules = OrderedSet(["core", "samplemodule"])
 	servers = {}
 	cwd = getcwdu()
 	commandprefix = "!"
@@ -17,6 +17,7 @@ class Settings:
 	dbThread = DBaccess(dbQueue)
 	configfile = None
 	moduleopts = {}
+	moduledict = {}
 	
 	loadable = set(["nick", "modules", "servers", "commandprefix"])
 	
@@ -53,10 +54,22 @@ class Settings:
 							for sopt in server:
 								cls.servers[server["name"]][sopt] = server[sopt]
 								cls.deunicode(cls.servers[server["name"]])
+							Settings.servers[server["name"]] = server
+							Settings.deunicode(server)
+							if "modules" in server:
+								server["modules"] = OrderedSet(server["modules"])
+						else:
+							for sopt in server:
+								if sopt == "modules":
+									Settings.servers[server["name"]][sopt] = OrderedSet(server[sopt])
+								else:
+									Settings.servers[server["name"]][sopt] = server[sopt]
+								Settings.deunicode(Settings.servers[server["name"]])
 				elif opt == "nick": 
 					cls.__dict__[opt] = newsets[opt].encode("utf-8")
 				elif opt == "modules":
 					cls.__dict__[opt] = set(newsets[opt])
+					cls.__dict__[opt] = OrderedSet(newsets[opt])
 				else:
 					cls.__dict__[opt] = newsets[opt]
 	

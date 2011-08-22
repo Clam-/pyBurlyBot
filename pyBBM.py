@@ -50,7 +50,8 @@ class Dispatcher:
 		self.mappings = {}
 	
 	def addhostmodules(self, name, modules):
-		self.modules.update(modules)
+		for mod in modules:
+			self.modules.add(mod)
 		self.hostmap[name] = modules
 		
 	def reload(self, callback=None):
@@ -62,6 +63,7 @@ class Dispatcher:
 		self.mappings = {}
 		notloaded = []
 		from imp import find_module, load_module
+		Settings.moduledict = {}
 		for mod in self.modules:
 			try:
 				(f, pathname, description) = find_module(mod, [moddir])
@@ -75,11 +77,17 @@ class Dispatcher:
 				notloaded.append((mod, str(e)))
 				continue
 			
-			module.init(Settings.dbQueue)
-			#do stuff with module.mappings
-			self.mappings[mod] = []
-			for mapping in module.mappings:
-				self.mappings[mod].append(mapping)
+			try:
+				if module.init(Settings.dbQueue):
+					Settings.moduledict[mod] = module
+					#do stuff with module.mappings
+					self.mappings[mod] = []
+					for mapping in module.mappings:
+						self.mappings[mod].append(mapping)
+				else:
+					notloaded.append((mod, "Error in init()"))
+			except Exception as e:
+				notloaded.append((mod, "ERROR LOADING MODULE (%s): %s" % (mod, e)))
 		
 		if notloaded: print "WARNING: MODULE(S) NOT LOADED: %s" % notloaded
 		else: print "All done."
@@ -92,6 +100,7 @@ class Dispatcher:
 		command = ""
 		if msg and msg.startswith(Settings.getOption("commandprefix", botinst.factory.server["name"])):
 			#case insensitive match?
+			#also this means that commands can't have spaces in them, and lol command prefix can't be a space
 			command = msg.split(" ", 1)[0][1:].lower()
 		#check for type match first:
 		for module in self.mappings:
@@ -242,7 +251,7 @@ if __name__ == '__main__':
 	for servername in Settings.servers:
 		server = Settings.servers[servername]
 		server["factory"] = BBMBotFactory(server)
-		Settings.dispatcher.addhostmodules(servername, server["modules"])
+		Settings.dispatcher.addhostmodules(servername, Settings.getOption("modules", server["name"]))
 	
 	#start db thread:
 	Settings.dbThread.start()

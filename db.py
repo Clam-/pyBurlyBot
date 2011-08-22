@@ -31,10 +31,12 @@ class DBaccess(Thread):
 					break
 				# ("select stuff where name_last=? and age=?", (who, age))
 				params = ()
-				if len(query) > 2:
+				if len(query) == 3:
 					query, returnq, params = query
-				else:
+				elif len(query) == 2:
 					query, returnq = query
+				else:
+					raise Exception("ValueError", "Too many or too few query arguments. %s" % len(query))
 				returnq.put(("SUCCESS", dbcon.execute(query, params).fetchall()))
 			except Exception as e1:
 				try:

@@ -1,17 +1,15 @@
 {
 	"nick" : "testBM",
-	"modules" : ["core", "samplemodule"],
+	"modules" : ["core", "samplemodule", "dbquery", "users", "alias" ],
 	"commandprefix" : "!",
 	"servers" : 
 	[
 		{
 			"name" : "rizon",
-			"nick" : "testBMr",
+			"nick" : "testBM",
 			"host" : "irc.rizon.net",
 			"port" : 6667,
-			"channels" : [["#lololol", null]],
-			"modules" : ["core", "samplemodule"],
-			"commandprefix" : ","
+			"channels" : [["#lololol"]]
 		}
 	]
 	

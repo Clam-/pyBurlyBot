@@ -78,7 +78,7 @@ class Settings:
 	#some helper methods
 	@staticmethod
 	def getOption(option, server=None):
-		if server and (server in Settings.servers) and (option in Settings.servers[server][option]):
+		if server and (server in Settings.servers) and (option in Settings.servers[server]):
 			return Settings.servers[server][option]
 		else:
 			return Settings.__dict__[option] #???

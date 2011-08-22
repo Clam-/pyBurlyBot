@@ -90,8 +90,9 @@ class Dispatcher:
 		name = botinst.factory.server["name"]
 		msg = event.msg
 		command = ""
-		if msg and msg.startswith(Settings.commandprefix):
-			command = msg.split(" ", 1)[0][1:]
+		if msg and msg.startswith(Settings.getOption("commandprefix", botinst.factory.server["name"])):
+			#case insensitive match?
+			command = msg.split(" ", 1)[0][1:].lower()
 		#check for type match first:
 		for module in self.mappings:
 			if module in self.hostmap[name]:
@@ -205,13 +206,13 @@ class BBMBotFactory(ReconnectingClientFactory):
 	def buildProtocol(self, address):
 		proto = ReconnectingClientFactory.buildProtocol(self, address)
 		proto.nickname = Settings.getOption("nick", self.server["name"])
+		#Maybe add serversettings to the BBMBot instance here? Or leave it as instance.factory.server
 		return proto
 
 
 
 if __name__ == '__main__':
 	from os.path import exists
-	from json import load
 	# initialize logging
 	log.startLogging(stdout)
 	

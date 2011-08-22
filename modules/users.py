@@ -37,21 +37,7 @@ create table user(
 		return False
 	
 	#should probably index nick column
-	# if not exists:
-	db.put(("SELECT name FROM sqlite_master WHERE name='user_nick_idx'", results))
-	result = results.get()
-	if result[0] == "SUCCESS":
-		#good
-		if not result[1]:
-			db.put(('''CREATE INDEX user_nick_idx ON user(nick);''', results))
-			result = results.get()
-			if result[0] != "SUCCESS":
-				print "Error creating nick index... %s" % result[1]
-				return False
-	else:
-		#uh oh....
-		print "What happened?: %s" % result[1]
-		return False
+	#unique does this for us
 	return True
 
 #mappings to methods

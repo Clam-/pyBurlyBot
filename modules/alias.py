@@ -25,7 +25,7 @@ def init(db):
 			db.put(('''
 create table alias(
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	alias TEXT,
+	alias TEXT UNIQUE,
 	user INTEGER
 );''', results))
 			result = results.get()
@@ -37,21 +37,7 @@ create table alias(
 		print "What happened?: %s" % result[1]
 	
 	#index alias column
-	# if not exists:
-	db.put(("SELECT name FROM sqlite_master WHERE name='user_nick_idx'", results))
-	result = results.get()
-	if result[0] == "SUCCESS":
-		#good
-		if not result[1]:
-			db.put(('''CREATE INDEX alias_alias_idx ON alias(alias);''', results))
-			result = results.get()
-			if result[0] != "SUCCESS":
-				print "Error creating alias index... %s" % result[1]
-				return False
-	else:
-		#uh oh....
-		print "What happened?: %s" % result[1]
-	
+	#Unique does this for us
 	return True
 
 #mappings to methods

@@ -17,6 +17,6 @@ def reloadmods(event, botinst, db):
 	return
 
 def init(db):
-	pass
+	return True
 
 mappings = (Mapping(type=["privmsg"], command="reload", function=reloadmods),)

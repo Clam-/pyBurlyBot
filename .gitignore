@@ -1,8 +1,9 @@
 #compiled stuff
 *.py[co]
 
-#datafolder
+#datafolder and setting
 data/
+bbm.json
 
 #archives
 *.7z

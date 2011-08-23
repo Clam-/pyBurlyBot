@@ -19,10 +19,6 @@ def dbquery(event, botinst, db):
 				for key in row.keys():
 					nrow.append((key, row[key]))
 				botinst.msg(event.channel, repr(nrow))
-				it = []
-				for i in row:
-					it.append(i)
-				botinst.msg(event.channel, "Iter thing: %s" % repr(it))
 		else:
 			botinst.msg(event.channel, "Error in query: %s" % result[1])
 

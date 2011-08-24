@@ -1,8 +1,7 @@
 #alias module
 from re import compile as recompile
-from util import Mapping
+from util import Mapping, Settings
 from Queue import Queue
-from settings import Settings
 
 def getNick(alias, db, results):
 	db.put(('''SELECT nick FROM alias WHERE alias = ?;''', results, (alias,)))
@@ -171,4 +170,4 @@ create table alias(
 	return True
 
 #mappings to methods
-mappings = (Mapping(type=["privmsg"], command="alias", function=alias),)
+mappings = (Mapping(types=["privmsg"], command="alias", function=alias),)

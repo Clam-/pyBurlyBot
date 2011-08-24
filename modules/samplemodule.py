@@ -34,4 +34,4 @@ def init(db):
 	return True
 
 #mappings to methods
-mappings = (Mapping(type=["ALL"], regex=recompile(r"\|.*"), function=repeater),)
+mappings = (Mapping(types=["privmsg"], regex=recompile(r"\|.*"), function=repeater),)

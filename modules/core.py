@@ -1,7 +1,6 @@
-from util import Mapping
 #core internal BBM commands
 # things like .reload
-from settings import Settings
+from util import Mapping, Settings
 
 def reloadmods(event, botinst, db):
 	#should probably check for some kind of admin shits or something... How to get BBM Global settings.
@@ -18,4 +17,4 @@ def reloadmods(event, botinst, db):
 def init(db):
 	return True
 
-mappings = (Mapping(type=["privmsg"], command="reload", function=reloadmods),)
+mappings = (Mapping(types=["privmsg"], command="reload", function=reloadmods),)

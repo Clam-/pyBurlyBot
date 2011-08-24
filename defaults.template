@@ -1,16 +1,19 @@
 {
-	"nick" : "testBM",
+	"nick" : "nickname",
 	"modules" : ["core", "samplemodule"],
 	"commandprefix" : "!",
+	"nicksuffix" : "_",
 	"servers" : 
 	[
 		{
-			"name" : "rizon",
-			"nick" : "testBMr",
-			"host" : "irc.rizon.net",
+			"name" : "servername",
+			"nick" : "nickservername",
+			"nicksuffix" : "^",
+			"host" : "irc.hostname.tld",
 			"port" : 6667,
-			"channels" : [["#lololol", null]],
-			"modules" : ["core", "samplemodule"],
+			"channels" : ["#channelname", ["#channelname2", "password"]],
+			"allowmodules" : ["core", "samplemodule"],
+			"denymodules" : ["samplemodule"],
 			"commandprefix" : ","
 		}
 	]

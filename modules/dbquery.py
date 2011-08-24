@@ -1,6 +1,5 @@
 #run db query
-from util import Mapping
-from settings import Settings
+from util import Mapping, Settings
 from Queue import Queue
 
 def dbquery(event, botinst, db):
@@ -29,4 +28,4 @@ def dbquery(event, botinst, db):
 def init(db):
 	return True
 
-mappings = (Mapping(type=["privmsg"], command="dbquery", function=dbquery),)
+mappings = (Mapping(types=["privmsg"], command="dbquery", function=dbquery),)

@@ -1,16 +1,23 @@
 #settings and stuff
 from os import getcwdu
 from os.path import join, exists
-from db import DBaccess
 from Queue import Queue
-
 from json import load
+#bbm
+from util.db import DBaccess
 from util.libs import OrderedSet
 
 class Server:
 	nameless_server_count = 0
-
+	ALLOWED_SETTINGS = set(["name", "nick", "nicksuffix", "host", "port", "channels", "allowmodules", "denymodules", "commandprefix" ])
+	
 	def __init__(self, opts):
+		filteredopts = {}
+		for setting in Server.ALLOWED_SETTINGS:
+			try: filteredopts[setting] = opts[setting]
+			except KeyError: pass
+		opts = filteredopts
+		
 		try:
 			self.name = opts["name"]
 		except KeyError:
@@ -47,10 +54,13 @@ class Server:
 				else:
 					self.channels.append(channel.encode('utf-8'))
 		# TODO log warning if empty channels?
-
-		if "modules" in opts:
-			self.modules = OrderedSet(opts["modules"])
-
+		
+		if "allowmodules" in opts:
+			self.allowmodules = set(opts["allowmodules"])
+		else: self.allowmodules = None
+		if "denymodules" in opts:
+			self.denymodules = set(opts["denymodules"])
+		else: self.denymodules = None
 		# Should all servers store modules?
 		# Maybe have include/exclude module lists instead?
 
@@ -62,7 +72,7 @@ class Server:
 class Settings:
 	nick = "nick"
 	nicksuffix = "_"
-	modules = OrderedSet(["core", "samplemodule"])
+	modules = OrderedSet([])
 	servers = {}
 	cwd = getcwdu()
 	commandprefix = "!"
@@ -72,12 +82,7 @@ class Settings:
 	moduleopts = {}
 	moduledict = {}
 	
-	loadable = set(["nick", "modules", "servers", "commandprefix"])
-	
-	@classmethod
-	def addServer(cls, server):
-		# TODO prevent overwrite
-		cls.servers[server.name] = server
+	loadable = set(["nick", "modules", "servers", "commandprefix", "nicksuffix"])
 	
 	@classmethod
 	def _loadsettings(cls, filename):
@@ -127,15 +132,3 @@ class Settings:
 		
 	#should have some set option helper methods I guess
 	
-# class Server:
-	# def __init__(self, name, host, port, channels, modules=None):
-		# self.name = name
-		# self.host = host
-		# self.port = port
-		# self.channels = channels
-		# if modules:
-			# self.modules = set(modules)
-		# else:
-			# self.modules = Settings.modules
-			
-# Settings.addServer(Server("rizon", "irc.rizon.net", 6667, ["#lololol"]))

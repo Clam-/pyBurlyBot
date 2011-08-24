@@ -1,21 +1,19 @@
-#lol based heavily on the irclogbot example
+#pyBBM
 
 # twisted imports
 from twisted.words.protocols.irc import IRCClient
 from twisted.internet import reactor
 from twisted.internet.protocol import ReconnectingClientFactory
-from twisted.internet.threads import deferToThread
 from twisted.python import log
 
 # system imports
 from time import asctime, time, localtime
-from os.path import join
 from sys import stdout
 from optparse import OptionParser
 
 #bbm imports
-from settings import Settings
-
+from util import Settings
+from util.dispatcher import Dispatcher
 
 class Event:
 	def __init__(self, type=None, args=None, hostmask=None, channel=None, msg=None):
@@ -44,105 +42,6 @@ class Event:
 		# Set by dispatcher, for convenience in module
 		self.command = None
 		self.input = None
-		
-#dispatcher should have a HOST->list of modules mapping which then gets turn into a HOST->list of mappings
-# when requesting a dispatch, depending on the botinst.host, will determine what set of mappings are checked.
-# this allows only certain modules per server
-
-class Dispatcher:
-	modules = []
-	hostmap = {}
-	mappings = {}
-	
-	@classmethod
-	def reload(cls, callback=None):
-		print "LOADING..."
-		moddir = join(Settings.cwd, "modules")
-		
-		#reload all modules I guess
-		#here we should get modules from settings... Assume settings has been updated first.
-		cls.modules = Settings.modules
-		cls.hostmap = {}
-		for server in Settings.servers.values():
-			modules = server.modules
-			for mod in modules:
-				cls.modules.add(mod)
-			cls.hostmap[server.name] = modules
-		
-		cls.mappings = {}
-		notloaded = []
-		from imp import find_module, load_module
-		Settings.moduledict = {}
-		for mod in cls.modules:
-			try:
-				(f, pathname, description) = find_module(mod, [moddir])
-				try:
-					module = load_module(mod, f, pathname, description)
-				except Exception as e:
-					notloaded.append((mod, str(e)))
-					f.close()
-					continue
-			except Exception as e:
-				notloaded.append((mod, str(e)))
-				continue
-			try:
-				if module.init(Settings.dbQueue):
-					Settings.moduledict[mod] = module
-					#do stuff with module.mappings
-					cls.mappings[mod] = []
-					for mapping in module.mappings:
-						cls.mappings[mod].append(mapping)
-				else:
-					notloaded.append((mod, "Error in init()"))
-			except Exception as e:
-				notloaded.append((mod, "ERROR LOADING MODULE (%s): %s" % (mod, e)))
-		
-		if notloaded: print "WARNING: MODULE(S) NOT LOADED: %s" % notloaded
-		else: print "All done."
-		
-	
-	@classmethod
-	def dispatch(cls, botinst, event):
-		name = botinst.servername
-		msg = event.msg
-		command = ""
-		input = ""
-		if msg and msg.startswith(Settings.servers[name].commandprefix):
-			#case insensitive match?
-			#also this means that commands can't have spaces in them, and lol command prefix can't be a space
-			#all are good to me, if you want a case sensitive match you can do your command as a regex - griff
-			command = msg.split(" ", 1)
-			if len(command) > 1:
-				command, input = command
-			else:
-				command = command[0]
-			# Only one character prefix? okay... (jk it's fine) - griff
-			command = command[1:]
-			# Maintain case for event, for funny things like replying in all caps
-			event.command, event.input = (command, input)
-			command = command.lower()
-
-		#check for type match first:
-		for module in cls.mappings:
-			if module in cls.hostmap[name]:
-				for mapping in cls.mappings[module]:
-					if "ALL" in mapping.type or event.type in mapping.type:
-						#type match
-						if mapping.command == None and mapping.regex == None:
-							#dispatch asap
-							cls._dispatchreally(mapping.function, event, botinst)
-						#check command, then check text
-						elif msg:
-							if mapping.command and (command == mapping.command):
-								#dispatch
-								cls._dispatchreally(mapping.function, event, botinst)
-							elif mapping.regex and (mapping.regex.match(msg)):
-								cls._dispatchreally(mapping.function, event, botinst)
-	@staticmethod					
-	def _dispatchreally(func, event, botinst):
-		d = deferToThread(func, event, botinst, Settings.dbQueue)
-		#add callback and errback
-		d.addCallbacks(botinst.moduledata, botinst.moduleerr)
 
 class BBMBot(IRCClient):
 	"""BBM"""
@@ -198,6 +97,14 @@ class BBMBot(IRCClient):
 			self.userRenamed(nick, params[0])
 			Dispatcher.dispatch(self, Event(type="userRenamed", hostmask=hostmask, args={'newname': params[0]}))
 		
+	
+	def sendmsg(self, dest, msg):
+		#check if there's hooks, if there is, dispatch, if not, send directly
+		if Dispatcher.hostmap[self.servername]["SENDHOOKS"]:
+			#dest is Event.channel, or Event.args
+			Dispatcher.dispatch(self, Event(type="sendmsg", channel=dest, msg=msg))
+		else:
+			self.msg(dest, msg)
 	
 	#overriding msg
 	# need to consider dipatching this event and allow for some override somehow
@@ -275,7 +182,10 @@ if __name__ == '__main__':
 	# it's only used for core.reload
 	Settings.dispatcher = Dispatcher 
 	Settings.dbThread.start()
-	Dispatcher.reload()
+	try: Dispatcher.reload()
+	except:
+		Settings.dbQueue.put("STOP")
+		raise
 	
 	# create factory protocol and application
 	#f = BBMBotFactory(sys.argv[1], sys.argv[2])

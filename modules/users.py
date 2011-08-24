@@ -1,10 +1,12 @@
 #users
-
+#twisted
 from twisted.python import log
-from util import Mapping
+#bbm
+from util import Mapping, Settings
+#python
 from Queue import Queue
 from time import time
-from settings import Settings
+#lolhelpers
 from webhelpers.date import distance_of_time_in_words
 
 def _userupdate(event, db, results, nick=None):
@@ -127,4 +129,4 @@ create table user(
 	return True
 
 #mappings to methods
-mappings = (Mapping(type=["privmsg"], function=userupdate),Mapping(type=["privmsg"], command="seen", function=userseen))
+mappings = (Mapping(types=["privmsg"], function=userupdate), Mapping(types=["privmsg"], command="seen", function=userseen))

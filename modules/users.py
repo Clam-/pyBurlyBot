@@ -3,79 +3,75 @@
 from twisted.python import log
 #bbm
 from util import Mapping, Settings
+from util.db import DBQuery
 #python
-from Queue import Queue
 from time import time
 #lolhelpers
 from webhelpers.date import distance_of_time_in_words
 
-def _userupdate(event, db, results, nick=None):
+def _user_update(event, nick=None):
 	#check if exists, then update
 	if not nick: nick = event.nick
-	db.put(('''INSERT OR REPLACE INTO user (nick, host, lastseen, seenwhere) VALUES(?,?,?,?);''', results, (nick, event.hostmask, int(time()), event.channel)))
-	result = results.get()
-	if result[0] != "SUCCESS":
-		print "What happened?: %s" % result[1]
+	result = DBQuery('''INSERT OR REPLACE INTO user (nick, host, lastseen, seenwhere) VALUES(?,?,?,?);''',
+		(nick, event.hostmask, int(time()), event.channel))
+	if result.error:
+		print "What happened?: %s" % result.error
 
-def userupdate(event, botinst, db):
-	results = Queue()
+def user_update(event, botinst):
 	#check is alias is loaded
 	#check if it's allowed on server, and then check if it's actually loaded in moduledict
-	if ("alias" in Settings.servers[botinst.servername].modules) and ("alias" in Settings.moduledict):
-		db.put(('''SELECT nick FROM alias WHERE alias = ?;''', results, (event.nick,)))
-		result = results.get()
-		if result[0] == "SUCCESS":
+	# FIXME checking allowed modules, server method?
+	# ("alias" in Settings.servers[botinst.servername].allowmodules)
+	if ("alias" in Settings.moduledict):
+		result = DBQuery('''SELECT nick FROM alias WHERE alias = ?;''', (event.nick,))
+		if not result.error:
 			#check rows...
-			if not result[1]:
+			if not result.rows:
 				#if no results:
-				_userupdate(event, db, results)
+				_user_update(event)
 			else:
-				nick = result[1][0]["nick"]
-				_userupdate(event, db, results, nick)
+				nick = result.rows[0]["nick"]
+				_user_update(event, nick)
 		else:
-			print "What happened?: %s" % result[1]
+			print "What happened?: %s" % result.error
 	else:
 		#alias not loaded
-		_userupdate(event, db, results)
+		_user_update(event)
 	return
 
-def _userseen(event, db, results, nick=None):
+def _user_seen(event, nick=None):
 	#check if exists, then update
 	if not nick: nick = event.input
-	db.put(('''SELECT lastseen, seenwhere FROM user WHERE nick = ?;''', results, (nick, )))
-	result = results.get()
-	if result[0] != "SUCCESS":
-		print "What happened?: %s" % result[1]
-	else:
-		if not len(result[1]) > 0:
-			return None
-		else:
-			return result[1][0]
+	result = DBQuery('''SELECT lastseen, seenwhere FROM user WHERE nick = ?;''', (nick, ))
+	if result.error:
+		print "What happened?: %s" % result.error
+		return None
+	return result.rows[0] if result.rows else None
 
-def userseen(event, botinst, db):
+def user_seen(event, botinst):
 	if not event.input:
 		botinst.msg(event.channel, "lol wut")
 		return
 	
-	results = Queue()
 	seen = None
-	if ("alias" in Settings.servers[botinst.servername].modules) and ("alias" in Settings.moduledict):
-		db.put(('''SELECT nick FROM alias WHERE alias = ?;''', results, (event.input,)))
-		result = results.get()
-		if result[0] == "SUCCESS":
-			#check rows...
-			if not result[1]:
-				#if no results:
-				seen = _userseen(event, db, results)
-			else:
-				nick = result[1][0]["nick"]
-				seen = _userseen(event, db, results, nick)
-		else:
-			print "What happened?: %s" % result[1]
+	# FIXME checking allowed modules, server method?
+	# ("alias" in Settings.servers[botinst.servername].modules)
+	if ("alias" in Settings.moduledict):
+		result = DBQuery('''SELECT nick FROM alias WHERE alias = ?;''', (event.input,))
+		if result.error:
+			print "What happened?: %s" % result.error
 			return
+		#check rows...
+		if not result.rows:
+			#if no results:
+			seen = _user_seen(event)
+		else:
+			nick = result.rows[0]["nick"]
+			seen = _user_seen(event, nick)
+
 	else:
 		#alias not loaded
-		seen = _userseen(event, db, results)
+		seen = _user_seen(event)
 	if not seen:
 		botinst.msg(event.channel, "lol dunno.")
 	else:
@@ -83,50 +79,46 @@ def userseen(event, botinst, db):
 	return
 	
 #init should always be here to setup needed DB tables or objects or whatever
-def init(db):
+def init():
 	"""Do startup module things. This sample just checks if table exists. If not, creates it."""
-	results = Queue()
-	db.put(("SELECT name FROM sqlite_master WHERE name='user'", results))
-	result = results.get()
-	if result[0] == "SUCCESS":
-		#good
-		if not result[1]:
-			db.put(('''
-create table user(
-	nick TEXT PRIMARY KEY,
-	host TEXT,
-	lastseen INTEGER,
-	seenwhere TEXT
-);''', results))
-			# should probably make sure this returns valid
-			result = results.get()
-			if result[0] != "SUCCESS":
-				print "Error creating table... %s" % result[1]
-				return False
-	else:
+	query = DBQuery()
+	query.query('''SELECT name FROM sqlite_master WHERE name='user';''')
+	if query.error:
 		#uh oh....
-		print "What happened?: %s" % result[1]
+		print "What happened?: %s" % query.error
 		return False
+
+	if not query.rows:
+		query.query('''
+			create table user(
+			nick TEXT PRIMARY KEY,
+			host TEXT,
+			lastseen INTEGER,
+			seenwhere TEXT
+			);''')
+		# should probably make sure this returns valid
+		if query.error:
+			print "Error creating table... %s" % query.error
+			return False
+
 	
 	#should probably index nick column
 	#unique does this for us
 	#but should probably index lastseen so can ez-tells:
 	# if not exists:
-	db.put(("SELECT name FROM sqlite_master WHERE name='user_lastseen_idx'", results))
-	result = results.get()
-	if result[0] == "SUCCESS":
-		#good
-		if not result[1]:
-			db.put(('''CREATE INDEX user_lastseen_idx ON user(lastseen);''', results))
-			result = results.get()
-			if result[0] != "SUCCESS":
-				print "Error creating lastseen index... %s" % result[1]
-				return False
-	else:
-		#uh oh....
-		print "What happened?: %s" % result[1]
+	query.query('''SELECT name FROM sqlite_master WHERE name='user_lastseen_idx';''')
+	if query.error:
+		#uh oh
+		print "What happened?: %s" % query.error
 		return False
+
+	if not query.rows:
+		query.query('''CREATE INDEX user_lastseen_idx ON user(lastseen);''')
+		if query.error:
+			print "Error creating lastseen index... %s" % query.error
+			return False
+
 	return True
 
 #mappings to methods
-mappings = (Mapping(types=["privmsg"], function=userupdate), Mapping(types=["privmsg"], command="seen", function=userseen))
+mappings = (Mapping(types=["privmsg"], function=user_update), Mapping(types=["privmsg"], command="seen", function=user_seen))

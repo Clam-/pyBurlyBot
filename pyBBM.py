@@ -13,6 +13,7 @@ from optparse import OptionParser
 
 #bbm imports
 from util import Settings
+from util.db import DBQuery
 from util.dispatcher import Dispatcher
 
 class Event:
@@ -178,13 +179,11 @@ if __name__ == '__main__':
 	else:
 		print "Settings file not found, running with defaults..."
 	Settings.reload()
-	#doing it this way so no circular reference, if we refactor dispatcher out of this file we can do away with it
-	# it's only used for core.reload
-	Settings.dispatcher = Dispatcher 
-	Settings.dbThread.start()
+	
+	DBQuery.dbThread.start()
 	try: Dispatcher.reload()
 	except:
-		Settings.dbQueue.put("STOP")
+		DBQuery.dbQueue.put("STOP")
 		raise
 	
 	# create factory protocol and application
@@ -194,5 +193,5 @@ if __name__ == '__main__':
 	
 	# run bot
 	reactor.run()
-	Settings.dbQueue.put("STOP")
-	Settings.dbThread.join()
+	DBQuery.dbQueue.put("STOP")
+	DBQuery.dbThread.join()

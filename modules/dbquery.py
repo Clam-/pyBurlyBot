@@ -1,31 +1,31 @@
 #run db query
 from util import Mapping, Settings
-from Queue import Queue
+from util.db import DBQuery
 
-def dbquery(event, botinst, db):
+def dbquery(event, botinst):
 	if event.nick in Settings.getModuleOption("core", "admins", botinst.servername):
 
-		results = Queue()
 		query = event.input
 		botinst.msg(event.channel, "Running: %s" % query)
-		db.put((query, results))
-		result = results.get()
-		if result[0] == "SUCCESS":
-			print "GOOD"
-			#good
-			for row in result[1]:
-				nrow = []
-				for key in row.keys():
-					nrow.append((key, row[key]))
-				botinst.msg(event.channel, repr(nrow))
-		else:
-			botinst.msg(event.channel, "Error in query: %s" % result[1])
+		result = DBQuery(query)
+		if result.error:
+			return botinst.msg(event.channel, "Error in query: %s" % result.error)
+
+		if not result.rows:
+			return botinst.msg(event.channel, "No error, but nothing to display.")
+		print "GOOD"
+		#good
+		for row in result.rows:
+			nrow = []
+			for key in row.keys():
+				nrow.append((key, row[key]))
+			botinst.msg(event.channel, repr(nrow))
 
 	else:
 		botinst.msg(event.channel, "uwish.")
 
 		
-def init(db):
+def init():
 	return True
 
 mappings = (Mapping(types=["privmsg"], command="dbquery", function=dbquery),)

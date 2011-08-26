@@ -7,22 +7,24 @@ from json import load
 from util.db import DBaccess
 from util.libs import OrderedSet
 
-class Server:
-	nameless_server_count = 0
-	ALLOWED_SETTINGS = set(["name", "nick", "nicksuffix", "host", "port", "channels", "allowmodules", "denymodules", "commandprefix" ])
-	
+class Server(object):
+	name = "Server"
+	nick = "nick"
+	nicksuffix = "_"
+	commandprefix = "!"
+
 	def __init__(self, opts):
-		filteredopts = {}
-		for setting in Server.ALLOWED_SETTINGS:
-			try: filteredopts[setting] = opts[setting]
-			except KeyError: pass
-		opts = filteredopts
-		
+		self.name = None
 		try:
 			self.name = opts["name"]
 		except KeyError:
-			Server.nameless_server_count += 1
-			self.name = "Unnamed Server %d" % Server.nameless_server_count
+			pass
+		if not self.name:
+			self.name = "Unnamed Server"
+		num = 2
+		while self.name in Settings.servers:
+			self.name = "%s%d" % (self.name, num)
+			num += 1
 
 		if "nick" in opts:
 			self.nick = opts["nick"].encode('utf-8')
@@ -39,6 +41,9 @@ class Server:
 		except KeyError:
 			# default?
 			self.port = 6667
+
+		if "commandprefix" in opts:
+			self.commandprefix = opts["commandprefix"]
 
 		self.channels = []
 		if "channels" in opts:
@@ -62,12 +67,7 @@ class Server:
 			self.denymodules = set(opts["denymodules"])
 		else: self.denymodules = None
 		# Should all servers store modules?
-		# Maybe have include/exclude module lists instead?
-
-	def __getattr__(self, name):
-		if name in self.__dict__:
-			return self.__dict__[name]
-		return Settings.__dict__[name]
+		# Maybe have include/exclude module lists instead?]
 
 class Settings:
 	nick = "nick"
@@ -75,9 +75,6 @@ class Settings:
 	modules = OrderedSet([])
 	servers = {}
 	cwd = getcwdu()
-	commandprefix = "!"
-	dbQueue = Queue()
-	dbThread = DBaccess(dbQueue)
 	configfile = None
 	moduleopts = {}
 	moduledict = {}
@@ -85,27 +82,34 @@ class Settings:
 	loadable = set(["nick", "modules", "servers", "commandprefix", "nicksuffix"])
 	
 	@classmethod
-	def _loadsettings(cls, filename):
+	def _loadsettings(cls, filename, defaults=False):
 		newsets = load(open(filename, "rb"))
 		for opt in cls.loadable:
 			if opt in newsets:
+				# This is kind of weird now, not sure what to do.
+				# Server class seems right for those settings, so watev
 				if opt == "servers":
+					# Don't load default servers?
+					if defaults:
+						continue
 					for serveropts in newsets["servers"]:
 						server = Server(serveropts)
 						cls.servers[server.name] = server
 				elif opt == "nick": 
-					cls.__dict__[opt] = newsets[opt].encode("utf-8")
+					setattr(Server, opt, newsets[opt].encode("utf-8"))
+				elif opt == "nicksuffix":
+					setattr(Server, opt, newsets[opt].encode("utf-8"))
+				elif opt == "commandprefix":
+					setattr(Server, opt, newsets[opt])
 				elif opt == "modules":
 					cls.__dict__[opt] = OrderedSet(newsets[opt])
-				elif opt == "nicksuffix":
-					cls.__dict__[opt] = newsets[opt].encode("utf-8")
 				else:
 					cls.__dict__[opt] = newsets[opt]
 	
 	@classmethod
 	def reload(cls):
 		#load defaults.json, then override with user options
-		cls._loadsettings(join(cls.cwd, "defaults.json"))
+		cls._loadsettings(join(cls.cwd, "defaults.json"), defaults=True)
 				
 		if cls.configfile:
 			#attempt to load user options

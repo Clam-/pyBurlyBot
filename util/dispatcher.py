@@ -1,6 +1,8 @@
 from twisted.internet.threads import deferToThread
 
 from util.settings import Settings
+from sys import stderr
+from traceback import format_exc
 from os.path import join
 # class DispatchType:
 	
@@ -64,14 +66,14 @@ class Dispatcher:
 				try:
 					module = load_module(mod, f, pathname, description)
 				except Exception as e:
-					notloaded.append((mod, repr(e)))
+					notloaded.append((mod, format_exc()))
 					f.close()
 					continue
 			except Exception as e:
-				notloaded.append((mod, repr(e)))
+				notloaded.append((mod, format_exc))
 				continue
 			try:
-				if module.init(Settings.dbQueue):
+				if module.init():
 					Settings.moduledict[mod] = module
 					#do stuff with module.mappings
 					#cls.mappings[mod] = []
@@ -87,9 +89,13 @@ class Dispatcher:
 				else:
 					notloaded.append((mod, "Error in init()"))
 			except Exception as e:
-				notloaded.append((mod, "ERROR LOADING MODULE: %s" % repr(e)))
+				notloaded.append((mod, format_exc))
 
-		if notloaded: print "WARNING: MODULE(S) NOT LOADED: %s" % notloaded
+		if notloaded:
+			print "WARNING: MODULE(S) NOT LOADED: %s" % ', '.join((x[0] for x in notloaded))
+			for module, traceback in notloaded:
+				print >> stderr, module + ':'
+				print >> stderr, traceback
 		else: print "All done."
 		
 	
@@ -127,6 +133,6 @@ class Dispatcher:
 
 	@staticmethod					
 	def _dispatchreally(func, event, botinst):
-		d = deferToThread(func, event, botinst, Settings.dbQueue)
+		d = deferToThread(func, event, botinst)
 		#add callback and errback
 		d.addCallbacks(botinst.moduledata, botinst.moduleerr)

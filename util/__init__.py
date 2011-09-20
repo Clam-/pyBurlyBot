@@ -1,5 +1,12 @@
 from settings import Settings
+from state import State
 
+#should we put db things here? so in module can go "from util import Settings, DBQuery, checkcreatetable, etc"
+
+#probably should move the following into mapping.py or something
+# and keep this just as a "import 'reference/insertion' point" lol for lack of better word
+# Yeah, and this should only contain "user friendly" things... For example things that should be accessable to modules.
+# anything else (like DBaccess or whatever) should be imported via it's full domain.
 def dummyfunc(event, botinstance, dbqueue):
 	pass
 

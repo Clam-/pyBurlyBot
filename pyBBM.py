@@ -12,7 +12,7 @@ from sys import stdout
 from optparse import OptionParser
 
 #bbm imports
-from util import Settings
+from util import Settings, State
 from util.db import DBQuery
 from util.dispatcher import Dispatcher
 
@@ -46,16 +46,35 @@ class Event:
 
 class BBMBot(IRCClient):
 	"""BBM"""
-
+	# http://twistedmatrix.com/documents/11.0.0/api/twisted.words.protocols.irc.IRCClient.html
 	#nickname = None
 	#lineRate = 1
+	
+	# TODO: IRC RFC says this is supposed to be able to support multiple channels... Make it so.
+	#	Although if you passed a string with #channel,#channel2 lol it would work as intended but I think a list is more appropriate.
+	def names(self, channel):
+		"""List the users in 'channel', usage: client.names('#testroom')"""
+		self.sendLine('NAMES %s' % channel)
+		
+	def irc_RPL_NAMREPLY(self, *nargs):
+		"""Receive NAMES reply from server"""
+		#print 'NAMES:', nargs, kwargs
+		channel = nargs[1][2]
+		users = nargs[1][3].split(" ")
+
+		for nick in users:
+			nick = nick.lstrip(self.nickprefixes)
+			if nick == self.nickname: continue
+			State.adduser(self.servername, channel, nick)
+		
+	def irc_RPL_ENDOFNAMES(self, *nargs):
+		"""Called when NAMES output is complete"""
+		pass #TODO: lol dispatch? 
 	
 	def connectionMade(self):
 		IRCClient.connectionMade(self)
 		#reset connection factory delay:
 		self.factory.resetDelay()
-		# do we restart the message queues here?
-		#self.outbound = Queue() whatever
 
 	def connectionLost(self, reason):
 		IRCClient.connectionLost(self, reason)
@@ -66,6 +85,16 @@ class BBMBot(IRCClient):
 	def signedOn(self):
 		"""Called when bot has succesfully signed on to server."""
 		print "[Signed on]"
+		#nuke network
+		State.nukenetwork(self.servername)
+		
+		#process nickprefixes
+		prefixes = []
+		for p, num in self.supported.getFeature("PREFIX").values():
+			#('~', 0)
+			prefixes.append(p)
+		self.nickprefixes = "".join(prefixes)
+		
 		for chan in Settings.servers[self.servername].channels:
 			if isinstance(chan, list):
 				if len(chan) > 1: self.join(chan[0], chan[1])
@@ -76,8 +105,27 @@ class BBMBot(IRCClient):
 	def joined(self, channel):
 		"""This will get called when the bot joins the channel."""
 		print "[I have joined %s]" % channel
+		#nuke channel
+		State.nukechannel(self.servername, channel)
+		# TODO: decide whether to use /names or /who... /names only gives nicknames, /who gives a crapton of infos...
+		self.names(channel)
 		Dispatcher.dispatch(self, Event(type="joined", channel=channel))
 
+	# TODO: dunno if you want to make this lower level irc_JOIN override to catch hostmask or not. Up to you.
+	#		You should probably make all hooks that get given a "nick" into their hostname lower level equiv so you can setup
+	#		proper event.hostmask stuff... Just remember to call the original method IRCClient.irc_JOIN(stuff) at the end (or start, whatev)
+	def userJoined(self, user, channel):
+		State.adduser(self.servername, channel, user)
+		# TODO: Dispatcher.dispatch(self, Event(type="userJoined", hostmask=hostmask, channel=channel, msg=msg))
+	
+	
+	# MASSIVE TODO: Freaking Griffin, you need to add all the IRC events already to this craps, this one you probably need to change
+	#	to the lower level hostname version
+	def userLeft(self, user, channel):
+		State.removeuser(self.servername, channel, user)
+		# TODO: Do this state for user kicked, too... lol do this GRIFFAN. This is your punishment for being lazyshit and L4D
+		# TODO: lol Dispatcher GRIFFIIINNNNNNN
+	
 	def privmsg(self, hostmask, channel, msg):
 		"""This will get called when the bot receives a message."""
 		Dispatcher.dispatch(self, Event(type="privmsg", hostmask=hostmask, channel=channel, msg=msg))
@@ -96,6 +144,8 @@ class BBMBot(IRCClient):
 			Dispatcher.dispatch(self, Event(type="nickChanged", hostmask=hostmask, args={'newname': params[0]}))
 		else:
 			self.userRenamed(nick, params[0])
+			#update state user
+			State.changeuser(self.servername, nick, params[0])
 			Dispatcher.dispatch(self, Event(type="userRenamed", hostmask=hostmask, args={'newname': params[0]}))
 		
 	

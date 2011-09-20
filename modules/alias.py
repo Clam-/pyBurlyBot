@@ -126,6 +126,7 @@ def init():
 		print "What happened?: %s" % query.error
 		return False
 
+	#primary key should be made up of server+alias
 	if not query.rows:
 		query.query('''
 			create table alias(

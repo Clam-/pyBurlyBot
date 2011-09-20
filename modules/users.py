@@ -57,6 +57,7 @@ def user_seen(event, botinst):
 	# FIXME checking allowed modules, server method?
 	# ("alias" in Settings.servers[botinst.servername].modules)
 	if ("alias" in Settings.moduledict):
+		# TODO This should use alias module methods. This should happen in all places in this module that do alias things.
 		result = DBQuery('''SELECT nick FROM alias WHERE alias = ?;''', (event.input,))
 		if result.error:
 			print "What happened?: %s" % result.error
@@ -88,6 +89,7 @@ def init():
 		print "What happened?: %s" % query.error
 		return False
 
+	#primary key should be made up of server+nick
 	if not query.rows:
 		query.query('''
 			create table user(

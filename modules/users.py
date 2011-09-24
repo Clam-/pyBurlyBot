@@ -21,7 +21,7 @@ def user_update(event, botinst):
 	#check is alias is loaded
 	#check if it's allowed on server, and then check if it's actually loaded in moduledict
 	# FIXME checking allowed modules, server method?
-	# ("alias" in Settings.servers[botinst.servername].allowmodules)
+	# ("alias" in Settings.servers[botinst.network].allowmodules)
 	if ("alias" in Settings.moduledict):
 		result = DBQuery('''SELECT nick FROM alias WHERE alias = ?;''', (event.nick,))
 		if not result.error:
@@ -55,7 +55,7 @@ def user_seen(event, botinst):
 	
 	seen = None
 	# FIXME checking allowed modules, server method?
-	# ("alias" in Settings.servers[botinst.servername].modules)
+	# ("alias" in Settings.servers[botinst.network].modules)
 	if ("alias" in Settings.moduledict):
 		# TODO This should use alias module methods. This should happen in all places in this module that do alias things.
 		result = DBQuery('''SELECT nick FROM alias WHERE alias = ?;''', (event.input,))

@@ -1,9 +1,11 @@
 from twisted.internet.threads import deferToThread
 
-from util.settings import Settings
+from settings import Settings
 from sys import stderr
 from traceback import format_exc
 from os.path import join
+
+from state import State
 # class DispatchType:
 	
 	# def __init__(self):
@@ -20,7 +22,7 @@ class Dispatcher:
 	@classmethod
 	def _addmap(cls, sever, type, mapping):
 		if type == "sendmsg":
-			cls.hostmap[sever]["SENDHOOKS"] = True
+			cls.hostmap[sever]["MSGHOOKS"] = True
 		if (not mapping.command) and (not mapping.regex): 
 			cls.hostmap[sever][type]["instant"].append(mapping.function)
 		else:
@@ -43,7 +45,7 @@ class Dispatcher:
 			cls.hostmap[servername] = {}
 			for type in cls.TYPES:
 				cls.hostmap[servername][type] = {}
-				cls.hostmap[servername]["SENDHOOKS"] = False
+				cls.hostmap[servername]["MSGHOOKS"] = False
 				cls.hostmap[servername][type]["instant"] = []
 				cls.hostmap[servername][type]["command"] = []
 				cls.hostmap[servername][type]["regex"] = []
@@ -54,8 +56,6 @@ class Dispatcher:
 			if servers[servername].denymodules:
 				modulemap[servername].difference_update(servers[servername].denymodules)
 		
-		#for sendmsg
-		Dispatcher.sendhooks = False
 		
 		notloaded = []
 		from imp import find_module, load_module
@@ -100,13 +100,13 @@ class Dispatcher:
 		
 	
 	@classmethod
-	def dispatch(cls, botinst, event):
-		name = botinst.servername
+	def dispatch(cls, servername, event):
+		botwrap = State.networks[servername].botwrap
 		msg = event.msg
 		type = event.type
 		command = ""
 		input = ""
-		if (type != "sendmsg") and msg and msg.startswith(Settings.servers[name].commandprefix):
+		if (type != "sendmsg") and msg and msg.startswith(Settings.servers[servername].commandprefix):
 			#case insensitive match?
 			#also this means that commands can't have spaces in them, and lol command prefix can't be a space
 			#all are good to me, if you want a case sensitive match you can do your command as a regex - griff
@@ -122,17 +122,19 @@ class Dispatcher:
 			command = command.lower()
 		
 		#lol dispatcher is 100 more simple now, but at the cost of more dict...
-		for func in cls.hostmap[name][type]["instant"]:
-			cls._dispatchreally(func, event, botinst)
-		for com, func in cls.hostmap[name][type]["command"]:
+		for func in cls.hostmap[servername][type]["instant"]:
+			cls._dispatchreally(func, event, botwrap)
+		for com, func in cls.hostmap[servername][type]["command"]:
 			if command == com:
-				cls._dispatchreally(func, event, botinst)
-		for regex, func in cls.hostmap[name][type]["regex"]:
+				cls._dispatchreally(func, event, botwrap)
+		for regex, func in cls.hostmap[servername][type]["regex"]:
 			if regex.match(msg):
-				cls._dispatchreally(func, event, botinst)
+				cls._dispatchreally(func, event, botwrap)
 
 	@staticmethod					
-	def _dispatchreally(func, event, botinst):
-		d = deferToThread(func, event, botinst)
+	def _dispatchreally(func, event, botwrap):
+		d = deferToThread(func, event, botwrap)
 		#add callback and errback
-		d.addCallbacks(botinst.moduledata, botinst.moduleerr)
+		#I think we should just add an errback
+		#d.addCallbacks(botinst.moduledata, botinst.moduleerr)
+		d.addErrback(botwrap.moduleerr)

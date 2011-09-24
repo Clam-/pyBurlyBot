@@ -30,6 +30,9 @@ class DBaccess(Thread):
 			try:
 				if query == "STOP":
 					break
+				elif query == "COMMIT" or query == "COMMIT;":
+					dbcon.commit()
+					continue
 				# ("select stuff where name_last=? and age=?", (who, age))
 				query, params, returnq = query
 				returnq.put(("SUCCESS", dbcon.execute(query, params).fetchall()))
@@ -45,6 +48,7 @@ class DBQuery(object):
 	dbQueue = Queue()
 	dbThread = DBaccess(dbQueue)
 	__slots__ = ('returnq', 'error', 'rows')
+	
 	def __init__(self, query=None, params=()):
 		self.returnq = Queue()
 		# For instanciating at the beginning of a bunch of if/else things
@@ -60,3 +64,8 @@ class DBQuery(object):
 			return
 
 		self.rows = results[1]
+
+def dbcommit():
+	print "lol timered commit"
+	DBQuery.dbQueue.put("COMMIT")
+

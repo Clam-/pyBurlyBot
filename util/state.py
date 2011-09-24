@@ -4,6 +4,8 @@
 # maybe this should be in a database, for things like "search all bans on Y channel from Z user"
 #  LOL After toying with mockups of this idea no. If you want a ban DB it should be a module I guess...
 
+from wrapper import BotWrapper
+
 class Channel:
 	
 	def __init__(self, name, modes = None):
@@ -42,6 +44,7 @@ class Network:
 		self.name = network
 		self.users = {} # [user] = User
 		self.channels = {}
+		self.botwrap = BotWrapper(network)
 		
 class State:
 	#dict of dict of dict sort of thing?
@@ -51,9 +54,19 @@ class State:
 	
 	#doing methods so we can do things like "if not exist, create"
 	@classmethod
-	def nukenetwork(cls, network):
+	def addnetwork(cls, network):
 		cls.networks[network] = Network(network)
 	
+	@classmethod
+	def nukenetwork(cls, network, botinst):
+		#don't do this
+		#cls.networks[network] = Network(network, botinst)
+		#clear channels
+		network = cls.networks[network]
+		network.channels = {}
+		network.users = {}
+		network.botwrap.addbotinst(botinst)
+		
 	@classmethod
 	def nukechannel(cls, network, channel):
 		network = cls.networks[network]

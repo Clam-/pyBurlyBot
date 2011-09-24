@@ -13,8 +13,9 @@ from optparse import OptionParser
 
 #bbm imports
 from util import Settings, State
-from util.db import DBQuery
+from util.db import DBQuery, dbcommit
 from util.dispatcher import Dispatcher
+from util.timer import Timers
 
 class Event:
 	def __init__(self, type=None, args=None, hostmask=None, channel=None, msg=None):
@@ -58,7 +59,7 @@ class BBMBot(IRCClient):
 		
 	def irc_RPL_NAMREPLY(self, *nargs):
 		"""Receive NAMES reply from server"""
-		#print 'NAMES:', nargs, kwargs
+		print 'NAMES:', nargs
 		channel = nargs[1][2]
 		users = nargs[1][3].split(" ")
 
@@ -78,6 +79,7 @@ class BBMBot(IRCClient):
 
 	def connectionLost(self, reason):
 		IRCClient.connectionLost(self, reason)
+		State.nukenetwork(self.servername, None)
 		print "[disconnected at %s]" % asctime(localtime(time()))
 
 	# callbacks for events
@@ -85,8 +87,6 @@ class BBMBot(IRCClient):
 	def signedOn(self):
 		"""Called when bot has succesfully signed on to server."""
 		print "[Signed on]"
-		#nuke network
-		State.nukenetwork(self.servername)
 		
 		#process nickprefixes
 		prefixes = []
@@ -100,7 +100,11 @@ class BBMBot(IRCClient):
 				if len(chan) > 1: self.join(chan[0], chan[1])
 				else: self.join(chan[0])
 			else: self.join(chan)
-		Dispatcher.dispatch(self, Event(type="signedOn"))
+		
+		# TODO: change nukenetwork to reactor.callLater() or something.
+		# This really should be called after channels have been joined/rejoined so that any queues messages can be sent to channels
+		State.nukenetwork(self.servername, self)
+		Dispatcher.dispatch(self.servername, Event(type="signedOn"))
 
 	def joined(self, channel):
 		"""This will get called when the bot joins the channel."""
@@ -108,15 +112,15 @@ class BBMBot(IRCClient):
 		#nuke channel
 		State.nukechannel(self.servername, channel)
 		# TODO: decide whether to use /names or /who... /names only gives nicknames, /who gives a crapton of infos...
-		self.names(channel)
-		Dispatcher.dispatch(self, Event(type="joined", channel=channel))
+		#self.names(channel)
+		Dispatcher.dispatch(self.servername, Event(type="joined", channel=channel))
 
 	# TODO: dunno if you want to make this lower level irc_JOIN override to catch hostmask or not. Up to you.
 	#		You should probably make all hooks that get given a "nick" into their hostname lower level equiv so you can setup
 	#		proper event.hostmask stuff... Just remember to call the original method IRCClient.irc_JOIN(stuff) at the end (or start, whatev)
 	def userJoined(self, user, channel):
 		State.adduser(self.servername, channel, user)
-		# TODO: Dispatcher.dispatch(self, Event(type="userJoined", hostmask=hostmask, channel=channel, msg=msg))
+		# TODO: Dispatcher.dispatch(self.servername, Event(type="userJoined", hostmask=hostmask, channel=channel, msg=msg))
 	
 	
 	# MASSIVE TODO: Freaking Griffin, you need to add all the IRC events already to this craps, this one you probably need to change
@@ -128,11 +132,11 @@ class BBMBot(IRCClient):
 	
 	def privmsg(self, hostmask, channel, msg):
 		"""This will get called when the bot receives a message."""
-		Dispatcher.dispatch(self, Event(type="privmsg", hostmask=hostmask, channel=channel, msg=msg))
+		Dispatcher.dispatch(self.servername, Event(type="privmsg", hostmask=hostmask, channel=channel, msg=msg))
 
 	def action(self, hostmask, channel, msg):
 		"""This will get called when the bot sees someone do an action."""
-		Dispatcher.dispatch(self, Event(type="action", hostmask=hostmask, channel=channel, msg=msg))
+		Dispatcher.dispatch(self.servername, Event(type="action", hostmask=hostmask, channel=channel, msg=msg))
 
 	def irc_NICK(self, hostmask, params):
 		"""
@@ -141,24 +145,28 @@ class BBMBot(IRCClient):
 		nick = hostmask.split('!', 1)[0]
 		if nick == self.nickname:
 			self.nickChanged(params[0])
-			Dispatcher.dispatch(self, Event(type="nickChanged", hostmask=hostmask, args={'newname': params[0]}))
+			Dispatcher.dispatch(self.servername, Event(type="nickChanged", hostmask=hostmask, args={'newname': params[0]}))
 		else:
 			self.userRenamed(nick, params[0])
 			#update state user
 			State.changeuser(self.servername, nick, params[0])
-			Dispatcher.dispatch(self, Event(type="userRenamed", hostmask=hostmask, args={'newname': params[0]}))
+			Dispatcher.dispatch(self.servername, Event(type="userRenamed", hostmask=hostmask, args={'newname': params[0]}))
 		
 	
+	# TODO: Need to add more of these for hooking other outbound events maybe, like notice...
 	def sendmsg(self, dest, msg):
 		#check if there's hooks, if there is, dispatch, if not, send directly
-		if Dispatcher.hostmap[self.servername]["SENDHOOKS"]:
+		if Dispatcher.hostmap[self.servername]["MSGHOOKS"]:
 			#dest is Event.channel, or Event.args
-			Dispatcher.dispatch(self, Event(type="sendmsg", channel=dest, msg=msg))
+			Dispatcher.dispatch(self.servername, Event(type="sendmsg", channel=dest, msg=msg))
 		else:
 			self.msg(dest, msg)
 	
 	#overriding msg
 	# need to consider dipatching this event and allow for some override somehow
+	# TODO: need to do some funky UTF-8 length calculation. Most naive one would be to keep adding a
+	#	character so like for char in msg: t += char if len(t.encode("utf-8")) > max: send(old) else: old = t 
+	#	or something... google or stackoverflow I guess WORRY ABOUT THIS LATER THOUGH
 	def msg(self, user, msg, length=None):
 		msg = msg.encode("utf-8")
 		if length: IRCClient.msg(self, user, msg, length)
@@ -173,15 +181,6 @@ class BBMBot(IRCClient):
 	#Just kidding, actually let's do this after all - user option
 	def alterCollidedNick(self, nickname):
 		return nickname + Settings.servers[self.servername].nicksuffix
-		
-	#callback to handle module returns
-	#do we sanitize input? lol what input
-	def moduledata(self, result):
-		pass
-	
-	def moduleerr(self, e):
-		print "error:", e #exception, or Failure thing
-
 
 
 class BBMBotFactory(ReconnectingClientFactory):
@@ -235,13 +234,21 @@ if __name__ == '__main__':
 	except:
 		DBQuery.dbQueue.put("STOP")
 		raise
+		
+	#start dbcommittimer
+	#def addtimer(cls, name, interval, f, kwargs={}, reps=None, startnow=False):
+	print "aa", Timers._addInternaltimer("_dbcommit", 60*60, dbcommit) #every hour (60*60)
 	
 	# create factory protocol and application
 	#f = BBMBotFactory(sys.argv[1], sys.argv[2])
 	for server in Settings.servers.values():
+		#add wrapper to state
+		State.addnetwork(server.name)
 		reactor.connectTCP(server.host, server.port, BBMBotFactory(server.name))
 	
 	# run bot
 	reactor.run()
+	#stop timers or just not care...
+	Timers._stopall()
 	DBQuery.dbQueue.put("STOP")
 	DBQuery.dbThread.join()

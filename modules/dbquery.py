@@ -3,7 +3,7 @@ from util import Mapping, Settings
 from util.db import DBQuery
 
 def dbquery(event, botinst):
-	if event.nick in Settings.getModuleOption("core", "admins", botinst.servername):
+	if event.nick in Settings.getModuleOption("core", "admins", botinst.network):
 
 		query = event.input
 		botinst.msg(event.channel, "Running: %s" % query)

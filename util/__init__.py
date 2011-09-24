@@ -1,5 +1,6 @@
 from settings import Settings
 from state import State
+from timer import Timers
 
 #should we put db things here? so in module can go "from util import Settings, DBQuery, checkcreatetable, etc"
 

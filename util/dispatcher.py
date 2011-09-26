@@ -6,6 +6,7 @@ from traceback import format_exc
 from os.path import join
 
 from state import State
+from wrapper import BotWrapper
 # class DispatchType:
 	
 	# def __init__(self):
@@ -101,7 +102,9 @@ class Dispatcher:
 	
 	@classmethod
 	def dispatch(cls, servername, event):
-		botwrap = State.networks[servername].botwrap
+		cont_or_wrap = State.networks[servername].container
+		if event.channel:
+			cont_or_wrap = BotWrapper(event, cont_or_wrap)
 		msg = event.msg
 		type = event.type
 		command = ""
@@ -123,18 +126,18 @@ class Dispatcher:
 		
 		#lol dispatcher is 100 more simple now, but at the cost of more dict...
 		for func in cls.hostmap[servername][type]["instant"]:
-			cls._dispatchreally(func, event, botwrap)
+			cls._dispatchreally(func, event, cont_or_wrap)
 		for com, func in cls.hostmap[servername][type]["command"]:
 			if command == com:
-				cls._dispatchreally(func, event, botwrap)
+				cls._dispatchreally(func, event, cont_or_wrap)
 		for regex, func in cls.hostmap[servername][type]["regex"]:
 			if regex.match(msg):
-				cls._dispatchreally(func, event, botwrap)
+				cls._dispatchreally(func, event, cont_or_wrap)
 
 	@staticmethod					
-	def _dispatchreally(func, event, botwrap):
-		d = deferToThread(func, event, botwrap)
+	def _dispatchreally(func, event, cont_or_wrap):
+		d = deferToThread(func, event, cont_or_wrap)
 		#add callback and errback
 		#I think we should just add an errback
 		#d.addCallbacks(botinst.moduledata, botinst.moduleerr)
-		d.addErrback(botwrap.moduleerr)
+		d.addErrback(cont_or_wrap.moduleerr)

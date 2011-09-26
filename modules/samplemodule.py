@@ -11,8 +11,7 @@ class STUFF:
 
 def repeater(event, botinst):
 	#do some things
-	dest = event.channel
-	botinst.msg(dest, "%s : %s" % (event.nick, event.msg))
+	botinst.say("%s : %s" % (event.nick, event.msg))
 
 #init should always be here to setup needed DB tables or objects or whatever
 def init():

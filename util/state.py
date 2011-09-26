@@ -117,4 +117,3 @@ class State:
 		else:
 			print "WARNING: user was never known about... SPOOKY"
 		
-		

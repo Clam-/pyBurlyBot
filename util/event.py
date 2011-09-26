@@ -25,3 +25,11 @@ class Event:
 		# Set by dispatcher, for convenience in module
 		self.command = None
 		self.input = None
+
+class WaitEvent:
+	def __init__(self, interestede, stope):
+		self.done = False
+		self.q = Queue()
+		self.interestede = set(interestede)
+		self.stope = set(stope)
+		self.id = uuid1()	

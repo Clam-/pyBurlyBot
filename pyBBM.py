@@ -13,6 +13,7 @@ from optparse import OptionParser
 
 #bbm imports
 from util import Settings, State
+from util.container import Container
 from util.db import DBQuery, dbcommit
 from util.dispatcher import Dispatcher
 from util.timer import Timers
@@ -210,13 +211,13 @@ if __name__ == '__main__':
 		
 	#start dbcommittimer
 	#def addtimer(cls, name, interval, f, kwargs={}, reps=None, startnow=False):
-	print "aa", Timers._addInternaltimer("_dbcommit", 60*60, dbcommit) #every hour (60*60)
+	Timers._addInternaltimer("_dbcommit", 60*60, dbcommit) #every hour (60*60)
 	
 	# create factory protocol and application
 	#f = BBMBotFactory(sys.argv[1], sys.argv[2])
 	for server in Settings.servers.values():
 		#add wrapper to state
-		State.addnetwork(server.name)
+		State.addnetwork(Container(server.name))
 		reactor.connectTCP(server.host, server.port, BBMBotFactory(server.name))
 	
 	# run bot

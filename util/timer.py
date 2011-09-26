@@ -19,7 +19,8 @@ class Timer:
 		self.lc.start(interval, startnow)
 		
 	
-
+# TODO: Do you want to return a tuple with failure reason? Or just return True or False
+#	depending if things were done successfully. (OR SOMETHING ELSE? ERROR CLASS, no thanks.)
 class Timers:
 	timers = {}
 	

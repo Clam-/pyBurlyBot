@@ -5,6 +5,7 @@ from sys import stderr
 from traceback import format_exc
 from os.path import join
 from operator import attrgetter
+from uuid import uuid1
 
 from state import State
 from wrapper import BotWrapper
@@ -12,6 +13,7 @@ from wrapper import BotWrapper
 class Dispatcher:
 	modules = []
 	hostmap = {}
+	hostwaitmap = {}
 	TYPES = ("connectionMade", "signedOn", "joined", "privmsg", 
 		"action", "irc_NICK", "sendmsg")
 	
@@ -57,6 +59,10 @@ class Dispatcher:
 		servers = Settings.servers
 		for servername in servers:
 			cls.hostmap[servername] = {}
+			if servername not in cls.hostwaitmap:
+				cls.hostwaitmap[servername] = {}
+				for type in cls.TYPES:
+					cls.hostwaitmap[servername][type] = {}
 			for type in cls.TYPES:
 				cls.hostmap[servername][type] = {}
 				cls.hostmap[servername]["MSGHOOKS"] = False
@@ -157,7 +163,21 @@ class Dispatcher:
 			if mapping.regex.match(msg):
 				cls._dispatchreally(mapping.function, event, cont_or_wrap)
 				if mapping.priority == 0: break
-
+				
+		#special map to deal with WaitEvents
+		for wekey in cls.hostwaitmap[servername][type]:
+			we = cls.hostwaitmap[servername][type][wekey]
+			if type in we.stope:
+				we.q.done = True
+				for i in we.intereste:
+					try: del cls.hostwaitmap[servername][i][wekey]
+					except Exception as e: print "Already removed(?): %s" % e
+				for s in we.stopevents:
+					try: del cls.hostwaitmap[servername][s][wekey]
+					except Exception as e: print "Already removed(?): %s" % e
+			elif type in we.interestede:
+				we.q.put(event)
+			
 	@staticmethod					
 	def _dispatchreally(func, event, cont_or_wrap):
 		d = deferToThread(func, event, cont_or_wrap)
@@ -165,3 +185,12 @@ class Dispatcher:
 		#I think we should just add an errback
 		#d.addCallbacks(botinst.moduledata, botinst.moduleerr)
 		d.addErrback(cont_or_wrap.moduleerr)
+
+	@classmethod
+	def addWaitEvent(cls, we):
+		for i in we.interested:
+			cls.hostwaitmap[servername][i][we.id] = we
+		for s in we.stope:
+			cls.hostwaitmap[servername][s][we.id] = we
+
+		

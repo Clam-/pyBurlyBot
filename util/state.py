@@ -4,8 +4,6 @@
 # maybe this should be in a database, for things like "search all bans on Y channel from Z user"
 #  LOL After toying with mockups of this idea no. If you want a ban DB it should be a module I guess...
 
-from container import Container
-
 class Channel:
 	
 	def __init__(self, name, modes = None):
@@ -40,11 +38,11 @@ class User:
 
 class Network:
 	
-	def __init__(self, network):
-		self.name = network
+	def __init__(self, container):
+		self.name = container.network
 		self.users = {} # [user] = User
 		self.channels = {}
-		self.container = Container(network)
+		self.container = container
 		
 class State:
 	#dict of dict of dict sort of thing?
@@ -54,8 +52,8 @@ class State:
 	
 	#doing methods so we can do things like "if not exist, create"
 	@classmethod
-	def addnetwork(cls, network):
-		cls.networks[network] = Network(network)
+	def addnetwork(cls, container):
+		cls.networks[container.network] = Network(container)
 	
 	@classmethod
 	def nukenetwork(cls, network, botinst):

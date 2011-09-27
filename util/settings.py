@@ -79,7 +79,7 @@ class Settings:
 	moduleopts = {}
 	moduledict = {}
 	
-	loadable = set(["nick", "modules", "servers", "commandprefix", "nicksuffix"])
+	loadable = set(["nick", "modules", "servers", "commandprefix", "datafolder", "nicksuffix"])
 	
 	@classmethod
 	def _loadsettings(cls, filename, defaults=False):

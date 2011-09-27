@@ -3,6 +3,7 @@
 	"modules" : ["core", "samplemodule", "dbquery", "users", "alias" ],
 	"commandprefix" : "!",
 	"nicksuffix" : "_",
+	"datafolder" : "data",
 	"servers" : 
 	[
 		{

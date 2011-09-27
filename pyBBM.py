@@ -9,12 +9,13 @@ from twisted.python import log
 # system imports
 from time import asctime, time, localtime
 from sys import stdout
+from os.path import join
 from optparse import OptionParser
 
 #bbm imports
 from util import Settings, State
 from util.container import Container
-from util.db import DBQuery, dbcommit
+from util.db import DBQuery, dbcommit, setupDB
 from util.dispatcher import Dispatcher
 from util.timer import Timers
 from util.event import Event
@@ -202,7 +203,7 @@ if __name__ == '__main__':
 	else:
 		print "Settings file not found, running with defaults..."
 	Settings.reload()
-	
+	setupDB(join(Settings.cwd, Settings.datafolder))
 	DBQuery.dbThread.start()
 	try: Dispatcher.reload()
 	except:

@@ -2,6 +2,9 @@
 from datetime import timedelta
 from time import time
 
+# some codes stolen from here 
+# http://stackoverflow.com/questions/2119472/convert-a-timedelta-to-days-hours-and-minutes
+
 def days_hours_minutes(td):
 	return td.days, td.seconds//3600, (td.seconds//60)%60, td.seconds % 60
 

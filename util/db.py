@@ -10,19 +10,20 @@ from os.path import exists, join, isfile
 from os import mkdir
 
 class DBaccess(Thread):
-	def __init__(self, incoming):
+	def __init__(self, incoming, datadir):
 		Thread.__init__(self)
-		if not exists("data"):
-			mkdir("data")
-		elif isfile("data"):
+		self.datadir = datadir
+		if not exists(self.datadir):
+			mkdir(self.datadir)
+		elif isfile(self.datadir):
 			raise IOError("data should not be file")
 		#just to see if we can open the file
-		dbcon = sqlite3.connect(join("data", "bbm.db"))
+		dbcon = sqlite3.connect(join(self.datadir, "bbm.db"))
 		dbcon.close()
 		self.incoming = incoming
 		
 	def run(self):
-		dbcon = sqlite3.connect(join("data", "bbm.db"))
+		dbcon = sqlite3.connect(join(self.datadir, "bbm.db"))
 		dbcon.row_factory = sqlite3.Row
 		running = True
 		while running:
@@ -45,8 +46,8 @@ class DBaccess(Thread):
 	# You can if you change transactional mode. Dont' really know which way should go
 
 class DBQuery(object):
-	dbQueue = Queue()
-	dbThread = DBaccess(dbQueue)
+	dbQueue = None
+	dbThread = None
 	__slots__ = ('returnq', 'error', 'rows')
 	
 	def __init__(self, query=None, params=()):
@@ -65,6 +66,10 @@ class DBQuery(object):
 
 		self.rows = results[1]
 
+def setupDB(datadir):
+	DBQuery.dbQueue = Queue()
+	DBQuery.dbThread = DBaccess(DBQuery.dbQueue, datadir)
+		
 def dbcommit():
 	print "lol timered commit"
 	DBQuery.dbQueue.put("COMMIT")

@@ -7,7 +7,7 @@ from util.db import DBQuery
 #python
 from time import time
 #lolhelpers
-from webhelpers.date import distance_of_time_in_words
+from util import distance_of_time_in_words
 
 def _user_update(event, nick=None):
 	#check if exists, then update
@@ -76,7 +76,7 @@ def user_seen(event, botinst):
 	if not seen:
 		botinst.msg(event.channel, "lol dunno.")
 	else:
-		botinst.msg(event.channel, "%s - %s" % (distance_of_time_in_words(int(seen["lastseen"]), int(time())), seen["seenwhere"]))
+		botinst.msg(event.channel, "%s - %s" % (distance_of_time_in_words(seen["lastseen"]), seen["seenwhere"]))
 	return
 	
 #init should always be here to setup needed DB tables or objects or whatever

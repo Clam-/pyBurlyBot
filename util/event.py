@@ -25,6 +25,9 @@ class Event:
 		# Set by dispatcher, for convenience in module
 		self.command = None
 		self.input = None
+	
+	#let's do convenience stuff after all:
+	#inside wrapper
 
 class WaitEvent:
 	def __init__(self, interestede, stope):

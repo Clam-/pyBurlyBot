@@ -13,7 +13,8 @@ from os.path import join
 from optparse import OptionParser
 
 #bbm imports
-from util import Settings, State
+from util import Settings
+from util.state import addnetwork
 from util.container import Container
 from util.db import DBQuery, dbcommit, setupDB
 from util.dispatcher import Dispatcher
@@ -28,6 +29,7 @@ class BBMBot(IRCClient):
 	
 	# TODO: IRC RFC says this is supposed to be able to support multiple channels... Make it so.
 	#	Although if you passed a string with #channel,#channel2 lol it would work as intended but I think a list is more appropriate.
+	# TODO: (also) Do this better.
 	def names(self, channel):
 		"""List the users in 'channel', usage: client.names('#testroom')"""
 		self.sendLine('NAMES %s' % channel)
@@ -41,7 +43,7 @@ class BBMBot(IRCClient):
 		for nick in users:
 			nick = nick.lstrip(self.nickprefixes)
 			if nick == self.nickname: continue
-			State.adduser(self.servername, channel, nick)
+			self.state.adduser(channel, nick)
 		
 	def irc_RPL_ENDOFNAMES(self, *nargs):
 		"""Called when NAMES output is complete"""
@@ -54,7 +56,7 @@ class BBMBot(IRCClient):
 
 	def connectionLost(self, reason):
 		IRCClient.connectionLost(self, reason)
-		State.nukenetwork(self.servername, None)
+		self.state.nukenetwork(None)
 		print "[disconnected at %s]" % asctime(localtime(time()))
 
 	# callbacks for events
@@ -70,7 +72,7 @@ class BBMBot(IRCClient):
 			prefixes.append(p)
 		self.nickprefixes = "".join(prefixes)
 		
-		for chan in Settings.servers[self.servername].channels:
+		for chan in self.settings.channels:
 			if isinstance(chan, list):
 				if len(chan) > 1: self.join(chan[0], chan[1])
 				else: self.join(chan[0])
@@ -78,40 +80,41 @@ class BBMBot(IRCClient):
 		
 		# TODO: change nukenetwork to reactor.callLater() or something.
 		# This really should be called after channels have been joined/rejoined so that any queues messages can be sent to channels
-		State.nukenetwork(self.servername, self)
-		Dispatcher.dispatch(self.servername, Event(type="signedOn"))
+		self.state.nukenetwork(self)
+		Dispatcher.dispatch(self, Event(type="signedOn"))
 
 	def joined(self, channel):
 		"""This will get called when the bot joins the channel."""
 		print "[I have joined %s]" % channel
 		#nuke channel
-		State.nukechannel(self.servername, channel)
-		# TODO: decide whether to use /names or /who... /names only gives nicknames, /who gives a crapton of infos...
+		# TODO: When implementing part/kick, use nukechannel(channel)
+		self.state.joinchannel(channel)
+		# TODO: decide whether to use /names (auto) or /who... /names only gives nicknames, /who gives a crapton of infos...
 		#self.names(channel)
-		Dispatcher.dispatch(self.servername, Event(type="joined", channel=channel))
+		Dispatcher.dispatch(self, Event(type="joined", channel=channel))
 
 	# TODO: dunno if you want to make this lower level irc_JOIN override to catch hostmask or not. Up to you.
 	#		You should probably make all hooks that get given a "nick" into their hostname lower level equiv so you can setup
 	#		proper event.hostmask stuff... Just remember to call the original method IRCClient.irc_JOIN(stuff) at the end (or start, whatev)
 	def userJoined(self, user, channel):
-		State.adduser(self.servername, channel, user)
-		# TODO: Dispatcher.dispatch(self.servername, Event(type="userJoined", hostmask=hostmask, channel=channel, msg=msg))
+		self.state.adduser(channel, user)
+		# TODO: Dispatcher.dispatch(self, Event(type="userJoined", hostmask=hostmask, channel=channel, msg=msg))
 	
 	
 	# MASSIVE TODO: Freaking Griffin, you need to add all the IRC events already to this craps, this one you probably need to change
 	#	to the lower level hostname version
 	def userLeft(self, user, channel):
-		State.removeuser(self.servername, channel, user)
+		self.state.removeuser(channel, user)
 		# TODO: Do this state for user kicked, too... lol do this GRIFFAN. This is your punishment for being lazyshit and L4D
 		# TODO: lol Dispatcher GRIFFIIINNNNNNN
 	
 	def privmsg(self, hostmask, channel, msg):
 		"""This will get called when the bot receives a message."""
-		Dispatcher.dispatch(self.servername, Event(type="privmsg", hostmask=hostmask, channel=channel, msg=msg))
+		Dispatcher.dispatch(self, Event(type="privmsg", hostmask=hostmask, channel=channel, msg=msg))
 
 	def action(self, hostmask, channel, msg):
 		"""This will get called when the bot sees someone do an action."""
-		Dispatcher.dispatch(self.servername, Event(type="action", hostmask=hostmask, channel=channel, msg=msg))
+		Dispatcher.dispatch(self, Event(type="action", hostmask=hostmask, channel=channel, msg=msg))
 
 	def irc_NICK(self, hostmask, params):
 		"""
@@ -120,20 +123,20 @@ class BBMBot(IRCClient):
 		nick = hostmask.split('!', 1)[0]
 		if nick == self.nickname:
 			self.nickChanged(params[0])
-			Dispatcher.dispatch(self.servername, Event(type="nickChanged", hostmask=hostmask, args={'newname': params[0]}))
+			Dispatcher.dispatch(self, Event(type="nickChanged", hostmask=hostmask, args={'newname': params[0]}))
 		else:
 			self.userRenamed(nick, params[0])
 			#update state user
-			State.changeuser(self.servername, nick, params[0])
-			Dispatcher.dispatch(self.servername, Event(type="userRenamed", hostmask=hostmask, args={'newname': params[0]}))
+			self.state.changeuser(nick, params[0])
+			Dispatcher.dispatch(self, Event(type="userRenamed", hostmask=hostmask, args={'newname': params[0]}))
 		
 	
 	# TODO: Need to add more of these for hooking other outbound events maybe, like notice...
 	def sendmsg(self, dest, msg):
 		#check if there's hooks, if there is, dispatch, if not, send directly
-		if Dispatcher.hostmap[self.servername]["MSGHOOKS"]:
+		if Dispatcher.hostmap[self.settings.name]["MSGHOOKS"]:
 			#dest is Event.channel, or Event.args
-			Dispatcher.dispatch(self.servername, Event(type="sendmsg", channel=dest, msg=msg))
+			Dispatcher.dispatch(self, Event(type="sendmsg", channel=dest, msg=msg))
 		else:
 			self.msg(dest, msg)
 	
@@ -155,7 +158,7 @@ class BBMBot(IRCClient):
 	# collisions. The default method appends an underscore.
 	#Just kidding, actually let's do this after all - user option
 	def alterCollidedNick(self, nickname):
-		return nickname + Settings.servers[self.servername].nicksuffix
+		return nickname + self.settings.nicksuffix
 
 
 class BBMBotFactory(ReconnectingClientFactory):
@@ -166,16 +169,17 @@ class BBMBotFactory(ReconnectingClientFactory):
 	# the class of the protocol to build when new connection is made
 	protocol = BBMBot
 
-	def __init__(self, servername):
+	def __init__(self, serversettings):
 		#reconnect settings
-		self.servername = servername
+		self.serversettings = serversettings
 		self.maxDelay = 60
 		self.factor = 1.6180339887498948
 	
 	def buildProtocol(self, address):
 		proto = ReconnectingClientFactory.buildProtocol(self, address)
-		proto.nickname = Settings.servers[self.servername].nick
-		proto.servername = self.servername
+		proto.settings = self.serversettings
+		proto.state = self.serversettings.state
+		proto.nickname = self.serversettings.nick
 		return proto
 
 
@@ -218,8 +222,8 @@ if __name__ == '__main__':
 	#f = BBMBotFactory(sys.argv[1], sys.argv[2])
 	for server in Settings.servers.values():
 		#add wrapper to state
-		State.addnetwork(Container(server.name))
-		reactor.connectTCP(server.host, server.port, BBMBotFactory(server.name))
+		addnetwork(server, Container(server))
+		reactor.connectTCP(server.host, server.port, BBMBotFactory(server))
 	
 	# run bot
 	reactor.run()

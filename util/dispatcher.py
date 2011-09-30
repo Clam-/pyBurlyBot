@@ -7,15 +7,14 @@ from os.path import join
 from operator import attrgetter
 from uuid import uuid1
 
-from state import State
 from wrapper import BotWrapper
 		
 class Dispatcher:
 	modules = []
 	hostmap = {}
 	hostwaitmap = {}
-	TYPES = ("connectionMade", "signedOn", "joined", "privmsg", 
-		"action", "irc_NICK", "sendmsg")
+	TYPES = ('action', 'connectionMade', 'irc_NICK', 'joined', 'privmsg', 
+		'sendmsg', 'signedOn', 'userRenamed')
 	
 	@classmethod
 	def _addmap(cls, sever, type, mapping):
@@ -125,15 +124,17 @@ class Dispatcher:
 	#		pass around the temporary hostmap
 	#	
 	@classmethod
-	def dispatch(cls, servername, event):
-		cont_or_wrap = State.networks[servername].container
+	def dispatch(cls, botinst, event):
+		settings = botinst.settings
+		servername = settings.name
+		cont_or_wrap = settings.state.container
 		if event.channel:
 			cont_or_wrap = BotWrapper(event, cont_or_wrap)
 		msg = event.msg
 		type = event.type
 		command = ""
 		input = ""
-		if (type != "sendmsg") and msg and msg.startswith(Settings.servers[servername].commandprefix):
+		if (type != "sendmsg") and msg and msg.startswith(settings.commandprefix):
 			#case insensitive match?
 			#also this means that commands can't have spaces in them, and lol command prefix can't be a space
 			#all are good to me, if you want a case sensitive match you can do your command as a regex - griff
@@ -187,10 +188,10 @@ class Dispatcher:
 		d.addErrback(cont_or_wrap.moduleerr)
 
 	@classmethod
-	def addWaitEvent(cls, we):
+	def addWaitEvent(cls, servername, we):
 		for i in we.interested:
 			cls.hostwaitmap[servername][i][we.id] = we
 		for s in we.stope:
 			cls.hostwaitmap[servername][s][we.id] = we
 
-		
+

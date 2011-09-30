@@ -3,6 +3,7 @@ class BotWrapper:
 
 	def __init__(self, event, botcont):
 		self.source = event.channel
+		self.event = event
 		self._botcont = botcont
 		
 	def __getattr__(self, name):
@@ -11,6 +12,14 @@ class BotWrapper:
 		
 	def say(self, msg):
 		self.msg(self.source, msg)
+		
+	def isadmin(self, module=None):
+		if not self.event.nick: return None
+		if module:
+			return self.event.nick in self._botcont.settings.getModuleOption(module, "admins")
+		else:
+			return self.event.nick in self._botcont.settings.admin
+		
 		
 
 # some reasoning for this:	

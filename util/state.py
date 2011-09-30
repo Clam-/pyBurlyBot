@@ -40,78 +40,63 @@ class Network:
 	
 	def __init__(self, container):
 		self.name = container.network
+		container.state = self
 		self.users = {} # [user] = User
 		self.channels = {}
 		self.container = container
-		
-class State:
-	#dict of dict of dict sort of thing?
-	# [network][channel/user] ? nope. classes.
 	
-	networks = {}
-	
-	#doing methods so we can do things like "if not exist, create"
-	@classmethod
-	def addnetwork(cls, container):
-		cls.networks[container.network] = Network(container)
-	
-	@classmethod
-	def nukenetwork(cls, network, botinst):
-		#don't do this
-		#cls.networks[network] = Network(network, botinst)
+	def nukenetwork(self, botinst):
 		#clear channels
-		network = cls.networks[network]
-		network.channels = {}
-		network.users = {}
-		network.container.addbotinst(botinst)
+		self.channels = {}
+		self.users = {}
+		self.container.addbotinst(botinst)
 		
-	@classmethod
-	def nukechannel(cls, network, channel):
-		network = cls.networks[network]
-		if channel in network.channels:
-			for user in network.channels[channel].users:
-				network.users[user].channels.remove(channel)
-				if not network.users[user].channels:
+	def nukechannel(self, channel):
+		if channel in self.channels:
+			for user in self.channels[channel].users:
+				self.users[user].channels.remove(channel)
+				if not self.users[user].channels:
 					#user not known in any channels, remove existance
-					del network[users][user]
-					
-		cls.networks[network.name].channels[channel] = Channel(channel)
+					del self.users[user]
 	
-	@classmethod
-	def adduser(cls, network, channel, user, hostmask=None):
-		network = cls.networks[network]
+	def joinchannel(self, channel):
+		self.nukechannel(channel)
+		self.channels[channel] = Channel(channel)
+
+	def adduser(self, channel, user, hostmask=None):
 		u = None
-		if user not in network.users:
+		if user not in self.users:
 			u = User(user, hostmask)
-			network.users[user] = u
+			self.users[user] = u
 		else:
-			u = network.users[user]
-		network.channels[channel].adduser(u)
+			u = self.users[user]
+		self.channels[channel].adduser(u)
 		
-	@classmethod
-	def addban(cls, network, channel, ban, stuff):
+	def addban(self, channel, ban, stuff):
 		# TODO: lol do this
 		pass
 		
-	@classmethod
-	def changeuser(cls, network, oldnick, newnick):
-		network = cls.networks[network]
-		user = network.users[oldnick]
-		del network.users[oldnick]
-		network.users[newnick] = user
+	def changeuser(self, oldnick, newnick):
+		user = self.users[oldnick]
+		del self.users[oldnick]
+		self.users[newnick] = user
 		#lol go through channels user is on
 		for chan in user.channels:
-			network[chan].changeuser(oldnick, newnick)
+			self.channels[chan].changeuser(oldnick, newnick)
 			
-	@classmethod
-	def removeuser(cls, network, channel, user):
-		network = cls.networks[network]
-		if user in network.users:
-			u = network.users[user]
-			network.channels[channel].removeuser(u)
+	def removeuser(self, channel, user):
+		if user in self.users:
+			u = self.users[user]
+			self.channels[channel].removeuser(u)
 			if not u.channels:
 				#user not known in any channels, remove existance
-				del network.users[user]
+				del self.users[user]
 		else:
-			print "WARNING: user was never known about... SPOOKY"
+			print "WARNING: user (%s) was never known about... SPOOKY" % user
 		
+		
+def addnetwork(settings, container):
+	settings.state = Network(container)
+
+
+	

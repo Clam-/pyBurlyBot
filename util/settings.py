@@ -14,6 +14,7 @@ class Server(object):
 	commandprefix = "!"
 
 	def __init__(self, opts):
+		self.state = None
 		self.name = None
 		try:
 			self.name = opts["name"]
@@ -68,6 +69,9 @@ class Server(object):
 		else: self.denymodules = None
 		# Should all servers store modules?
 		# Maybe have include/exclude module lists instead?]
+	
+	def getModuleOption(self, module, option):
+		return Settings.getModuleOption(module, option, self.name)
 
 class Settings:
 	nick = "nick"

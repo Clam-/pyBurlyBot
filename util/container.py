@@ -12,8 +12,10 @@ from event import WaitEvent
 
 class Container:
 	
-	def __init__(self, network):
-		self.network = network
+	def __init__(self, settings):
+		self.network = settings.name
+		self.settings = settings
+		self.state = None
 		self.botinst = None
 		self.outqueue = Queue() #deque or Queue, whatever
 	
@@ -71,7 +73,7 @@ class Container:
 		#yield events
 		waitevent = WaitEvent(interestede, stope)
 		#add wait events to dispatcher. ONLY MODIFY DISPATCHER IN REACTOR THREAD PLEASE.
-		reactor.callFromThread(Dispatcher.addWaitEvent, we)
+		reactor.callFromThread(Dispatcher.addWaitEvent, self.settings.name, we)
 		#send...
 		sendfunc(*sendargs, **sendkwargs)
 		# and now we play the waiting game...

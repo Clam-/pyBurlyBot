@@ -1,9 +1,9 @@
 #timerexample.py
-from util import Mapping, Settings, State, Timers
+from util import Mapping, Settings, Timers
 
 def timercallback(network, channel, msg):
 	#get botinst/wrapper
-	botinst = State.networks[network].botwrap
+	botinst = Settings.servers[network].state.container
 	
 	botinst.msg(channel, msg)
 

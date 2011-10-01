@@ -187,7 +187,7 @@ class BBMBotFactory(ReconnectingClientFactory):
 if __name__ == '__main__':
 	from os.path import exists
 	# initialize logging
-	log.startLogging(stdout)
+	templog = log.startLogging(stdout)
 	
 	parser = OptionParser(usage="usage: %prog [options] [configfile]")
 	parser.add_option("-d", "--dummy", action="store_true", dest="dummy", default=None,
@@ -207,6 +207,13 @@ if __name__ == '__main__':
 	else:
 		print "Settings file not found, running with defaults..."
 	Settings.reload()
+	#setup log options
+	if not Settings.console:
+		templog.stop()
+		log.startLogging(open(join(Settings.cwd, "bbm.log"), 'a'), setStdout=False)
+	# else:
+		# log.startLogging(stdout)
+	
 	setupDB(join(Settings.cwd, Settings.datafolder))
 	DBQuery.dbThread.start()
 	try: Dispatcher.reload()

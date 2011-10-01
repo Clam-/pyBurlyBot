@@ -4,6 +4,7 @@
 #datafolder and setting
 data/
 bbm.json
+bbm.log
 
 #archives
 *.7z

@@ -4,6 +4,7 @@
 	"commandprefix" : "!",
 	"nicksuffix" : "_",
 	"datafolder" : "data",
+	"console" : true,
 	"servers" : 
 	[
 		{

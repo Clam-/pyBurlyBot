@@ -1,3 +1,4 @@
+from twisted.words.protocols.irc import CHANNEL_PREFIXES
 class Event:
 	def __init__(self, type=None, args=None, hostmask=None, channel=None, msg=None):
 		self.type = type
@@ -17,17 +18,20 @@ class Event:
 				self.nick = nick
 				self.ident = ident
 				self.host = host
-		# This can be a user, too. Should probably do something to distinguish
-		# I think module should distinguish (if channel==user) this is a real PM	-Clam
 		self.channel = channel
-		if msg: self.msg = msg.decode("utf-8")
+		# TODO: handle non-UTF8 cases
+		#  probably by just trying a few different encodes and then giving up?
+		if msg: self.msg = msg.decode("utf-8") 
 		else: self.msg = msg
 		# Set by dispatcher, for convenience in module
 		self.command = None
 		self.input = None
 	
-	#let's do convenience stuff after all:
-	#inside wrapper
+	# we could check if target is equal to our nick (we don't even have our own nick available here, it's in botinst)
+	#  or just check if doesn't start with "#"
+	# TODO: Should this be called "isQuery" ?
+	def isPM(self):
+		return self.channel[0] not in CHANNEL_PREFIXES
 
 class WaitEvent:
 	def __init__(self, interestede, stope):

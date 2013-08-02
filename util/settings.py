@@ -56,9 +56,9 @@ class Server(object):
 							channel[1].encode('utf-8'))
 							)
 					else:
-						self.channels.append(channel[0].encode('utf-8'))
+						self.channels.append((channel[0].encode('utf-8'),))
 				else:
-					self.channels.append(channel.encode('utf-8'))
+					self.channels.append((channel.encode('utf-8'),))
 		# TODO log warning if empty channels?
 		
 		if "allowmodules" in opts:
@@ -83,7 +83,7 @@ class Settings:
 	moduleopts = {}
 	moduledict = {}
 	
-	loadable = set(["nick", "modules", "servers", "commandprefix", "datafolder", "console", "nicksuffix"])
+	loadable = set(["nick", "modules", "servers", "commandprefix", "datafolder", "datafile", "console", "nicksuffix"])
 	
 	@classmethod
 	def _loadsettings(cls, filename, defaults=False):

@@ -15,6 +15,7 @@ def reloadmods(event, botinst):
 		Settings.reload()
 		#let's send this method to the reactor thread ONLY MODIFY DISPATCHER IN REACTOR THREAD PLEASE.
 		reactor.callFromThread(Dispatcher.reload)
+		reactor.callFromThread()
 		botinst.msg(event.channel, "Done.")
 	else:
 		botinst.msg(event.channel, "Nou.")

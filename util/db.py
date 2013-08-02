@@ -1,5 +1,7 @@
 from threading import Thread
 from Queue import Queue
+from traceback import print_exc
+
 try:
 	from pysqlite2 import dbapi2 as sqlite3
 except:
@@ -10,35 +12,40 @@ from os.path import exists, join, isfile
 from os import mkdir
 
 class DBaccess(Thread):
-	def __init__(self, incoming, datadir):
+	def __init__(self, incoming, datadir, datafile):
 		Thread.__init__(self)
 		self.datadir = datadir
+		self.datafile = datafile
 		if not exists(self.datadir):
 			mkdir(self.datadir)
 		elif isfile(self.datadir):
 			raise IOError("data should not be file")
 		#just to see if we can open the file
-		dbcon = sqlite3.connect(join(self.datadir, "bbm.db"))
+		dbcon = sqlite3.connect(join(self.datadir, self.datafile))
 		dbcon.close()
 		self.incoming = incoming
 		
 	def run(self):
-		dbcon = sqlite3.connect(join(self.datadir, "bbm.db"))
+		dbcon = sqlite3.connect(join(self.datadir, self.datafile))
 		dbcon.row_factory = sqlite3.Row
 		running = True
 		while running:
 			query = self.incoming.get()
 			try:
 				if query == "STOP":
+					running = False
 					break
-				elif query == "COMMIT" or query == "COMMIT;":
+				# TODO: Test commit methods
+				elif query == "COMMIT":
 					dbcon.commit()
 					continue
 				# ("select stuff where name_last=? and age=?", (who, age))
 				query, params, returnq = query
 				returnq.put(("SUCCESS", dbcon.execute(query, params).fetchall()))
 			except Exception as e:
-				returnq.put(("ERROR", e))
+				if returnq: returnq.put(("ERROR", e))
+				else: print_exc()
+				print "WUT"
 		print "SHUTTING DOWN DB THREAD"
 		dbcon.commit()
 		dbcon.close()
@@ -66,9 +73,9 @@ class DBQuery(object):
 
 		self.rows = results[1]
 
-def setupDB(datadir):
+def setupDB(datadir, datafile="bbm.db"):
 	DBQuery.dbQueue = Queue()
-	DBQuery.dbThread = DBaccess(DBQuery.dbQueue, datadir)
+	DBQuery.dbThread = DBaccess(DBQuery.dbQueue, datadir, datafile)
 		
 def dbcommit():
 	print "lol timered commit"

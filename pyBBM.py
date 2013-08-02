@@ -60,7 +60,7 @@ class BBMBot(IRCClient):
 		print "[disconnected at %s]" % asctime(localtime(time()))
 
 	# callbacks for events
-
+	
 	def signedOn(self):
 		"""Called when bot has succesfully signed on to server."""
 		print "[Signed on]"
@@ -73,10 +73,7 @@ class BBMBot(IRCClient):
 		self.nickprefixes = "".join(prefixes)
 		
 		for chan in self.settings.channels:
-			if isinstance(chan, list):
-				if len(chan) > 1: self.join(chan[0], chan[1])
-				else: self.join(chan[0])
-			else: self.join(chan)
+			self.join(*chan)
 		
 		# TODO: change nukenetwork to reactor.callLater() or something.
 		# This really should be called after channels have been joined/rejoined so that any queues messages can be sent to channels
@@ -132,13 +129,13 @@ class BBMBot(IRCClient):
 		
 	
 	# TODO: Need to add more of these for hooking other outbound events maybe, like notice...
-	def sendmsg(self, dest, msg):
+	def sendmsg(self, channel, msg):
 		#check if there's hooks, if there is, dispatch, if not, send directly
 		if Dispatcher.hostmap[self.settings.name]["MSGHOOKS"]:
 			#dest is Event.channel, or Event.args
-			Dispatcher.dispatch(self, Event(type="sendmsg", channel=dest, msg=msg))
+			Dispatcher.dispatch(self, Event(type="sendmsg", channel=channel, msg=msg))
 		else:
-			self.msg(dest, msg)
+			self.msg(channel, msg)
 	
 	#overriding msg
 	# need to consider dipatching this event and allow for some override somehow
@@ -172,7 +169,7 @@ class BBMBotFactory(ReconnectingClientFactory):
 	def __init__(self, serversettings):
 		#reconnect settings
 		self.serversettings = serversettings
-		self.maxDelay = 60
+		self.maxDelay = 45
 		self.factor = 1.6180339887498948
 	
 	def buildProtocol(self, address):
@@ -220,7 +217,7 @@ if __name__ == '__main__':
 	except:
 		DBQuery.dbQueue.put("STOP")
 		raise
-		
+	
 	#start dbcommittimer
 	#def addtimer(cls, name, interval, f, kwargs={}, reps=None, startnow=False):
 	Timers._addInternaltimer("_dbcommit", 60*60, dbcommit) #every hour (60*60)
@@ -229,7 +226,7 @@ if __name__ == '__main__':
 	#f = BBMBotFactory(sys.argv[1], sys.argv[2])
 	for server in Settings.servers.values():
 		#add wrapper to state
-		addnetwork(server, Container(server))
+		addnetwork(server, Container(server, BBMBot))
 		reactor.connectTCP(server.host, server.port, BBMBotFactory(server))
 	
 	# run bot

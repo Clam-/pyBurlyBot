@@ -3,6 +3,9 @@
 	"modules" : ["core", "samplemodule"],
 	"commandprefix" : "!",
 	"nicksuffix" : "_",
+	"datafolder" : "data",
+	"datafile" : "bbm.db",
+	"console" : true,
 	"servers" : 
 	[
 		{

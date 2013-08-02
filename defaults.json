@@ -5,15 +5,4 @@
 	"nicksuffix" : "_",
 	"datafolder" : "data",
 	"console" : true,
-	"servers" : 
-	[
-		{
-			"name" : "rizon",
-			"nick" : "testBM",
-			"host" : "irc.rizon.net",
-			"port" : 6667,
-			"channels" : ["#lololol"]
-		}
-	]
-	
 }

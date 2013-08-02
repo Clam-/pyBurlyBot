@@ -128,7 +128,7 @@ class Dispatcher:
 		settings = botinst.settings
 		servername = settings.name
 		cont_or_wrap = settings.state.container
-		if event.channel:
+		if event.channel or event.nick:
 			cont_or_wrap = BotWrapper(event, cont_or_wrap)
 		msg = event.msg
 		type = event.type
@@ -185,7 +185,7 @@ class Dispatcher:
 		#add callback and errback
 		#I think we should just add an errback
 		#d.addCallbacks(botinst.moduledata, botinst.moduleerr)
-		d.addErrback(cont_or_wrap.moduleerr)
+		d.addErrback(cont_or_wrap._moduleerr)
 
 	@classmethod
 	def addWaitEvent(cls, servername, we):

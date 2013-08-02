@@ -1,8 +1,6 @@
 #preliminary State
 
 # State class should only be used for reading by modules, and setting from main event triggers, I guess
-# maybe this should be in a database, for things like "search all bans on Y channel from Z user"
-#  LOL After toying with mockups of this idea no. If you want a ban DB it should be a module I guess...
 
 class Channel:
 	
@@ -34,7 +32,7 @@ class User:
 		self.channels = set()
 		self.nick = nick
 		self.hostmask = host
-		#maybe store more infos? CTCPLOLVERSION?
+		#maybe store more infos?
 
 class Network:
 	
@@ -49,7 +47,7 @@ class Network:
 		#clear channels
 		self.channels = {}
 		self.users = {}
-		self.container.addbotinst(botinst)
+		self.container._setBotinst(botinst)
 		
 	def nukechannel(self, channel):
 		if channel in self.channels:

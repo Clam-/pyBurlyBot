@@ -4,67 +4,72 @@
 #it also holds a queue for messages attempted to be sent while there is no current botinstance
 
 from Queue import Queue, Empty
-from twisted.internet import reactor
 from time import time
+from functools import partial
+
+from twisted.internet import reactor
 
 from dispatcher import Dispatcher
 from event import WaitEvent
 
 class Container:
 	
-	def __init__(self, settings):
+	def __init__(self, settings, CLS):
 		self.network = settings.name
 		self.settings = settings
 		self.state = None
-		self.botinst = None
+		self._botinst = None
 		self.outqueue = Queue() #deque or Queue, whatever
+		self._CLS = CLS
+
+	def __getattr__(self, name):
+		#if name isn't in container, look in botinst IF BOTINST EXISTS
+		if name in self.__dict__: 
+			return getattr(self, name)
+		else:
+			attr = getattr(self._CLS, name) #raise if doesn't have
+			if self._botinst:
+				attr = getattr(self._botinst, name)
+				if hasattr(attr, '__call__'):
+					return partial(reactor.callFromThread, attr)
+				else:
+					return attr
+			else:
+				if hasattr(attr, '__call__'):
+					# return queueable
+					return partial(self.queuer, name)
+				else:
+					# SPECIAL CASE: if module requests attribute from BBMBot
+					#  but there is no botinst, None will be returned.
+					return None 
+
+	def queuer(self, funcname, *args, **kwargs):
+		self.outqueue.append((funcname, args, kwargs))
 	
-	# TODO: if you want to do say, you need to somehow get the event... Otherwise you could easily have a say method on event that redirects to here
-	# passing itself
+	# say needs a source (channel, user, etc.) A source is supplied in BotWrapper
 	def say(self, msg):
 		raise ValueError("No source defined.")
 	
-	def addbotinst(self, botinst):
-		self.botinst = botinst
-		# TODO: change this so that we are directly calling botinst's methods instead of wrapper
-		# 	Do this so that there are no weird issues when calling callFromThread within the main 
-		#	reactor thread (which is when this will take place)
+	def _setBotinst(self, botinst):
+		self._botinst = botinst
 		# TODO: (another), because of the nature of queues and "empty", we should probably check this queue whenever any action is triggered
 		#	in case things get left in the outqueue
 		if botinst:
 			while not self.outqueue.empty():
 				outbound = self.outqueue.get()
 				print "PROCESSING QUEUED THINGS"
-				outbound[0](*outbound[1])
-	
-	# TODO: I wonder if you can do this common "check if botinst if not, queue" in a decorator.. I had a quick look but I don't really fully grasp
-	#decorators yet
-	def msg(self, dest, msg):
-		if not self.botinst:
-			self.outqueue.append((self.msg, (dest, msg)))
-			return
-		reactor.callFromThread(self.botinst.sendmsg, dest, msg)
-			
-	def notice(self, dest, msg):
-		if not self.botinst:
-			self.outqueue.append((self.notice, (dest, msg)))
-			return
+				# These will always be BBMBot functions so let's do some magic.
+				# There shouldn't be any AttributeError, and if there is, bad luck I guess.
+				getattr(self.botinst, outbound[0])(*outbound[1], **outbound[2])
 		
-		reactor.callFromThread(self.botinst.notice, dest, msg)
-		
-		
-	#callback to handle module returns
-	#do we sanitize input? lol what input, result will be None if module doesn't return anything
-	def moduledata(self, result):
-		pass
-	
-	def moduleerr(self, e):
+	#callback to handle module errors
+	def _moduleerr(self, e):
 		print "error:", e #exception, or Failure thing
 		
 	def send_and_wait(self, sendfunc, sendargs, interestede, stope, timeout=10, sendkwargs={}):
 		"""This is a super massively blocking method..."""
 		start = time()
-		while not self.botinst:
+		while not self._botinst:
 			if start + timeout > time(): 
 				yield None
 				return

@@ -8,14 +8,12 @@ from twisted.internet import reactor
 ###
 
 def reloadmods(event, botinst):
-	#should probably check for some kind of admin shits or something... How to get BBM Global settings.
-	# I vote "settings" should be in another module, so can just import it, lol.
 	if botinst.isadmin("core"):
 		#reload settings first, then dispatcher
-		Settings.reload()
-		#let's send this method to the reactor thread ONLY MODIFY DISPATCHER IN REACTOR THREAD PLEASE.
+		# let's only modify Settings in reactor as well
+		reactor.callFromThread(Settings.reload)
+		# let's send this method to the reactor thread ONLY MODIFY DISPATCHER IN REACTOR THREAD PLEASE.
 		reactor.callFromThread(Dispatcher.reload)
-		reactor.callFromThread()
 		botinst.msg(event.channel, "Done.")
 	else:
 		botinst.msg(event.channel, "Nou.")

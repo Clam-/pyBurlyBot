@@ -87,6 +87,7 @@ class Settings:
 	
 	@classmethod
 	def _loadsettings(cls, filename, defaults=False):
+		# TODO: need some exception handling for loading JSON
 		newsets = load(open(filename, "rb"))
 		for opt in cls.loadable:
 			if opt in newsets:

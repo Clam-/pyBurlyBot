@@ -4,5 +4,5 @@
 	"commandprefix" : "!",
 	"nicksuffix" : "_",
 	"datafolder" : "data",
-	"console" : true,
+	"console" : true
 }

@@ -45,7 +45,6 @@ class DBaccess(Thread):
 			except Exception as e:
 				if returnq: returnq.put(("ERROR", e))
 				else: print_exc()
-				print "WUT"
 		print "SHUTTING DOWN DB THREAD"
 		dbcon.commit()
 		dbcon.close()
@@ -78,6 +77,6 @@ def setupDB(datadir, datafile="bbm.db"):
 	DBQuery.dbThread = DBaccess(DBQuery.dbQueue, datadir, datafile)
 		
 def dbcommit():
-	print "lol timered commit"
+	print "Timered commit"
 	DBQuery.dbQueue.put("COMMIT")
 

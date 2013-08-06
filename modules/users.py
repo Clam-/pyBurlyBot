@@ -123,4 +123,4 @@ def init():
 	return True
 
 #mappings to methods
-mappings = (Mapping(types=["privmsged"], function=user_update), Mapping(types=["privmsg"], command="seen", function=user_seen))
+mappings = (Mapping(types=["privmsged"], function=user_update), Mapping(types=["privmsged"], command="seen", function=user_seen))

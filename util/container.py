@@ -8,6 +8,7 @@ from time import time
 from functools import partial
 
 from twisted.internet import reactor
+from twisted.internet.threads import blockingCallFromThread
 
 from dispatcher import Dispatcher
 from event import WaitEvent
@@ -15,7 +16,7 @@ from event import WaitEvent
 class Container:
 	
 	def __init__(self, settings, CLS):
-		self.network = settings.name
+		self.network = settings.serverlabel
 		self.settings = settings
 		self.state = None
 		self._botinst = None
@@ -61,6 +62,19 @@ class Container:
 				# These will always be BBMBot functions so let's do some magic.
 				# There shouldn't be any AttributeError, and if there is, bad luck I guess.
 				getattr(self.botinst, outbound[0])(*outbound[1], **outbound[2])
+
+	# Option getter/setters	
+	def getOption(self, opt):
+		return blockingCallFromThread(reactor, self.settings.getOption, opt)
+	def getModuleOption(self, module, option):
+		return blockingCallFromThread(reactor, self.settings.getModuleOption, module, option)
+	# Use blockingCallFromThread on these so the modules can get the Exceptions
+	#  (in which case the bot will just receive it back if unhandled, bummer)
+	#  What exceptions you might ask? Well we'll only allow setting of values that exist
+	def setOption(self, opt, value):
+		return blockingCallFromThread(reactor, setattr, self.settings, opt, value)
+	def setModuleOption(self, module, option, value):
+		return blockingCallFromThread(reactor, setattr, self.settings.getModuleOption, module, option)
 		
 	#callback to handle module errors
 	def _moduleerr(self, e):

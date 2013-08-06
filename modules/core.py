@@ -8,7 +8,7 @@ from twisted.internet import reactor
 ###
 
 def reloadmods(event, botinst):
-	if botinst.isadmin("core"):
+	if botinst.isadmin():
 		#reload settings first, then dispatcher
 		# let's only modify Settings in reactor as well
 		reactor.callFromThread(Settings.reload)

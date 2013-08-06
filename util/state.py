@@ -8,7 +8,9 @@ class Channel:
 		self.name = name
 		self.banlist = {} # [host] = (time, userwhosetban)
 		self.users = {} # [nick] = User
-		self.modes = {} # [nick] = modes, if user == "" then channel modes
+		# TODO: Standify "modes". Is it a list? Of "@", "+", etc?
+		#  in the case of channel modes, is it a list like ["+s", "+k pass"]?
+		self.modes = {} # [nick] = modes, if nick == "" then channel modes
 		self.topic = ""
 		# TODO extra stuff to add... Some things might be network specific?
 
@@ -84,14 +86,14 @@ class Network:
 		self.channels[channel].adduser(u)
 
 	def addban(self, channel, ban, stuff):
-		# TODO: lol do this
+		# TODO: do this
 		pass
 
 	def changeuser(self, oldnick, newnick):
 		user = self.users[oldnick]
 		del self.users[oldnick]
 		self.users[newnick] = user
-		#lol go through channels user is on
+		#go through channels user is on
 		for chan in user.channels:
 			self.channels[chan].changeuser(oldnick, newnick)
 

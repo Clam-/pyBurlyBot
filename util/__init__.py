@@ -1,4 +1,3 @@
-from settings import Settings
 from timer import Timers
 from timehelpers import distance_of_time_in_words
 #should we put db things here? so in module can go "from util import Settings, DBQuery, checkcreatetable, etc"

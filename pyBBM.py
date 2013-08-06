@@ -8,12 +8,12 @@ from twisted.python import log
 
 # system imports
 from time import asctime, time, localtime
-from sys import stdout
+from sys import exit, stdout
 from os.path import join
-from optparse import OptionParser
+from argparse import ArgumentParser
 
 #bbm imports
-from util import Settings
+from util.settings import Settings, ConfigException
 from util.state import addnetwork
 from util.container import Container
 from util.db import DBQuery, dbcommit, setupDB
@@ -30,7 +30,7 @@ class BBMBot(IRCClient):
 	#lineRate = 1
 	
 	# TODO: IRC RFC says this is supposed to be able to support multiple channels... Make it so.
-	#	Although if you passed a string with #channel,#channel2 lol it would work as intended but I think a list is more appropriate.
+	#	Although if you passed a string with #channel,#channel2 it would work as intended but I think a list is more appropriate.
 	# TODO: (also) Do this better.
 	def names(self, channel):
 		"""List the users in 'channel', usage: client.names('#testroom')"""
@@ -51,10 +51,10 @@ class BBMBot(IRCClient):
 		nick = prefix.split('!')[0]
 		channel = params[-1]
 		if nick == self.nickname:
-			self.state.joinchannel(channel)
+			#self.state.joinchannel(channel)
 			dispatch(self, Event("joined", prefix, params, hostmask=prefix, channel=channel))
 		else:
-			self.state.adduser(channel, nick)
+			#self.state.adduser(channel, nick)
 			dispatch(self, Event("userJoined", prefix, params, hostmask=prefix, channel=channel))
 
 	def irc_PART(self, prefix, params):
@@ -65,10 +65,10 @@ class BBMBot(IRCClient):
 		nick = prefix.split('!')[0]
 		channel = params[-1]
 		if nick == self.nickname:
-			self.state.leavechannel(channel)
+			#self.state.leavechannel(channel)
 			dispatch(self, Event("left", prefix, params, hostmask=prefix, channel=channel))
 		else:
-			self.state.removeuser(channel, user)
+			#self.state.removeuser(channel, user)
 			dispatch(self, Event("userLeft", prefix, params, hostmask=prefix, channel=channel))
 
 	def irc_QUIT(self, prefix, params):
@@ -76,7 +76,7 @@ class BBMBot(IRCClient):
 		Called when a user has quit.
 		"""
 		IRCClient.irc_QUIT(self, prefix, params)
-		self.state.nukeuser(prefix.split('!')[0])
+		#self.state.nukeuser(prefix.split('!')[0])
 		dispatch(self, Event("userQuit", prefix, params, hostmask=prefix))
 
 	# IRCClient does useful parsing for us here and doesn't omit anything
@@ -123,7 +123,7 @@ class BBMBot(IRCClient):
 			dispatch(self, Event("nickChanged", prefix, params, hostmask=hostmask, args={'newname': params[0]}))
 		else:
 			#update state user
-			self.state.changeuser(nick, params[0])
+			#self.state.changeuser(nick, params[0])
 			dispatch(self, Event("userRenamed", prefix, params, hostmask=hostmask, args={'newname': params[0]}))
 
 	def irc_KICK(self, prefix, params):
@@ -136,10 +136,10 @@ class BBMBot(IRCClient):
 		kicked = params[1]
 		message = params[-1]
 		if string.lower(kicked) == string.lower(self.nickname):
-			self.state.leavechannel(channel)
+			#self.state.leavechannel(channel)
 			dispatch(self, Event("kickedFrom", prefix, params, hostmask=prefix, channel=channel, msg=message, args={'kicked': kicked}))
 		else:
-			self.state.removeuser(kicked, user)
+			#self.state.removeuser(kicked, user)
 			dispatch(self, Event("userKicked", prefix, params, hostmask=prefix, channel=channel, msg=message, args={'kicked': kicked}))
 
 	def irc_TOPIC(self, prefix, params):
@@ -190,7 +190,7 @@ class BBMBot(IRCClient):
 		for nick in users:
 			nick = nick.lstrip(self.nickprefixes)
 			if nick == self.nickname: continue
-			self.state.adduser(channel, nick)
+			#self.state.adduser(channel, nick)
 
 	def handleCommand(self, command, prefix, params):
 		"""
@@ -249,15 +249,17 @@ class BBMBot(IRCClient):
 		print "[I have joined %s]" % channel
 		#nuke channel
 		# TODO: When implementing part/kick, use nukechannel(channel)
-		self.state.joinchannel(channel)
+		#self.state.joinchannel(channel)
 		# TODO: decide whether to use /names (auto) or /who... /names only gives nicknames, /who gives a crapton of infos...
 		#self.names(channel)
 
 	def userJoined(self, user, channel):
-		self.state.adduser(channel, user)
+		#self.state.adduser(channel, user)
+		pass
 
 	def userLeft(self, user, channel):
-		self.state.removeuser(channel, user)
+		#self.state.removeuser(channel, user)
+		pass
 
 	def action(self, hostmask, channel, msg):
 		"""
@@ -292,7 +294,7 @@ class BBMBot(IRCClient):
 	# collisions. The default method appends an underscore.
 	#Just kidding, actually let's do this after all - user option
 	def alterCollidedNick(self, nickname):
-		return nickname + self.settings.nicksuffix
+		return (nickname + self.settings.nicksuffix).encode("utf-8")
 
 
 class BBMBotFactory(ReconnectingClientFactory):
@@ -322,25 +324,44 @@ if __name__ == '__main__':
 	from os.path import exists
 	# initialize logging
 	templog = log.startLogging(stdout)
+	print "Starting pyBBM, press CTRL+C to quit."
 	
-	parser = OptionParser(usage="usage: %prog [options] [configfile]")
-	parser.add_option("-d", "--dummy", action="store_true", dest="dummy", default=None,
-		help="Dummy option. Placeholder.")
-	(options, args) = parser.parse_args()
-	#get settings file
-	settingsf = None
-	if len(args) > 0:
-		settingsf = args[0]
+	parser = ArgumentParser(description="Internet bort pyBBM", 
+		epilog="pyBBM requires a config file to be specified to run.")
+	parser.add_argument("-c", "--create-config", action="store_true", dest="createconfig", 
+		default=False, help="Creates example config. CONFIGFILE if specified else bbm.json")
+	parser.add_argument("-f", "--force", action="store_true", dest="force", 
+		default=False, help="Force overwrite of existing config when creating config.")
+	# CONSIDER: this could easily support multiple config files I guess
+	#   but changing Settings to support this would be kind of intense I think.
+	parser.add_argument('config', nargs="?", metavar="CONFIGFILE", default=False)
 	
-	#make settings object with defaults.json
-	#then make settings object with options.json and converge somehow...
-	# I've done this before ghetto style, but we'll see what happens. 
-	#(okay it's going to be pretty different to what I've done before)
-	if settingsf and exists(settingsf):
-		Settings.configfile = settingsf
+	args = parser.parse_args()
+	
+	# create-config
+	if args.createconfig:
+		if not args.config: args.config = "bbm.json"
+		print "Creating configuration..."
+		if exists(args.config) and not args.force:
+			print "Error: NEWCONFIGFILE (%s) exists. Use --force (-f) to force overwrite. Bailing." % args.config
+			exit(1)
+		Settings.configfile = args.config
+		Settings.saveOptions()
+		print "Done."
+		exit(0)
+		
+	if args.config and exists(args.config):
+		Settings.configfile = args.config
 	else:
-		print "Settings file not found, running with defaults..."
-	Settings.reload()
+		print "Error: Settings file (%s) not found." % args.config
+		exit(2)
+	try:
+		Settings.reload()
+	except ConfigException as e:
+		print "Error:", e
+		exit(2)
+		
+	
 	#setup log options
 	if not Settings.console:
 		templog.stop()
@@ -348,7 +369,7 @@ if __name__ == '__main__':
 	# else:
 		# log.startLogging(stdout)
 	
-	setupDB(join(Settings.cwd, Settings.datafolder))
+	setupDB(join(Settings.cwd, Settings.datafolder), Settings.datafile)
 	DBQuery.dbThread.start()
 	try: Dispatcher.reload()
 	except:
@@ -360,14 +381,16 @@ if __name__ == '__main__':
 	Timers._addInternaltimer("_dbcommit", 60*60, dbcommit) #every hour (60*60)
 	
 	# create factory protocol and application
-	#f = BBMBotFactory(sys.argv[1], sys.argv[2])
-	for server in Settings.servers.values():
-		#add wrapper to state
-		addnetwork(server, Container(server, BBMBot))
-		reactor.connectTCP(server.host, server.port, BBMBotFactory(server))
+	if Settings.servers:
+		for server in Settings.servers.values():
+			#add wrapper to state
+			addnetwork(server, Container(server, BBMBot))
+			reactor.connectTCP(server.host, server.port, BBMBotFactory(server))
+		# run bot
+		reactor.run()
+	else:
+		print "No servers to connect to. Bailing."
 	
-	# run bot
-	reactor.run()
 	#stop timers or just not care...
 	Timers._stopall()
 	DBQuery.dbQueue.put("STOP")

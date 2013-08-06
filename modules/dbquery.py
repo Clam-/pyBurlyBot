@@ -28,4 +28,4 @@ def dbquery(event, botinst):
 def init():
 	return True
 
-mappings = (Mapping(types=["privmsg"], command="dbquery", function=dbquery),)
+mappings = (Mapping(types=["privmsged"], command="dbquery", function=dbquery),)

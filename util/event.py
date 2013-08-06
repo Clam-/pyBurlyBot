@@ -1,8 +1,11 @@
 from twisted.words.protocols.irc import CHANNEL_PREFIXES
+
 class Event:
-	def __init__(self, type=None, args=None, hostmask=None, channel=None, msg=None):
+	def __init__(self, type, prefix, params, args=None, hostmask=None, channel=None, msg=None):
 		self.type = type
 		# Consider args as a dict of uncommon event attributes
+		self.prefix = prefix
+		self.params = params
 		self.args = args
 		self.hostmask = hostmask
 		self.nick = None
@@ -21,8 +24,8 @@ class Event:
 		self.channel = channel
 		# TODO: handle non-UTF8 cases
 		#  probably by just trying a few different encodes and then giving up?
-		if msg: self.msg = msg.decode("utf-8") 
-		else: self.msg = msg
+		if msg is not None: self.msg = msg.decode("utf-8") 
+		else: self.msg = ""
 		# Set by dispatcher, for convenience in module
 		self.command = None
 		self.input = None

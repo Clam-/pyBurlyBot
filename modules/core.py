@@ -22,4 +22,4 @@ def reloadmods(event, botinst):
 def init():
 	return True
 
-mappings = (Mapping(types=["privmsg"], command="reload", function=reloadmods),)
+mappings = (Mapping(types=["privmsged"], command="reload", function=reloadmods),)

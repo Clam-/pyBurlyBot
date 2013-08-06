@@ -39,4 +39,4 @@ def init():
 	return True
 
 #mappings to methods
-mappings = (Mapping(types=["privmsg"], command="state", function=statecommand),)
+mappings = (Mapping(types=["privmsged"], command="state", function=statecommand),)

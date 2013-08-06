@@ -58,10 +58,15 @@ class DBQuery(object):
 	
 	def __init__(self, query=None, params=()):
 		self.returnq = Queue()
+
 		# For instanciating at the beginning of a bunch of if/else things
 		if query:
 			self.query(query, params)
-	
+		else:
+			# This is kinda weird
+			self.error = None
+			self.rows = []
+
 	def query(self, query, params=()):
 		self.error = None
 		DBQuery.dbQueue.put((query, params, self.returnq))

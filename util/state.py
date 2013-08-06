@@ -7,8 +7,8 @@ class Channel:
 	def __init__(self, name, modes = None):
 		self.name = name
 		self.banlist = {} # [host] = (time, userwhosetban)
-		self.users = {} # [user] = User
-		self.modes = {} # [user] = modes, if user == "" then channel modes
+		self.users = {} # [nick] = User
+		self.modes = {} # [nick] = modes, if user == "" then channel modes
 		self.topic = ""
 		# TODO extra stuff to add... Some things might be network specific?
 
@@ -34,12 +34,13 @@ class User:
 		self.hostmask = host
 		#maybe store more infos?
 
+# TODO: function_renaming_cuz_conventions ~grifftask
 class Network:
 	
 	def __init__(self, container):
 		self.name = container.network
 		container.state = self
-		self.users = {} # [user] = User
+		self.users = {} # [nick] = User
 		self.channels = {}
 		self.container = container
 	
@@ -56,24 +57,36 @@ class Network:
 				if not self.users[user].channels:
 					#user not known in any channels, remove existance
 					del self.users[user]
-	
+			del self.channels[channel]
+
+	def nukeuser(self, nick):
+		if nick in self.users:
+			u = self.users[nick]
+			for channel in self.channels:
+				if nick in self.channels[channel].users:
+					self.channels[channel].removeuser(u)
+			del self.users[nick]
+
 	def joinchannel(self, channel):
 		self.nukechannel(channel)
 		self.channels[channel] = Channel(channel)
 
-	def adduser(self, channel, user, hostmask=None):
+	def leavechannel(self, channel):
+		self.nukechannel(channel)
+
+	def adduser(self, channel, nick, hostmask=None):
 		u = None
-		if user not in self.users:
-			u = User(user, hostmask)
-			self.users[user] = u
+		if nick not in self.users:
+			u = User(nick, hostmask)
+			self.users[nick] = u
 		else:
-			u = self.users[user]
+			u = self.users[nick]
 		self.channels[channel].adduser(u)
-		
+
 	def addban(self, channel, ban, stuff):
 		# TODO: lol do this
 		pass
-		
+
 	def changeuser(self, oldnick, newnick):
 		user = self.users[oldnick]
 		del self.users[oldnick]
@@ -81,18 +94,17 @@ class Network:
 		#lol go through channels user is on
 		for chan in user.channels:
 			self.channels[chan].changeuser(oldnick, newnick)
-			
-	def removeuser(self, channel, user):
-		if user in self.users:
-			u = self.users[user]
+
+	def removeuser(self, channel, nick):
+		if nick in self.users:
+			u = self.users[nick]
 			self.channels[channel].removeuser(u)
 			if not u.channels:
 				#user not known in any channels, remove existance
-				del self.users[user]
+				del self.users[nick]
 		else:
-			print "WARNING: user (%s) was never known about... SPOOKY" % user
-		
-		
+			print "WARNING: user (%s) was never known about... 2SPOOKY" % user
+
 def addnetwork(settings, container):
 	settings.state = Network(container)
 

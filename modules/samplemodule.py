@@ -31,4 +31,4 @@ def init():
 		return True
 
 #mappings to methods
-mappings = (Mapping(types=["privmsg"], regex=recompile(r"\|.*"), function=repeater),)
+mappings = (Mapping(types=["privmsged"], regex=recompile(r"\|.*"), function=repeater),)

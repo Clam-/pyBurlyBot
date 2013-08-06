@@ -21,6 +21,8 @@ from util.dispatcher import Dispatcher
 from util.timer import Timers
 from util.event import Event
 
+dispatch = Dispatcher.dispatch
+
 class BBMBot(IRCClient):
 	"""BBM"""
 	# http://twistedmatrix.com/documents/11.0.0/api/twisted.words.protocols.irc.IRCClient.html
@@ -33,22 +35,183 @@ class BBMBot(IRCClient):
 	def names(self, channel):
 		"""List the users in 'channel', usage: client.names('#testroom')"""
 		self.sendLine('NAMES %s' % channel)
+
+	def irc_RPL_WELCOME(self, prefix, params):
+		"""
+		Called when we have received the welcome from the server.
+		"""
+		IRCClient.irc_RPL_WELCOME(self, prefix, params)
+		dispatch(self, Event("signedOn", prefix, params, hostmask=prefix))
+
+	def irc_JOIN(self, prefix, params):
+		"""
+		Called when a user joins a channel.
+		"""
+		IRCClient.irc_JOIN(self, prefix, params)
+		nick = prefix.split('!')[0]
+		channel = params[-1]
+		if nick == self.nickname:
+			self.state.joinchannel(channel)
+			dispatch(self, Event("joined", prefix, params, hostmask=prefix, channel=channel))
+		else:
+			self.state.adduser(channel, nick)
+			dispatch(self, Event("userJoined", prefix, params, hostmask=prefix, channel=channel))
+
+	def irc_PART(self, prefix, params):
+		"""
+		Called when a user leaves a channel.
+		"""
+		IRCClient.irc_PART(self, prefix, params)
+		nick = prefix.split('!')[0]
+		channel = params[-1]
+		if nick == self.nickname:
+			self.state.leavechannel(channel)
+			dispatch(self, Event("left", prefix, params, hostmask=prefix, channel=channel))
+		else:
+			self.state.removeuser(channel, user)
+			dispatch(self, Event("userLeft", prefix, params, hostmask=prefix, channel=channel))
+
+	def irc_QUIT(self, prefix, params):
+		"""
+		Called when a user has quit.
+		"""
+		IRCClient.irc_QUIT(self, prefix, params)
+		self.state.nukeuser(prefix.split('!')[0])
+		dispatch(self, Event("userQuit", prefix, params, hostmask=prefix))
+
+	# IRCClient does useful parsing for us here and doesn't omit anything
+	# TODO: Store modes in state? (+m might be good to know about, as well as our own modes)
+	# TODO: Get access to prefix / params?  Not sure how to go about it
+	def modeChanged(self, user, channel, set, modes, args):
+		"""
+		Called when user's or channel's modes are changed.
 		
-	def irc_RPL_NAMREPLY(self, *nargs):
-		"""Receive NAMES reply from server"""
-		print 'NAMES:', nargs
-		channel = nargs[1][2]
-		users = nargs[1][3].split(" ")
+		Set is true if modes were added, false if they were removed.
+		"""
+		dispatch(self, Event("modeChanged", "", "", hostmask=user, channel=channel,
+			args={'set': set, 'modes': modes, 'args': args}))
+
+	def irc_PRIVMSG(self, prefix, params):
+		"""
+		This will get called when the bot receives a message.
+		"""
+		user = prefix
+		channel = params[0]
+		message = params[-1]
+
+		# privmsged because PRIVMSG is dispatched as the low-level version
+		dispatch(self, Event("privmsged", prefix, params, hostmask=user, channel=channel, msg=message))
+
+	def irc_NOTICE(self, prefix, params):
+		"""
+		Called when the bot has received a notice from a user directed to it or a channel.
+		"""
+		IRCClient.irc_NOTICE(self, prefix, params)
+		user = prefix
+		channel = params[0]
+		message = params[-1]
+		dispatch(self, Event("noticed", prefix, params, hostmask=user, channel=channel, msg=message))
+
+	def irc_NICK(self, prefix, params):
+		"""
+		Called when a user changes their nickname.
+		"""
+		IRCClient.irc_NICK(self, prefix, params)
+		nick = prefix.split('!', 1)[0]
+		if nick == self.nickname:
+			# IRCClient handles tracking our name
+			dispatch(self, Event("nickChanged", prefix, params, hostmask=hostmask, args={'newname': params[0]}))
+		else:
+			#update state user
+			self.state.changeuser(nick, params[0])
+			dispatch(self, Event("userRenamed", prefix, params, hostmask=hostmask, args={'newname': params[0]}))
+
+	def irc_KICK(self, prefix, params):
+		"""
+		Called when a user is kicked from a channel.
+		"""
+		IRCClient.irc_NICK(self, prefix, params)
+		kicker = prefix.split('!')[0]
+		channel = params[0]
+		kicked = params[1]
+		message = params[-1]
+		if string.lower(kicked) == string.lower(self.nickname):
+			self.state.leavechannel(channel)
+			dispatch(self, Event("kickedFrom", prefix, params, hostmask=prefix, channel=channel, msg=message, args={'kicked': kicked}))
+		else:
+			self.state.removeuser(kicked, user)
+			dispatch(self, Event("userKicked", prefix, params, hostmask=prefix, channel=channel, msg=message, args={'kicked': kicked}))
+
+	def irc_TOPIC(self, prefix, params):
+		"""
+		Someone in the channel set the topic.
+		"""
+		IRCClient.irc_TOPIC(self, prefix, params)
+		dispatch(self, Event("topicUpdated", prefix, params, hostmask=prefix, channel=params[0], args={'newtopic': params[1]}))
+
+	# TODO: does irc_RPL_TOPIC get fired every time irc_TOPIC does?
+	# Do we want to store topic in state?  Guess might as well, already have channel object (TODO)
+	# Also, what is in params[0]?  ~SPOOKY~
+	def irc_RPL_TOPIC(self, prefix, params):
+		"""
+		Called when the topic for a channel is initially reported or when it
+		subsequently changes.
+		"""
+		IRCClient.irc_RPL_TOPIC(self, prefix, params)
+		dispatch(self, Event("topicUpdated", prefix, params, hostmask=prefix, channel=params[1], args={'newtopic': params[2]}))
+
+	def irc_RPL_NOTOPIC(self, prefix, params):
+		"""
+		...
+		"""
+		IRCClient.irc_RPL_NOTOPIC(self, prefix, params)
+		dispatch(self, Event("topicUpdated", prefix, params, hostmask=prefix, channel=params[1], args={'newtopic': ''}))
+
+	def irc_RPL_ENDOFMOTD(self, prefix, params):
+		"""
+		Called when the bot receives RPL_ENDOFMOTD from the server.
+		
+		motd is a list containing the accumulated contents of the message of the day.
+		"""
+		motd = self.motd
+		# The following sets self.motd to None, so we get the motd first
+		IRCClient.irc_RPL_ENDOFMOTD(self, prefix, params)
+		dispatch(self, Event("receivedMOTD", prefix, params, args={'motd': motd}))
+
+	def irc_RPL_NAMREPLY(self, prefix, params):
+		"""
+		Called when NAMES reply is received from the server.
+		"""
+		print 'NAMES:', params
+		channel = params[2]
+		users = params[3].split(" ")
+		dispatch(self, Event("nameReply", prefix, params, channel=channel, args={'users': users}))
 
 		for nick in users:
 			nick = nick.lstrip(self.nickprefixes)
 			if nick == self.nickname: continue
 			self.state.adduser(channel, nick)
-		
-	def irc_RPL_ENDOFNAMES(self, *nargs):
-		"""Called when NAMES output is complete"""
-		pass #TODO: lol dispatch? 
-	
+
+	def handleCommand(self, command, prefix, params):
+		"""
+		Determine the function to call for the given command and call it with
+		the given arguments.
+		"""
+		method_name = "irc_%s" % command
+		method = getattr(self, method_name, None)
+		try:
+			if method is not None:
+				method(prefix, params)
+			else:
+				self.irc_unknown(prefix, command, params)
+		except:
+			log.deferr()
+		else:
+			# All low level events dispatched as BaseEvents
+			# Downside to this way of doing it is you have to have a separate name for the preprocessed version
+			# of basic commands, like PRIVMSG
+			dispatch(self, Event(command, prefix, params))
+
 	def connectionMade(self):
 		IRCClient.connectionMade(self)
 		#reset connection factory delay:
@@ -63,6 +226,7 @@ class BBMBot(IRCClient):
 	
 	def signedOn(self):
 		"""Called when bot has succesfully signed on to server."""
+		IRCClient.signedOn(self)
 		print "[Signed on]"
 		
 		#process nickprefixes
@@ -78,62 +242,35 @@ class BBMBot(IRCClient):
 		# TODO: change nukenetwork to reactor.callLater() or something.
 		# This really should be called after channels have been joined/rejoined so that any queues messages can be sent to channels
 		self.state.nukenetwork(self)
-		Dispatcher.dispatch(self, Event(type="signedOn"))
 
 	def joined(self, channel):
 		"""This will get called when the bot joins the channel."""
+		IRCClient.joined(self, channel)
 		print "[I have joined %s]" % channel
 		#nuke channel
 		# TODO: When implementing part/kick, use nukechannel(channel)
 		self.state.joinchannel(channel)
 		# TODO: decide whether to use /names (auto) or /who... /names only gives nicknames, /who gives a crapton of infos...
 		#self.names(channel)
-		Dispatcher.dispatch(self, Event(type="joined", channel=channel))
 
-	# TODO: dunno if you want to make this lower level irc_JOIN override to catch hostmask or not. Up to you.
-	#		You should probably make all hooks that get given a "nick" into their hostname lower level equiv so you can setup
-	#		proper event.hostmask stuff... Just remember to call the original method IRCClient.irc_JOIN(stuff) at the end (or start, whatev)
 	def userJoined(self, user, channel):
 		self.state.adduser(channel, user)
-		# TODO: Dispatcher.dispatch(self, Event(type="userJoined", hostmask=hostmask, channel=channel, msg=msg))
-	
-	
-	# MASSIVE TODO: Freaking Griffin, you need to add all the IRC events already to this craps, this one you probably need to change
-	#	to the lower level hostname version
+
 	def userLeft(self, user, channel):
 		self.state.removeuser(channel, user)
-		# TODO: Do this state for user kicked, too... lol do this GRIFFAN. This is your punishment for being lazyshit and L4D
-		# TODO: lol Dispatcher GRIFFIIINNNNNNN
-	
-	def privmsg(self, hostmask, channel, msg):
-		"""This will get called when the bot receives a message."""
-		Dispatcher.dispatch(self, Event(type="privmsg", hostmask=hostmask, channel=channel, msg=msg))
 
 	def action(self, hostmask, channel, msg):
-		"""This will get called when the bot sees someone do an action."""
-		Dispatcher.dispatch(self, Event(type="action", hostmask=hostmask, channel=channel, msg=msg))
+		"""
+		This will get called when the bot sees someone do an action.
+		"""
+		dispatch(self, Event(type="action", hostmask=hostmask, channel=channel, msg=msg))
 
-	def irc_NICK(self, hostmask, params):
-		"""
-		Called when a user changes their nickname.
-		"""
-		nick = hostmask.split('!', 1)[0]
-		if nick == self.nickname:
-			self.nickChanged(params[0])
-			Dispatcher.dispatch(self, Event(type="nickChanged", hostmask=hostmask, args={'newname': params[0]}))
-		else:
-			self.userRenamed(nick, params[0])
-			#update state user
-			self.state.changeuser(nick, params[0])
-			Dispatcher.dispatch(self, Event(type="userRenamed", hostmask=hostmask, args={'newname': params[0]}))
-		
-	
 	# TODO: Need to add more of these for hooking other outbound events maybe, like notice...
 	def sendmsg(self, channel, msg):
 		#check if there's hooks, if there is, dispatch, if not, send directly
 		if Dispatcher.hostmap[self.settings.name]["MSGHOOKS"]:
 			#dest is Event.channel, or Event.args
-			Dispatcher.dispatch(self, Event(type="sendmsg", channel=channel, msg=msg))
+			dispatch(self, Event(type="sendmsg", channel=channel, msg=msg))
 		else:
 			self.msg(channel, msg)
 	

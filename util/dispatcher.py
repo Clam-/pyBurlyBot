@@ -13,8 +13,8 @@ class Dispatcher:
 	modules = []
 	hostmap = {}
 	hostwaitmap = {}
-	TYPES = ('action', 'connectionMade', 'irc_NICK', 'joined', 'privmsg', 
-		'sendmsg', 'signedOn', 'userRenamed')
+	#TYPES = ('action', 'connectionMade', 'irc_NICK', 'joined', 'privmsg', 
+	#	'sendmsg', 'signedOn', 'userRenamed')
 
 	# Construct the new hostmap, then overwrite the original when reload is complete.
 	@classmethod
@@ -29,16 +29,16 @@ class Dispatcher:
 		servers = Settings.servers
 		for servername in servers:
 			hostmap[servername] = {}
+			hostmap[servername]["MSGHOOKS"] = False
 			if servername not in cls.hostwaitmap:
 				cls.hostwaitmap[servername] = {}
-				for type in cls.TYPES:
-					cls.hostwaitmap[servername][type] = {}
-			for type in cls.TYPES:
-				hostmap[servername][type] = {}
-				hostmap[servername]["MSGHOOKS"] = False
-				hostmap[servername][type]["instant"] = []
-				hostmap[servername][type]["command"] = {}
-				hostmap[servername][type]["regex"] = []
+				# for type in cls.TYPES:
+					# cls.hostwaitmap[servername][type] = {}
+			# for type in cls.TYPES:
+				# hostmap[servername][type] = {}
+				# hostmap[servername][type]["instant"] = []
+				# hostmap[servername][type]["command"] = {}
+				# hostmap[servername][type]["regex"] = []
 			if servers[servername].allowmodules:
 				modulemap[servername] = servers[servername].allowmodules
 			else: 
@@ -74,21 +74,31 @@ class Dispatcher:
 			Settings.moduledict[modulename] = module
 			for mapping in module.mappings:
 				for type in mapping.types:
-					if type not in cls.TYPES:
-						print "WARNING UNSUPPORTED TYPE: %s" % type
-						continue
+					# if type not in cls.TYPES:
+						# print "WARNING UNSUPPORTED TYPE: %s" % type
+						# continue
 
-					for server in modulemap:
-						if modulename not in modulemap[server]:
+					type = type.lower()
+					for servername in modulemap:
+						if modulename not in modulemap[servername]:
 							continue
 
-						# Add type to servermapping
+						# There's no actual reason to restrict types to a preset list, and in some cases it might be annoying
+						# (e.g. hooking a numeric event type)
+						if type not in hostmap[servername]:
+							hostmap[servername][type] = {}
+							hostmap[servername][type]["instant"] = []
+							hostmap[servername][type]["regex"] = []
+							hostmap[servername][type]["command"] = {}
+						if type not in cls.hostwaitmap[servername]:
+							cls.hostwaitmap[servername][type] = {}
+						# Add type to servernamemapping
 						# This is _addmap inlined
 						if type == "sendmsg":
-							hostmap[server]["MSGHOOKS"] = True
+							hostmap[servername]["MSGHOOKS"] = True
 						if not mapping.command and not mapping.regex: 
-							hostmap[server][type]["instant"].append(mapping)
-							hostmap[server][type]["instant"].sort(key=attrgetter('priority'))
+							hostmap[servername][type]["instant"].append(mapping)
+							hostmap[servername][type]["instant"].sort(key=attrgetter('priority'))
 
 						if mapping.command:
 							mapcom = mapping.command
@@ -96,16 +106,16 @@ class Dispatcher:
 							# I guess it's not a big deal to check both
 							if isinstance(mapcom, list) or isinstance(mapcom, tuple):
 								for commandname in mapcom:
-									hostmap[server][type]["command"].setdefault(commandname, []).append(mapping)
-									hostmap[server][type]["command"][commandname].sort(key=attrgetter('priority'))
+									hostmap[servername][type]["command"].setdefault(commandname, []).append(mapping)
+									hostmap[servername][type]["command"][commandname].sort(key=attrgetter('priority'))
 							# TODO: unicode command?
 							elif isinstance(mapcom, basestring):
-								hostmap[server][type]["command"].setdefault(mapcom, []).append(mapping)
-								hostmap[server][type]["command"][mapcom].sort(key=attrgetter('priority'))
+								hostmap[servername][type]["command"].setdefault(mapcom, []).append(mapping)
+								hostmap[servername][type]["command"][mapcom].sort(key=attrgetter('priority'))
 
 						if mapping.regex:
-							hostmap[server][type]["regex"].append(mapping)
-							hostmap[server][type]["regex"].sort(key=attrgetter('priority'))
+							hostmap[servername][type]["regex"].append(mapping)
+							hostmap[servername][type]["regex"].sort(key=attrgetter('priority'))
 
 		if notloaded:
 			print "WARNING: MODULE(S) NOT LOADED: %s" % ', '.join((x[0] for x in notloaded))
@@ -124,7 +134,8 @@ class Dispatcher:
 		if event.channel or event.nick:
 			cont_or_wrap = BotWrapper(event, cont_or_wrap)
 		msg = event.msg
-		type = event.type
+		# Case insensitivity for types (convenience) (is this a bad idea?)
+		type = event.type.lower()
 		command = ""
 		input = ""
 		if type != "sendmsg" and msg and msg.startswith(settings.commandprefix):
@@ -141,36 +152,37 @@ class Dispatcher:
 			# Maintain case for event, for funny things like replying in all caps
 			event.command, event.input = (command, input)
 			command = command.lower()
-		
-		#lol dispatcher is 100 more simple now, but at the cost of more dict...
-		for mapping in cls.hostmap[servername][type]["instant"]:
-			cls._dispatchreally(mapping.function, event, cont_or_wrap)
-			if mapping.priority == 0: break #lol cheap and easy way to support total override
-		#super fast command dispatching now... Only thing left that's slow is the regex but has to be
-		if command in cls.hostmap[servername][type]["command"]:
-			for mapping in cls.hostmap[servername][type]["command"][command]:
+
+		if type in cls.hostmap[servername]:
+			#lol dispatcher is 100 more simple now, but at the cost of more dict...
+			for mapping in cls.hostmap[servername][type]["instant"]:
+				cls._dispatchreally(mapping.function, event, cont_or_wrap)
+				if mapping.priority == 0: break #lol cheap and easy way to support total override
+			#super fast command dispatching now... Only thing left that's slow is the regex but has to be
+			for mapping in cls.hostmap[servername][type]["command"].get(command,()):
 				cls._dispatchreally(mapping.function, event, cont_or_wrap)
 				if mapping.priority == 0: break
-		# TODO: Considder this:
-		# super priority==0 override doesn't really make much sense on a regex, but whatever
-		for mapping in cls.hostmap[servername][type]["regex"]:
-			if mapping.regex.match(msg):
-				cls._dispatchreally(mapping.function, event, cont_or_wrap)
-				if mapping.priority == 0: break
-				
-		#special map to deal with WaitEvents
-		for wekey in cls.hostwaitmap[servername][type]:
-			we = cls.hostwaitmap[servername][type][wekey]
-			if type in we.stope:
-				we.q.done = True
-				for i in we.intereste:
-					try: del cls.hostwaitmap[servername][i][wekey]
-					except Exception as e: print "Already removed(?): %s" % e
-				for s in we.stopevents:
-					try: del cls.hostwaitmap[servername][s][wekey]
-					except Exception as e: print "Already removed(?): %s" % e
-			elif type in we.interestede:
-				we.q.put(event)
+			# TODO: Consider this:
+			# super priority==0 override doesn't really make much sense on a regex, but whatever
+			for mapping in cls.hostmap[servername][type]["regex"]:
+				if mapping.regex.match(msg):
+					cls._dispatchreally(mapping.function, event, cont_or_wrap)
+					if mapping.priority == 0: break
+
+		if type in cls.hostwaitmap[servername]:
+			#special map to deal with WaitEvents
+			for wekey in cls.hostwaitmap[servername][type]:
+				we = cls.hostwaitmap[servername][type][wekey]
+				if type in we.stope:
+					we.q.done = True
+					for i in we.intereste:
+						try: del cls.hostwaitmap[servername][i][wekey]
+						except Exception as e: print "Already removed(?): %s" % e
+					for s in we.stopevents:
+						try: del cls.hostwaitmap[servername][s][wekey]
+						except Exception as e: print "Already removed(?): %s" % e
+				elif type in we.interestede:
+					we.q.put(event)
 			
 	@staticmethod					
 	def _dispatchreally(func, event, cont_or_wrap):

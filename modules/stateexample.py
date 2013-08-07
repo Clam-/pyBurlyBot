@@ -1,5 +1,5 @@
 #state example
-from util import Mapping, Settings
+from util import Mapping
 
 def statecommand(event, botinst):
 	command = ""

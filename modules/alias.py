@@ -1,6 +1,9 @@
 #alias module
-from util import Mapping, Settings
+from util import Mapping
 from util.db import DBQuery
+
+# TODO: remove this dependency
+from util.settings import Settings
 
 def get_nick(alias):
 	result = DBQuery('''SELECT nick FROM alias WHERE alias = ?;''', (alias,))
@@ -116,6 +119,7 @@ def alias(event, botinst):
 def init():
 	"""Do startup module things. This sample just checks if table exists. If not, creates it."""
 	#require that user is loaded already:
+	# TODO: refactor to somehow access easy module availability 
 	if "users" not in Settings.moduledict:
 		print "ERROR LOADING ALIAS: REQUIREMENT OF users MODULE NOT MET"
 		return False

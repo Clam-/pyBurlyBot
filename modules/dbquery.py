@@ -1,28 +1,27 @@
 #run db query
-from util import Mapping, Settings
+from util import Mapping
 from util.db import DBQuery
 
-def dbquery(event, botinst):
-	if event.nick in Settings.getModuleOption("core", "admins", botinst.network):
-
+def dbquery(event, bot):
+	if bot.isadmin():
 		query = event.input
-		botinst.msg(event.channel, "Running: %s" % query)
+		bot.msg(event.channel, "Running: %s" % query)
 		result = DBQuery(query)
 		if result.error:
-			return botinst.msg(event.channel, "Error in query: %s" % result.error)
+			return bot.msg(event.channel, "Error in query: %s" % result.error)
 
 		if not result.rows:
-			return botinst.msg(event.channel, "No error, but nothing to display.")
+			return bot.msg(event.channel, "No error, but nothing to display.")
 		print "GOOD"
 		#good
 		for row in result.rows:
 			nrow = []
 			for key in row.keys():
 				nrow.append((key, row[key]))
-			botinst.msg(event.channel, repr(nrow))
+			bot.msg(event.channel, repr(nrow))
 
 	else:
-		botinst.msg(event.channel, "uwish.")
+		bot.msg(event.channel, "uwish.")
 
 		
 def init():

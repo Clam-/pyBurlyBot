@@ -1,12 +1,15 @@
 #users
+
+#BROKEN: awaiting new msg hooks
+
 #twisted
 from twisted.python import log
 #bbm
-from util import Mapping, Settings
+from util import Mapping
 from util.db import DBQuery
 #python
 from time import time
-#lolhelpers
+#helpers
 from util import distance_of_time_in_words
 
 def _user_update(event, nick=None):
@@ -17,12 +20,10 @@ def _user_update(event, nick=None):
 	if result.error:
 		print "What happened?: %s" % result.error
 
-def user_update(event, botinst):
-	#check is alias is loaded
-	#check if it's allowed on server, and then check if it's actually loaded in moduledict
-	# FIXME checking allowed modules, server method?
-	# ("alias" in Settings.servers[botinst.network].allowmodules)
-	if ("alias" in Settings.moduledict):
+def user_update(event, bot):
+	#check is alias is loaded and available
+	if bot.isModuleAvailable("alias"):
+		# TODO: use some alias module methods using bot.getModule("alias").method()
 		result = DBQuery('''SELECT nick FROM alias WHERE alias = ?;''', (event.nick,))
 		if not result.error:
 			#check rows...
@@ -48,16 +49,14 @@ def _user_seen(event, nick=None):
 		return None
 	return result.rows[0] if result.rows else None
 
-def user_seen(event, botinst):
+def user_seen(event, bot):
 	if not event.input:
-		botinst.msg(event.channel, "lol wut")
+		print "what"
 		return
 	
 	seen = None
-	# FIXME checking allowed modules, server method?
-	# ("alias" in Settings.servers[botinst.network].modules)
-	if ("alias" in Settings.moduledict):
-		# TODO This should use alias module methods. This should happen in all places in this module that do alias things.
+	if bot.isModuleAvailable("alias"):
+		# TODO: use some alias module methods using bot.getModule("alias").method()
 		result = DBQuery('''SELECT nick FROM alias WHERE alias = ?;''', (event.input,))
 		if result.error:
 			print "What happened?: %s" % result.error
@@ -74,9 +73,9 @@ def user_seen(event, botinst):
 		#alias not loaded
 		seen = _user_seen(event)
 	if not seen:
-		botinst.msg(event.channel, "lol dunno.")
+		bot.msg(event.channel, "lol dunno.")
 	else:
-		botinst.msg(event.channel, "%s - %s" % (distance_of_time_in_words(seen["lastseen"]), seen["seenwhere"]))
+		bot.msg(event.channel, "%s - %s" % (distance_of_time_in_words(seen["lastseen"]), seen["seenwhere"]))
 	return
 	
 #init should always be here to setup needed DB tables or objects or whatever

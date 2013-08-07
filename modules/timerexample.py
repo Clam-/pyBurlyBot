@@ -1,9 +1,12 @@
 #timerexample.py
-from util import Mapping, Settings, Timers
+
+#BROKEN: needs total overhaul
+
+from util import Mapping, Timers
 
 def timercallback(network, channel, msg):
 	#get botinst/wrapper
-	botinst = Settings.servers[network].state.container
+	#botinst = Settings.servers[network].state.container
 	
 	botinst.msg(channel, msg)
 

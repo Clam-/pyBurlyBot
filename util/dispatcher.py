@@ -1,6 +1,6 @@
 from twisted.internet.threads import deferToThread
 
-from settings import Settings
+from util.settings import Settings
 from sys import stderr
 from traceback import format_exc
 from os.path import join

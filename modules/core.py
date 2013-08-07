@@ -1,7 +1,8 @@
 #core internal BBM commands
 # things like .reload
-from util import Mapping, Settings
+from util import Mapping
 from util.dispatcher import Dispatcher
+from util.settings import Settings
 
 ### This is only something that modules that know what they are doing should do:
 from twisted.internet import reactor

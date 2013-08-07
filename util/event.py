@@ -30,6 +30,12 @@ class Event:
 		self.command = None
 		self.input = None
 	
+	def __repr__(self):
+		return "Event(type=%s, prefix=%s, params=%s, args=%s, hostmask=%s, nick=%s, " \
+			"ident=%s, host=%s, channel=%s, msg=%s, command=%s, input=%s" % \
+			(self.type, self.prefix, self.params, self.args, self.hostmask, self.nick,
+				self.ident, self.host, self.channel, self.msg, self.command, self.input)
+	
 	# we could check if target is equal to our nick (we don't even have our own nick available here, it's in botinst)
 	#  or just check if doesn't start with "#"
 	# TODO: Should this be called "isQuery" ?

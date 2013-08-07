@@ -294,7 +294,7 @@ class BBMBot(IRCClient):
 	# collisions. The default method appends an underscore.
 	#Just kidding, actually let's do this after all - user option
 	def alterCollidedNick(self, nickname):
-		return (nickname + self.settings.nicksuffix).encode("utf-8")
+		return nickname + self.settings.nicksuffix.encode("utf-8")
 
 
 class BBMBotFactory(ReconnectingClientFactory):
@@ -315,7 +315,7 @@ class BBMBotFactory(ReconnectingClientFactory):
 		proto = ReconnectingClientFactory.buildProtocol(self, address)
 		proto.settings = self.serversettings
 		proto.state = self.serversettings.state
-		proto.nickname = self.serversettings.nick
+		proto.nickname = self.serversettings.nick.encode("utf-8")
 		return proto
 
 

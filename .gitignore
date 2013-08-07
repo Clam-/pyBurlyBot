@@ -33,6 +33,7 @@ develop-eggs
 pip-log.txt
 
 # Unit test / coverage reports
+_trial*
 .coverage
 .tox
 

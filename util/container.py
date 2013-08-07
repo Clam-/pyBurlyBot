@@ -68,6 +68,7 @@ class Container:
 		return blockingCallFromThread(reactor, self.settings.getOption, opt)
 	def getModuleOption(self, module, option):
 		return blockingCallFromThread(reactor, self.settings.getModuleOption, module, option)
+		
 	# Use blockingCallFromThread on these so the modules can get the Exceptions
 	#  (in which case the bot will just receive it back if unhandled, bummer)
 	#  What exceptions you might ask? Well we'll only allow setting of values that exist
@@ -76,6 +77,13 @@ class Container:
 	def setModuleOption(self, module, option, value):
 		return blockingCallFromThread(reactor, setattr, self.settings.getModuleOption, module, option)
 		
+	# Some module helpers
+	def getModule(self, modname):
+		return blockingCallFromThread(reactor, self.settings.getModule, modname)
+	
+	def isModuleAvailable(self, modname):
+		return blockingCallFromThread(reactor, self.settings.isModuleAvailable, modname)
+	
 	#callback to handle module errors
 	def _moduleerr(self, e):
 		print "error:", e #exception, or Failure thing

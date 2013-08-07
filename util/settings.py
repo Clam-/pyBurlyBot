@@ -33,7 +33,7 @@ EXAMPLE_OPTS2 = {
 }
 
 class ConfigException(Exception):
-    pass
+	pass
 
 class Server(object):
 
@@ -74,10 +74,10 @@ class Server(object):
 		
 		if "allowmodules" in opts:
 			self.allowmodules = set(opts["allowmodules"])
-		else: self.allowmodules = None
+		else: self.allowmodules = []
 		if "denymodules" in opts:
 			self.denymodules = set(opts["denymodules"])
-		else: self.denymodules = None
+		else: self.denymodules = []
 		
 		if old:
 			self.state = old.state
@@ -117,6 +117,16 @@ class Server(object):
 			Settings.setModuleOption(module, option, value)
 		else:
 			Settings.setModuleOption(module, option, value, self.serverlabel)
+	
+	def getModule(self, modname):
+		if not self.isModuleAvailable():
+			raise ConfigException("Module (%s) is not available." % modname)
+		else:
+			return Settings.moduledict[modname]
+	
+	def isModuleAvailable(self, modname):
+		return (modname not in self.denymodules) and (modname in Settings.moduledict)
+			
 	
 	def _getDict(self):
 		d = OrderedDict()

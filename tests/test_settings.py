@@ -2,10 +2,6 @@ from os import getcwdu, remove, fsync
 from os.path import join, abspath
 from tempfile import NamedTemporaryFile
 
-import sys
-botdir = abspath(join(getcwdu(), "pyBBM"))
-sys.path.insert(0,botdir)
-
 from twisted.trial.unittest import TestCase
 
 from pyBBM.pyBBM import BBMBot
@@ -13,8 +9,6 @@ from pyBBM.util.settings import KEYS_MAIN, \
 	SettingsBase, Settings
 
 from pyBBM.tests import TestException
-Settings.botdir = botdir
-
 
 SETTINGS_TEST1 = """{
 	"nick": "aaaaa",

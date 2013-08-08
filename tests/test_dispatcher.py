@@ -1,6 +1,7 @@
 from os import getcwdu, remove, fsync
 from os.path import join, abspath
 
+#Required path fudging for module space
 import sys
 botdir = abspath(join(getcwdu(), "pyBBM"))
 sys.path.insert(0,botdir)

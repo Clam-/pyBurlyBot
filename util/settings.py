@@ -1,18 +1,16 @@
 #settings and stuff
-from os import getcwdu
 from os.path import join, exists
 from copy import copy
 from Queue import Queue
 from json import dump, load, JSONEncoder
 from collections import MutableSet, OrderedDict
 #bbm
-from util.db import DBaccess
-from util.libs import OrderedSet
+from libs import OrderedSet
 
 KEYS_COMMON = ("nick", "nicksuffix", "commandprefix", "admins")
 KEYS_SERVER = ("serverlabel",) + KEYS_COMMON + ("host", "port", "channels", "allowmodules", "denymodules")
 KEYS_SERVER_SET = set(KEYS_SERVER)
-KEYS_MAIN = KEYS_COMMON + ("modules", "datafolder", "datafile", "console", "servers")
+KEYS_MAIN = KEYS_COMMON + ("modules", "datadir", "datafile", "console", "servers")
 KEYS_MAIN_SET = set(KEYS_MAIN)
 #keys to create a copy of so no threading bads
 KEYS_COPY = ("admins", "channels", "allowmodules", "denymodules", "modules")
@@ -79,7 +77,7 @@ class Server(object):
 			self.denymodules = set(opts["denymodules"])
 		else: self.denymodules = []
 		
-		if old:
+		if old and old.state:
 			self.state = old.state
 			#convulted:
 			self.state.container.settings = self
@@ -151,13 +149,13 @@ class SettingsBase:
 	nick = "pyBBM"
 	nicksuffix = "_"
 	commandprefix = "!"
-	datafolder = "data"
+	datadir = "data"
 	datafile = "bbm.db"
 	console = True
 	modules = OrderedSet(["core"])
 	admins = []
 	servers = {}
-	cwd = getcwdu()
+	botdir = None
 	configfile = None
 	moduleopts = {}
 	moduledict = {}

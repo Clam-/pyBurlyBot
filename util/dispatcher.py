@@ -1,6 +1,6 @@
 from twisted.internet.threads import deferToThread
 
-from util.settings import Settings
+from settings import Settings
 from sys import stderr
 from traceback import format_exc
 from os.path import join
@@ -19,8 +19,7 @@ class Dispatcher:
 	# Construct the new hostmap, then overwrite the original when reload is complete.
 	@classmethod
 	def reload(cls, callback=None):
-		print "LOADING..."
-		moddir = join(Settings.cwd, "modules")
+		moddir = join(Settings.botdir, "modules")
 		
 		#reload all modules I guess
 		#here we should get modules from settings... Assume settings has been updated first.
@@ -61,7 +60,7 @@ class Dispatcher:
 				finally:
 					f.close()
 			except Exception as e:
-				notloaded.append((mod, format_exc()))
+				notloaded.append((modulename, format_exc()))
 				continue
 			# Catch errors that might be thrown on running module.init()
 			try:
@@ -124,7 +123,6 @@ class Dispatcher:
 				print >> stderr, traceback
 		else:
 			cls.hostmap = hostmap
-			print "All done."
 
 	@classmethod
 	def dispatch(cls, botinst, event):

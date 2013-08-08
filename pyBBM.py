@@ -8,14 +8,8 @@ from twisted.python import log
 
 # system imports
 from time import asctime, time, localtime
-from sys import exit, stdout
-from os.path import join
-from argparse import ArgumentParser
 
 #bbm imports
-from util.settings import Settings, ConfigException
-from util.state import addnetwork
-from util.container import Container
 from util.db import DBQuery, dbcommit, setupDB
 from util.dispatcher import Dispatcher
 from util.timer import Timers
@@ -322,6 +316,16 @@ class BBMBotFactory(ReconnectingClientFactory):
 
 if __name__ == '__main__':
 	from os.path import exists
+	from os import getcwdu
+	from os.path import join
+	from sys import exit, stdout
+	from argparse import ArgumentParser
+	#bbm
+	from util.settings import Settings, ConfigException
+	from util.state import addnetwork
+	from util.container import Container
+	
+	Settings.botdir = getcwdu()
 	# initialize logging
 	templog = log.startLogging(stdout)
 	print "Starting pyBBM, press CTRL+C to quit."
@@ -365,11 +369,11 @@ if __name__ == '__main__':
 	#setup log options
 	if not Settings.console:
 		templog.stop()
-		log.startLogging(open(join(Settings.cwd, "bbm.log"), 'a'), setStdout=False)
+		log.startLogging(open(join(Settings.botdir, "bbm.log"), 'a'), setStdout=False)
 	# else:
 		# log.startLogging(stdout)
 	
-	setupDB(join(Settings.cwd, Settings.datafolder), Settings.datafile)
+	setupDB(join(Settings.botdir, Settings.datadir), Settings.datafile)
 	DBQuery.dbThread.start()
 	try: Dispatcher.reload()
 	except:

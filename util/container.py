@@ -10,25 +10,27 @@ from functools import partial
 from twisted.internet import reactor
 from twisted.internet.threads import blockingCallFromThread
 
-from dispatcher import Dispatcher
-from event import WaitEvent
+from util.event import WaitEvent
+from util.state import Network
+
+#Cheap placeholder for future refactoring
+BBMBot = None
 
 class Container:
 	
-	def __init__(self, settings, CLS):
+	def __init__(self, settings):
 		self.network = settings.serverlabel
-		self.settings = settings
-		self.state = None
+		self._settings = settings
+		self.state = Network(settings.serverlabel)
 		self._botinst = None
 		self.outqueue = Queue() #deque or Queue, whatever
-		self._CLS = CLS
 
 	def __getattr__(self, name):
 		#if name isn't in container, look in botinst IF BOTINST EXISTS
 		if name in self.__dict__: 
 			return getattr(self, name)
 		else:
-			attr = getattr(self._CLS, name) #raise if doesn't have
+			attr = getattr(BBMBot, name) #raise if doesn't have
 			if self._botinst:
 				attr = getattr(self._botinst, name)
 				if hasattr(attr, '__call__'):
@@ -44,6 +46,9 @@ class Container:
 					#  but there is no botinst, None will be returned.
 					return None 
 
+	def _setbotinst(self, botinst):
+		self._botinst = botinst
+	
 	def queuer(self, funcname, *args, **kwargs):
 		self.outqueue.append((funcname, args, kwargs))
 	
@@ -65,29 +70,30 @@ class Container:
 
 	# Option getter/setters	
 	def getOption(self, opt):
-		return blockingCallFromThread(reactor, self.settings.getOption, opt)
+		return blockingCallFromThread(reactor, self._settings.getOption, opt)
 	def getModuleOption(self, module, option):
-		return blockingCallFromThread(reactor, self.settings.getModuleOption, module, option)
+		return blockingCallFromThread(reactor, self._settings.getModuleOption, module, option)
 		
 	# Use blockingCallFromThread on these so the modules can get the Exceptions
 	#  (in which case the bot will just receive it back if unhandled, bummer)
 	#  What exceptions you might ask? Well we'll only allow setting of values that exist
 	def setOption(self, opt, value):
-		return blockingCallFromThread(reactor, setattr, self.settings, opt, value)
+		return blockingCallFromThread(reactor, setattr, self._settings, opt, value)
 	def setModuleOption(self, module, option, value):
-		return blockingCallFromThread(reactor, setattr, self.settings.getModuleOption, module, option)
+		return blockingCallFromThread(reactor, setattr, self._settings.getModuleOption, module, option)
 		
 	# Some module helpers
 	def getModule(self, modname):
-		return blockingCallFromThread(reactor, self.settings.getModule, modname)
+		return blockingCallFromThread(reactor, self._settings.getModule, modname)
 	
 	def isModuleAvailable(self, modname):
-		return blockingCallFromThread(reactor, self.settings.isModuleAvailable, modname)
+		return blockingCallFromThread(reactor, self._settings.isModuleAvailable, modname)
 	
 	#callback to handle module errors
 	def _moduleerr(self, e):
 		print "error:", e #exception, or Failure thing
 		
+	# BROKEN: I broke this on purpose while deciding how to resolve circular import
 	def send_and_wait(self, sendfunc, sendargs, interestede, stope, timeout=10, sendkwargs={}):
 		"""This is a super massively blocking method..."""
 		start = time()
@@ -100,7 +106,7 @@ class Container:
 		#yield events
 		waitevent = WaitEvent(interestede, stope)
 		#add wait events to dispatcher. ONLY MODIFY DISPATCHER IN REACTOR THREAD PLEASE.
-		reactor.callFromThread(Dispatcher.addWaitEvent, self.settings.name, we)
+		#reactor.callFromThread(Dispatcher.addWaitEvent, self.settings.name, we)
 		#send...
 		sendfunc(*sendargs, **sendkwargs)
 		# and now we play the waiting game...

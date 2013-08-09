@@ -38,19 +38,15 @@ class User:
 
 # TODO: function_renaming_cuz_conventions ~grifftask
 class Network:
-	
-	def __init__(self, container):
-		self.name = container.network
-		container.state = self
+	def __init__(self, network):
+		self.name = network
 		self.users = {} # [nick] = User
 		self.channels = {}
-		self.container = container
 	
-	def nukenetwork(self, botinst):
+	def resetnetwork(self):
 		#clear channels
 		self.channels = {}
 		self.users = {}
-		self.container._setBotinst(botinst)
 		
 	def nukechannel(self, channel):
 		if channel in self.channels:
@@ -107,8 +103,6 @@ class Network:
 		else:
 			print "WARNING: user (%s) was never known about... 2SPOOKY" % user
 
-def addnetwork(settings, container):
-	settings.state = Network(container)
 
 
 	

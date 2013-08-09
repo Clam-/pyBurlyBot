@@ -5,7 +5,8 @@ from Queue import Queue
 from json import dump, load, JSONEncoder
 from collections import MutableSet, OrderedDict
 #bbm
-from libs import OrderedSet
+from util.libs import OrderedSet
+from util.container import Container
 
 KEYS_COMMON = ("nick", "nicksuffix", "commandprefix", "admins")
 KEYS_SERVER = ("serverlabel",) + KEYS_COMMON + ("host", "port", "channels", "allowmodules", "denymodules")
@@ -77,10 +78,12 @@ class Server(object):
 			self.denymodules = set(opts["denymodules"])
 		else: self.denymodules = set([])
 		
-		if old and old.state:
-			self.state = old.state
+		if old and old.container:
+			self.container = old.container
 			#convulted:
-			self.state.container.settings = self
+			self.container.settings = self
+		else:
+			self.container = Container(self)
 	
 	def __getattr__(self, name):
 		# get Server setting if set, else fall back to global Settings

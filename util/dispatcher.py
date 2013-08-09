@@ -126,9 +126,9 @@ class Dispatcher:
 
 	@classmethod
 	def dispatch(cls, botinst, event):
-		settings = botinst.settings
+		settings = botinst.container._settings
 		servername = settings.serverlabel
-		cont_or_wrap = settings.state.container
+		cont_or_wrap = botinst.container
 		if event.channel or event.nick:
 			cont_or_wrap = BotWrapper(event, cont_or_wrap)
 		msg = event.msg

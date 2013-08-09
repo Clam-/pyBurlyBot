@@ -213,7 +213,8 @@ class BBMBot(IRCClient):
 
 	def connectionLost(self, reason):
 		IRCClient.connectionLost(self, reason)
-		self.state.nukenetwork(None)
+		self.container._setbotinst(None)
+		self.state.resetnetwork()
 		print "[disconnected at %s]" % asctime(localtime(time()))
 
 	# callbacks for events
@@ -230,12 +231,12 @@ class BBMBot(IRCClient):
 			prefixes.append(p)
 		self.nickprefixes = "".join(prefixes)
 		
-		for chan in self.settings.channels:
+		for chan in self.container._settings.channels:
 			self.join(*chan)
 		
-		# TODO: change nukenetwork to reactor.callLater() or something.
-		# This really should be called after channels have been joined/rejoined so that any queues messages can be sent to channels
-		self.state.nukenetwork(self)
+		# TODO: Issue #12 - smarter reconnect, resend
+		self.container._setbotinst(self)
+		self.state.resetnetwork()
 
 	def joined(self, channel):
 		"""This will get called when the bot joins the channel."""
@@ -248,11 +249,9 @@ class BBMBot(IRCClient):
 		#self.names(channel)
 
 	def userJoined(self, user, channel):
-		#self.state.adduser(channel, user)
 		pass
 
 	def userLeft(self, user, channel):
-		#self.state.removeuser(channel, user)
 		pass
 
 	def action(self, hostmask, channel, msg):
@@ -264,7 +263,7 @@ class BBMBot(IRCClient):
 	# TODO: Need to add more of these for hooking other outbound events maybe, like notice...
 	def sendmsg(self, channel, msg):
 		#check if there's hooks, if there is, dispatch, if not, send directly
-		if Dispatcher.hostmap[self.settings.name]["MSGHOOKS"]:
+		if Dispatcher.hostmap[self.container.network]["MSGHOOKS"]:
 			#dest is Event.channel, or Event.args
 			dispatch(self, Event(type="sendmsg", channel=channel, msg=msg))
 		else:
@@ -288,8 +287,11 @@ class BBMBot(IRCClient):
 	# collisions. The default method appends an underscore.
 	#Just kidding, actually let's do this after all - user option
 	def alterCollidedNick(self, nickname):
-		return nickname + self.settings.nicksuffix.encode("utf-8")
+		return nickname + self.container._settings.nicksuffix.encode("utf-8")
 
+#remove this after big event hook change
+import util.container
+util.container.BBMBot = BBMBot
 
 class BBMBotFactory(ReconnectingClientFactory):
 	"""A factory for BBMBot.
@@ -301,15 +303,15 @@ class BBMBotFactory(ReconnectingClientFactory):
 
 	def __init__(self, serversettings):
 		#reconnect settings
-		self.serversettings = serversettings
+		self.container = serversettings.container
 		self.maxDelay = 45
 		self.factor = 1.6180339887498948
 	
 	def buildProtocol(self, address):
 		proto = ReconnectingClientFactory.buildProtocol(self, address)
-		proto.settings = self.serversettings
-		proto.state = self.serversettings.state
-		proto.nickname = self.serversettings.nick.encode("utf-8")
+		proto.container = self.container
+		proto.state = self.container.state
+		proto.nickname = self.container._settings.nick.encode("utf-8")
 		return proto
 
 
@@ -322,7 +324,6 @@ if __name__ == '__main__':
 	from argparse import ArgumentParser
 	#bbm
 	from util.settings import Settings, ConfigException
-	from util.state import addnetwork
 	from util.container import Container
 	
 	Settings.botdir = getcwdu()
@@ -387,8 +388,6 @@ if __name__ == '__main__':
 	# create factory protocol and application
 	if Settings.servers:
 		for server in Settings.servers.values():
-			#add wrapper to state
-			addnetwork(server, Container(server, BBMBot))
 			reactor.connectTCP(server.host, server.port, BBMBotFactory(server))
 		# run bot
 		reactor.run()

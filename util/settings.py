@@ -72,10 +72,10 @@ class Server(object):
 		
 		if "allowmodules" in opts:
 			self.allowmodules = set(opts["allowmodules"])
-		else: self.allowmodules = []
+		else: self.allowmodules = set([])
 		if "denymodules" in opts:
 			self.denymodules = set(opts["denymodules"])
-		else: self.denymodules = []
+		else: self.denymodules = set([])
 		
 		if old and old.state:
 			self.state = old.state

@@ -52,6 +52,40 @@ SETTINGS_TEST1 = """{
 	]
 }"""
 
+SETTINGS_TEST2 = """{
+	"nick": "bbbb",
+	"nicksuffix": "@",
+	"commandprefix": "#",
+	"servers": [
+		{
+			"serverlabel": "server1",
+			"host": "irc.server1.net",
+			"port": "5555",
+			"datadir": "testdir",
+			"datafile": "test.db",
+			"console" : false
+		},
+		{
+			"serverlabel": "server2",
+			"host": "irc.server2.com",
+			"port": 1111,
+			"nick" : "TESTNAME",
+			"nicksuffix" : "%",
+			"commandprefix" : "$"
+		},
+		{
+			"serverlabel": "server3",
+			"host": "irc.server3.biz",
+			"port": "6668",
+			"channels": [
+				["#channel1", "password1"],
+				["#channel2", "password2"],
+				"#channel3"
+			]
+		}
+	]
+}"""
+
 
 class SettingsTest(TestCase):
 	def test_blank(self):
@@ -83,6 +117,9 @@ class SettingsTest(TestCase):
 			server = Settings.servers[serverlabel]
 			if serverlabel == "server1":
 				self.assertEqual(serverlabel, "server1")
+				self.assertEqual(server.nick, "aaaaa")
+				self.assertEqual(server.nicksuffix, "^")
+				self.assertEqual(server.commandprefix, "&")
 				self.assertEqual(server.host, "irc.server1.net")
 				self.assertEqual(server.port, "9999")
 				self.assertEqual(server.channels, [("#channel1",), ("#channel2",)])
@@ -102,4 +139,54 @@ class SettingsTest(TestCase):
 			else:
 				raise TestException("This shouldn't happen unless test is broken")
 		
+		#test next config
+		f = open(config, "wb")
+		f.write(SETTINGS_TEST2)
+		f.flush()
+		fsync(f.fileno())
+		f.close()
+		
+		Settings.reload()
+		
+		self.assertEqual(Settings.nick, "bbbb")
+		self.assertEqual(Settings.nicksuffix, "@")
+		self.assertEqual(Settings.commandprefix, "#")
+		self.assertEqual(Settings.modules, ["core"])
+		self.assertEqual(Settings.datadir, "data")
+		self.assertEqual(Settings.datafile, "bbm.db")
+		self.assertEqual(Settings.console, True)
+		for serverlabel in Settings.servers:
+			server = Settings.servers[serverlabel]
+			if serverlabel == "server1":
+				self.assertEqual(serverlabel, "server1")
+				self.assertEqual(server.nick, "bbbb")
+				self.assertEqual(server.nicksuffix, "@")
+				self.assertEqual(server.commandprefix, "#")
+				self.assertEqual(server.datadir, "data") #should Server have access to this?
+				self.assertEqual(server.datafile, "bbm.db") #should Server have access to this?
+				self.assertEqual(server.console, True) #should Server have access to this?
+				self.assertEqual(server.host, "irc.server1.net")
+				self.assertEqual(server.port, "5555")
+				self.assertEqual(server.channels, [])
+			elif serverlabel == "server2":
+				self.assertEqual(serverlabel, "server2")
+				self.assertEqual(server.nick, "TESTNAME")
+				self.assertEqual(server.nicksuffix, "%")
+				self.assertEqual(server.commandprefix, "$")
+				self.assertEqual(server.host, "irc.server2.com")
+				self.assertEqual(server.port, 1111)
+				self.assertEqual(server.channels, [])
+				self.assertEqual(server.allowmodules, set())
+				self.assertEqual(server.denymodules, set())
+			elif serverlabel == "server3":
+				self.assertEqual(serverlabel, "server3")
+				self.assertEqual(server.host, "irc.server3.biz")
+				self.assertEqual(server.port, "6668")
+				self.assertEqual(server.channels, [("#channel1", "password1"), ("#channel2", "password2"), 
+					("#channel3",)])
+			else:
+				raise TestException("This shouldn't happen unless test is broken")
+		
 		remove(config)
+		
+		

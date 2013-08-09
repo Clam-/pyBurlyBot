@@ -25,3 +25,4 @@ class DispatcherTest(TestCase):
 	
 	def test_reloaded(self):
 		Dispatcher.reload()
+		

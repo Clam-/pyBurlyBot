@@ -1,4 +1,4 @@
-#pyBBM
+#pyBurlyBot
 
 # twisted imports
 from twisted.words.protocols.irc import IRCClient
@@ -9,7 +9,7 @@ from twisted.python import log
 # system imports
 from time import asctime, time, localtime
 
-#bbm imports
+#BurlyBot imports
 from util.db import DBQuery, dbcommit, setupDB
 from util.dispatcher import Dispatcher
 from util.timer import Timers
@@ -17,8 +17,8 @@ from util.event import Event
 
 dispatch = Dispatcher.dispatch
 
-class BBMBot(IRCClient):
-	"""BBM"""
+class BurlyBot(IRCClient):
+	"""BurlyBot"""
 	# http://twistedmatrix.com/documents/11.0.0/api/twisted.words.protocols.irc.IRCClient.html
 	#nickname = None
 	#lineRate = 1
@@ -291,15 +291,15 @@ class BBMBot(IRCClient):
 
 #remove this after big event hook change
 import util.container
-util.container.BBMBot = BBMBot
+util.container.BurlyBot = BurlyBot
 
-class BBMBotFactory(ReconnectingClientFactory):
-	"""A factory for BBMBot.
+class BurlyBotFactory(ReconnectingClientFactory):
+	"""A factory for BurlyBot.
 	A new protocol instance will be created each time we connect to the server.
 	"""
 
 	# the class of the protocol to build when new connection is made
-	protocol = BBMBot
+	protocol = BurlyBot
 
 	def __init__(self, serversettings):
 		#reconnect settings
@@ -322,30 +322,30 @@ if __name__ == '__main__':
 	from os.path import join
 	from sys import exit, stdout
 	from argparse import ArgumentParser
-	#bbm
+	#BurlyBot
 	from util.settings import Settings, ConfigException
 	from util.container import Container
 	
 	Settings.botdir = getcwdu()
 	# initialize logging
 	templog = log.startLogging(stdout)
-	print "Starting pyBBM, press CTRL+C to quit."
+	print "Starting pyBurlyBot, press CTRL+C to quit."
 	
-	parser = ArgumentParser(description="Internet bort pyBBM", 
-		epilog="pyBBM requires a config file to be specified to run.")
+	parser = ArgumentParser(description="Internet bort pyBurlyBot", 
+		epilog="pyBurlyBot requires a config file to be specified to run.")
 	parser.add_argument("-c", "--create-config", action="store_true", dest="createconfig", 
-		default=False, help="Creates example config. CONFIGFILE if specified else bbm.json")
+		default=False, help="Creates example config. CONFIGFILE if specified else BurlyBot.json")
 	parser.add_argument("-f", "--force", action="store_true", dest="force", 
 		default=False, help="Force overwrite of existing config when creating config.")
 	# CONSIDER: this could easily support multiple config files I guess
 	#   but changing Settings to support this would be kind of intense I think.
-	parser.add_argument('config', nargs="?", metavar="CONFIGFILE", default=False)
+	parser.add_argument('config', nargs="?", metavar="CONFIGFILE", default=None)
 	
 	args = parser.parse_args()
 	
 	# create-config
 	if args.createconfig:
-		if not args.config: args.config = "bbm.json"
+		if not args.config: args.config = "BurlyBot.json"
 		print "Creating configuration..."
 		if exists(args.config) and not args.force:
 			print "Error: NEWCONFIGFILE (%s) exists. Use --force (-f) to force overwrite. Bailing." % args.config
@@ -370,7 +370,7 @@ if __name__ == '__main__':
 	#setup log options
 	if not Settings.console:
 		templog.stop()
-		log.startLogging(open(join(Settings.botdir, "bbm.log"), 'a'), setStdout=False)
+		log.startLogging(open(join(Settings.botdir, "BurlyBot.log"), 'a'), setStdout=False)
 	# else:
 		# log.startLogging(stdout)
 	
@@ -388,7 +388,7 @@ if __name__ == '__main__':
 	# create factory protocol and application
 	if Settings.servers:
 		for server in Settings.servers.values():
-			reactor.connectTCP(server.host, server.port, BBMBotFactory(server))
+			reactor.connectTCP(server.host, server.port, BurlyBotFactory(server))
 		# run bot
 		reactor.run()
 	else:

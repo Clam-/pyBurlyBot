@@ -4,11 +4,11 @@ from tempfile import NamedTemporaryFile
 
 from twisted.trial.unittest import TestCase
 
-from pyBBM.pyBBM import BBMBot
-from pyBBM.util.settings import KEYS_MAIN, \
+from pyBurlyBot.pyBurlyBot import BurlyBot
+from pyBurlyBot.util.settings import KEYS_MAIN, \
 	SettingsBase, Settings
 
-from pyBBM.tests import TestException
+from pyBurlyBot.tests import TestException
 
 SETTINGS_TEST1 = """{
 	"nick": "aaaaa",
@@ -153,7 +153,7 @@ class SettingsTest(TestCase):
 		self.assertEqual(Settings.commandprefix, "#")
 		self.assertEqual(Settings.modules, ["core"])
 		self.assertEqual(Settings.datadir, "data")
-		self.assertEqual(Settings.datafile, "bbm.db")
+		self.assertEqual(Settings.datafile, "BurlyBot.db")
 		self.assertEqual(Settings.console, True)
 		for serverlabel in Settings.servers:
 			server = Settings.servers[serverlabel]
@@ -163,7 +163,7 @@ class SettingsTest(TestCase):
 				self.assertEqual(server.nicksuffix, "@")
 				self.assertEqual(server.commandprefix, "#")
 				self.assertEqual(server.datadir, "data") #should Server have access to this?
-				self.assertEqual(server.datafile, "bbm.db") #should Server have access to this?
+				self.assertEqual(server.datafile, "BurlyBot.db") #should Server have access to this?
 				self.assertEqual(server.console, True) #should Server have access to this?
 				self.assertEqual(server.host, "irc.server1.net")
 				self.assertEqual(server.port, "5555")

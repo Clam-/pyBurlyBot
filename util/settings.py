@@ -4,7 +4,7 @@ from copy import copy
 from Queue import Queue
 from json import dump, load, JSONEncoder
 from collections import MutableSet, OrderedDict
-#bbm
+#BurlyBot
 from util.libs import OrderedSet
 from util.container import Container
 
@@ -149,11 +149,11 @@ class Server(object):
 		return d
 
 class SettingsBase:
-	nick = "pyBBM"
+	nick = "pyBurlyBot"
 	nicksuffix = "_"
 	commandprefix = "!"
 	datadir = "data"
-	datafile = "bbm.db"
+	datafile = "BurlyBot.db"
 	console = True
 	modules = OrderedSet(["core"])
 	admins = []

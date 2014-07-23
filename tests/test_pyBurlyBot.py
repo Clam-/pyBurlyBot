@@ -5,16 +5,16 @@ from tempfile import NamedTemporaryFile
 from twisted.trial.unittest import TestCase
 from twisted.test import proto_helpers
 
-from pyBBM.pyBBM import BBMBot
-from pyBBM.util.settings import EXAMPLE_SERVER, EXAMPLE_SERVER2, KEYS_MAIN, \
+from pyBurlyBot.pyBurlyBot import BurlyBot
+from pyBurlyBot.util.settings import EXAMPLE_SERVER, EXAMPLE_SERVER2, KEYS_MAIN, \
 	SettingsBase, Settings
 
 #Settings.botdir = botdir
 
-class pyBBMTest(TestCase):
+class pyBurlyBotTest(TestCase):
 	
 	def setUp(self):
-		self.proto = BBMBot()
+		self.proto = BurlyBot()
 		self.tr = proto_helpers.StringTransport()
 		self.proto.makeConnection(self.tr)
 

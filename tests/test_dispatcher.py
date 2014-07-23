@@ -3,16 +3,16 @@ from os.path import join, abspath
 
 #Required path fudging for module space
 import sys
-botdir = abspath(join(getcwdu(), "pyBBM"))
+botdir = abspath(join(getcwdu(), "pyBurlyBot"))
 sys.path.insert(0,botdir)
 
 from twisted.trial.unittest import TestCase
 
-from pyBBM.pyBBM import BBMBot
-from pyBBM.util.settings import KEYS_MAIN, Settings
-from pyBBM.util.dispatcher import Dispatcher
+from pyBurlyBot.pyBurlyBot import BurlyBot
+from pyBurlyBot.util.settings import KEYS_MAIN, Settings
+from pyBurlyBot.util.dispatcher import Dispatcher
 
-from pyBBM.tests import TestException
+from pyBurlyBot.tests import TestException
 Settings.botdir = botdir
 
 class DispatcherTest(TestCase):

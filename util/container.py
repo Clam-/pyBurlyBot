@@ -14,7 +14,7 @@ from util.event import WaitEvent
 from util.state import Network
 
 #Cheap placeholder for future refactoring
-BBMBot = None
+BurlyBot = None
 
 class Container:
 	
@@ -30,7 +30,7 @@ class Container:
 		if name in self.__dict__: 
 			return getattr(self, name)
 		else:
-			attr = getattr(BBMBot, name) #raise if doesn't have
+			attr = getattr(BurlyBot, name) #raise if doesn't have
 			if self._botinst:
 				attr = getattr(self._botinst, name)
 				if hasattr(attr, '__call__'):
@@ -42,7 +42,7 @@ class Container:
 					# return queueable
 					return partial(self.queuer, name)
 				else:
-					# SPECIAL CASE: if module requests attribute from BBMBot
+					# SPECIAL CASE: if module requests attribute from BurlyBot
 					#  but there is no botinst, None will be returned.
 					return None 
 
@@ -64,7 +64,7 @@ class Container:
 			while not self.outqueue.empty():
 				outbound = self.outqueue.get()
 				print "PROCESSING QUEUED THINGS"
-				# These will always be BBMBot functions so let's do some magic.
+				# These will always be BurlyBot functions so let's do some magic.
 				# There shouldn't be any AttributeError, and if there is, bad luck I guess.
 				getattr(self.botinst, outbound[0])(*outbound[1], **outbound[2])
 

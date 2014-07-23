@@ -1,4 +1,4 @@
-#core internal BBM commands
+#core internal BurlyBot commands
 # things like .reload
 from util import Mapping
 from util.dispatcher import Dispatcher

@@ -1,14 +1,9 @@
 #sample module
 from re import compile as recompile
 from util import Mapping
-from util.db import DBQuery
 
 def test_things(event, botinst):
 	print "%s Dispatched.  Prefix: '%s' Params: '%s'" % (event.type, event.prefix, event.params)
-
-#init should always be here to setup needed DB tables or objects or whatever
-def init():
-	return True
 
 #mappings to methods
 mappings = (Mapping(types=["privmsged", "NOTICE",

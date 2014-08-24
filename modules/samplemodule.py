@@ -9,12 +9,12 @@ class STUFF:
 	pass
 
 
-def repeater(event, botinst):
+def repeater(event, bot):
 	#do some things
-	botinst.say("%s : %s" % (event.nick, event.msg))
+	bot.say("%s : %s" % (event.nick, event.msg))
 
 #init should always be here to setup needed DB tables or objects or whatever
-def init():
+def init(bot):
 	"""Do startup module things. This sample just checks if table exists. If not, creates it."""
 	result = DBQuery("SELECT name FROM sqlite_master WHERE name='sample_table'")
 	if result.error:

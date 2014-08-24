@@ -16,6 +16,7 @@ class BotWrapper:
 	
 	# I think say should act as like a "reply" sending message back to whatever
 	#  send it, be it channel or user
+	# TODO: should be renamed "reply" ?
 	def say(self, msg):
 		if self.event.isPM():
 			self.msg(self.event.nick, msg)
@@ -26,12 +27,12 @@ class BotWrapper:
 		return blockingCallFromThread(reactor, self._isadmin, module)
 	
 	#_isadmin bypasses the containers get*Option methods so that it
-	# only makes 1 call in the reactor and not 2 (in the case of module)
+	# only makes 1 call in the reactor and not 2 (in the case of module admin)
 	def _isadmin(self, module=None):
 		if not self.event.nick: return None
-		admins = self._botcont.settings.getOption("admins")
+		admins = self._botcont._settings.getOption("admins")
 		if module:
-			madmins = self._botcont.settings.getModuleOption(module, "admins")
+			madmins = self._botcont._settings.getModuleOption(module, "admins")
 			if madmins:
 				admins.extend(madmins)
 		return self.event.nick in admins

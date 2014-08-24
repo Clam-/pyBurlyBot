@@ -23,8 +23,4 @@ def dbquery(event, bot):
 	else:
 		bot.msg(event.channel, "uwish.")
 
-		
-def init():
-	return True
-
 mappings = (Mapping(types=["privmsged"], command="dbquery", function=dbquery),)

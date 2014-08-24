@@ -51,8 +51,5 @@ def config(event, bot):
 	else:
 		return showhelp(bot)
 	
-def init():
-	return True
-
 #mappings to methods
 mappings = (Mapping(types=["privmsged"], command="config", function=config),)

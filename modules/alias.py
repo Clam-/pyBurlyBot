@@ -2,8 +2,7 @@
 from util import Mapping
 from util.db import DBQuery
 
-# TODO: remove this dependency
-from util.settings import Settings
+REQUIRES = ("users",)
 
 def get_nick(alias):
 	result = DBQuery('''SELECT nick FROM alias WHERE alias = ?;''', (alias,))
@@ -34,7 +33,7 @@ def _list_alias(nick):
 			aliases.append(row['alias'])
 	return aliases
 
-def alias(event, botinst):
+def alias(event, bot):
 	# parse input "add" "del", etc
 	#lol Griff can fix all this up. Debug onry
 	query = DBQuery()
@@ -48,18 +47,18 @@ def alias(event, botinst):
 			command, input = command[0], None
 	if command == "add":
 		if not input:
-			botinst.msg(event.channel, "Need source and dest.")
+			bot.msg(event.channel, "Need source and dest.")
 			return
 		things = input.split(" ", 1)
 		if len(things) >2:
-			botinst.msg(event.channel, "Need source and dest.")
+			bot.msg(event.channel, "Need source and dest.")
 			return
 		source, new = things
 		#check if source is alias
 		nnick = get_nick(new)
 		if nnick:
 			#alias already in use by nnick
-			botinst.msg(event.channel, "Nick already in use by %s" % nnick)
+			bot.msg(event.channel, "Nick already in use by %s" % nnick)
 			return
 		nick = get_nick(source)
 		if not nick:
@@ -70,18 +69,18 @@ def alias(event, botinst):
 				return
 			if query.rows:
 				if add_alias(source, new):
-					botinst.msg(event.channel, "Added %s to %s" % (new, source))
+					bot.msg(event.channel, "Added %s to %s" % (new, source))
 			else:
-				botinst.msg(event.channel, "%s not seen before." % source)
+				bot.msg(event.channel, "%s not seen before." % source)
 				return
 			
 		else:
 			#add new to nick-source
 			if add_alias(nick, new):
-				botinst.msg(event.channel, "Added %s to %s" % (new, nick))
+				bot.msg(event.channel, "Added %s to %s" % (new, nick))
 	elif command == "del":
 		if not input:
-			botinst.msg(event.channel, "Need alias to remove")
+			bot.msg(event.channel, "Need alias to remove")
 			return
 		#just blindly delete?
 		#well I guess check if exists at least
@@ -90,13 +89,13 @@ def alias(event, botinst):
 			print "bad happen bbb %s" % query.error
 			return
 		if not query.rows:
-			botinst.msg(event.channel, "%s alias not found" % input)
+			bot.msg(event.channel, "%s alias not found" % input)
 		
 		#exists
 		#okay to try delete
 		query.query('''DELETE FROM alias WHERE alias = ?;''', (input,))
 		if query.error:
-			botinst.msg(event.channel, "Remove of alias failed: %s" % query.error)
+			bot.msg(event.channel, "Remove of alias failed: %s" % query.error)
 	
 	else:
 		#show aliases:
@@ -106,24 +105,25 @@ def alias(event, botinst):
 		nick = get_nick(source)
 		if nick:
 			aliases = _list_alias(nick)
-			botinst.msg(event.channel, "Aliases for %s: %s" % (nick, ", ".join(aliases)))
+			bot.msg(event.channel, "Aliases for %s: %s" % (nick, ", ".join(aliases)))
 			return
 		else:
 			#check for actual nick, actually, just blind it...
 			# can do fancy later
 			aliases = _list_alias(source)
-			botinst.msg(event.channel, "Aliases for %s: %s" % (source, ", ".join(aliases)))
+			bot.msg(event.channel, "Aliases for %s: %s" % (source, ", ".join(aliases)))
 	return
 
 #init should always be here to setup needed DB tables or objects or whatever
-def init():
+def init(botcont):
 	"""Do startup module things. This sample just checks if table exists. If not, creates it."""
 	#require that user is loaded already:
 	# TODO: refactor to somehow access easy module availability 
-	if "users" not in Settings.moduledict:
+	print "is module avail"
+	if not botcont.isModuleAvailable("users"):
 		print "ERROR LOADING ALIAS: REQUIREMENT OF users MODULE NOT MET"
 		return False
-	
+	print "MODULE AVAILABLE"
 	query = DBQuery('''SELECT name FROM sqlite_master WHERE name='alias';''')
 	if query.error:
 		#uh oh....
@@ -142,7 +142,6 @@ def init():
 			print "Error creating table... %s" % query.error
 			return False
 
-	
 	#index alias column
 	#Unique does this for us
 	#but should index nick column so can do fast "get all alias for nick" queries...

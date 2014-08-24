@@ -5,8 +5,7 @@
 #twisted
 from twisted.python import log
 #bbm
-from util import Mapping
-from util.db import DBQuery
+from util import dbCheckCreateTable, DBQuery, Mapping
 #python
 from time import time
 #helpers
@@ -22,6 +21,7 @@ def _user_update(event, nick=None):
 
 def user_update(event, bot):
 	#check is alias is loaded and available
+	# this method gets called on the reactor so it may cause many many context switches
 	if bot.isModuleAvailable("alias"):
 		# TODO: use some alias module methods using bot.getModule("alias").method()
 		result = DBQuery('''SELECT nick FROM alias WHERE alias = ?;''', (event.nick,))
@@ -79,45 +79,26 @@ def user_seen(event, bot):
 	return
 	
 #init should always be here to setup needed DB tables or objects or whatever
-def init():
-	"""Do startup module things. This sample just checks if table exists. If not, creates it."""
-	query = DBQuery()
-	query.query('''SELECT name FROM sqlite_master WHERE name='user';''')
-	if query.error:
-		#uh oh....
-		print "What happened?: %s" % query.error
+def init(bot):
+	"""Do startup module things. This just checks if table exists. If not, creates it."""
+	
+	if not dbCheckCreateTable("user", '''
+		create table user(
+		user TEXT PRIMARY KEY,
+		host TEXT,
+		lastseen INTEGER,
+		seenwhere TEXT
+	);'''):
+		print "Failed to initialize users module (table)"
 		return False
 
-	#primary key should be made up of server+nick
-	if not query.rows:
-		query.query('''
-			create table user(
-			nick TEXT PRIMARY KEY,
-			host TEXT,
-			lastseen INTEGER,
-			seenwhere TEXT
-			);''')
-		# should probably make sure this returns valid
-		if query.error:
-			print "Error creating table... %s" % query.error
-			return False
-
-	
 	#should probably index nick column
 	#unique does this for us
 	#but should probably index lastseen so can ez-tells:
 	# if not exists:
-	query.query('''SELECT name FROM sqlite_master WHERE name='user_lastseen_idx';''')
-	if query.error:
-		#uh oh
-		print "What happened?: %s" % query.error
+	if not dbCheckCreateTable("user_lastseen_idx", '''CREATE INDEX user_lastseen_idx ON user(lastseen);'''):
+		print "Failed to initialize users module (index)"
 		return False
-
-	if not query.rows:
-		query.query('''CREATE INDEX user_lastseen_idx ON user(lastseen);''')
-		if query.error:
-			print "Error creating lastseen index... %s" % query.error
-			return False
 
 	return True
 

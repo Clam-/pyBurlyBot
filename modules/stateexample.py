@@ -1,7 +1,7 @@
 #state example
 from util import Mapping
 
-def statecommand(event, botinst):
+def statecommand(event, bot):
 	command = ""
 	if event.input:
 		command = event.input.split(" ", 1)
@@ -12,31 +12,26 @@ def statecommand(event, botinst):
 	
 	if command == "channel":
 		if not input:
-			for chan in botinst.state.channels.keys():
-				botinst.msg(event.channel, "Channel: %s" % chan)
-				for user in botinst.state.channels[chan].users:
-					botinst.msg(event.channel, "- %s" % user)
+			for chan in bot.state.channels.keys():
+				bot.msg(event.channel, "Channel: %s" % chan)
+				for user in bot.state.channels[chan].users:
+					bot.msg(event.channel, "- %s" % user)
 		else:
-			if input in botinst.state.channels:
-				botinst.msg(event.channel, "Channel: %s:" % input)
-				for user in botinst.state.channels[input].users:
-					botinst.msg(event.channel, "- %s" % user)
+			if input in bot.state.channels:
+				bot.msg(event.channel, "Channel: %s:" % input)
+				for user in bot.state.channels[input].users:
+					bot.msg(event.channel, "- %s" % user)
 			else:
-				botinst.msg(event.channel, "lol dunno channel %s" % input)
+				bot.msg(event.channel, "lol dunno channel %s" % input)
 		
 	elif command == "network":
-		botinst.msg(event.channel, "Known users on network: %s" % ", ".join(botinst.state.users.keys()))
+		bot.msg(event.channel, "Known users on network: %s" % ", ".join(bot.state.users.keys()))
 
 	elif command == "lol":
-		print botinst.supported.getFeature("PREFIX")
+		print bot.supported.getFeature("PREFIX")
 		
 	elif command == "channels":
-		botinst.msg(event.channel, ", ".join(botinst.state.channels.keys()))
-
-
-def init():
-	#lol do what now...
-	return True
+		bot.msg(event.channel, ", ".join(bot.state.channels.keys()))
 
 #mappings to methods
 mappings = (Mapping(types=["privmsged"], command="state", function=statecommand),)

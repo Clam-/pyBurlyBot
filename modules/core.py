@@ -8,19 +8,15 @@ from util.settings import Settings
 from twisted.internet import reactor
 ###
 
-def reloadmods(event, botinst):
-	if botinst.isadmin():
-		#reload settings first, then dispatcher
-		# let's only modify Settings in reactor as well
+def reloadmods(event, bot):
+	if bot.isadmin():
+		#reload settings, important to do only from within reactor
 		reactor.callFromThread(Settings.reload)
-		# let's send this method to the reactor thread ONLY MODIFY DISPATCHER IN REACTOR THREAD PLEASE.
-		reactor.callFromThread(Dispatcher.reload)
-		botinst.msg(event.channel, "Done.")
+		#also refresh dispatchers
+		reactor.callFromThread(Settings.reloadDispatchers)
+		bot.msg(event.channel, "Done.")
 	else:
-		botinst.msg(event.channel, "Nou.")
+		bot.msg(event.channel, "No, you.")
 	return
-
-def init():
-	return True
 
 mappings = (Mapping(types=["privmsged"], command="reload", function=reloadmods),)

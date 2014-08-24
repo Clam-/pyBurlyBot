@@ -3,8 +3,8 @@
 
 #datafolder and settings
 data/
-bbm.json
-bbm.log
+*.json
+*.log
 
 #testing
 modules/test.py

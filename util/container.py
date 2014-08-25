@@ -6,7 +6,6 @@
 from Queue import Queue, Empty
 from time import time
 from functools import partial
-from traceback import print_stack
 
 from twisted.internet import reactor
 from twisted.internet.threads import blockingCallFromThread
@@ -88,7 +87,6 @@ class Container:
 		return blockingCallFromThread(reactor, self._settings.getModule, modname)
 	
 	def isModuleAvailable(self, modname):
-		print print_stack()
 		return blockingCallFromThread(reactor, self._settings.isModuleAvailable, modname)
 	
 	#callback to handle module errors

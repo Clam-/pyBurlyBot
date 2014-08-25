@@ -238,8 +238,10 @@ class SettingsBase:
 	
 	def reloadDispatchers(self):
 		# Reset Dispatcher
+		print "reloading dispatchers"
 		Dispatcher.reset()
 		for server in self.servers.values():
+			print server.serverlabel
 			server.initializeDispatcher()
 		Dispatcher.showLoadErrors()
 	

@@ -1,45 +1,30 @@
 #timerexample.py
 
-#BROKEN: needs total overhaul
+from util import Mapping, Timers, commandSplit, argumentSplit
 
-from util import Mapping, Timers
-
-def timercallback(network, channel, msg):
-	#get bot/wrapper
-	#bot = Settings.servers[network].state.container
-	
+# requires keyword arguments
+def timercallback(bot=None, channel=None, msg=None):
 	bot.msg(channel, msg)
 
-
 def timers(event, bot):
-	command = ""
-	if event.input:
-		command = event.input.split(" ", 1)
-		if len(command) > 1:
-			command, input = command
-		else:
-			command, input = command[0], None
+	command, args = commandSplit(event.input)
 	
 	if command == "show":
-		if not input:
-			bot.msg(event.channel, "Timers:")
-			for timer in Timers.timers:
-				t = Timers.timers[timer]
-				s = " - %s: reps = %s, delay = %s, f = %s" % (t.name, t.reps, t.interval, t.f)
-				bot.msg(event.channel, s)
+		bot.msg(event.channel, "Timers:")
+		for timer in Timers.getTimers().values():
+			s = " - %s: reps = %s, delay = %s, f = %s" % (timer.name, timer.reps, timer.interval, timer.f)
+			bot.msg(event.channel, s)
 		
 	elif command == "add":
-		ta = input.split(" ", 3) #add timername delay reps msg
-		if len(ta) != 4:
-			bot.msg(event.channel, "Not enough things. Need timername delay reps message")
+		args = argumentSplit(args, 4) #add timername delay reps msg
+		if not args:
+			bot.msg(event.channel, "Not enough arguments. Need: timername delay reps message (reps <= 0 means forever)")
 			return
-		if ta[2] == 0: reps = None
-		else: reps = int(ta[2])
-		Timers.addtimer(ta[0], float(ta[1]), timercallback, reps=reps, msg=ta[3], network=bot.network, channel=event.channel)
-		bot.msg(event.channel, "Timer %s added." % ta[0])
+		msg = Timers.addtimer(args[0], float(args[1]), timercallback, reps=int(args[2]), msg=args[3], bot=bot, channel=event.channel)[1]
+		bot.say("%s (%s)" % (msg, args[0]))
 
 	elif command == "stop":
-		print Timers.deltimer(input)
+		bot.say(Timers.deltimer(args)[1])
 
 #mappings to methods
 mappings = (Mapping(types=["privmsged"], command="timers", function=timers),)

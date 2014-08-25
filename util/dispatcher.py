@@ -78,7 +78,6 @@ class Dispatcher:
 			elif reqsloaded is None:
 				self.NOTLOADED.append((modulename, "Requirements cannot be loaded."))
 				return None
-		print "processing init of %s" % modulename
 		#process module init if it has one
 		if hasattr(module, "init"):
 			try:
@@ -91,7 +90,6 @@ class Dispatcher:
 		self.MODULEDICT[modulename] = module
 		self.processMappings(module)
 		print "Loaded %s." % modulename
-		print Dispatcher.MODULEDICT
 		return True
 		
 	def processMappings(self, module):
@@ -137,8 +135,8 @@ class Dispatcher:
 	
 	@classmethod
 	def reset(cls):
-		MODULEDICT = {}
-		NOTLOADED = []
+		cls.MODULEDICT = {}
+		cls.NOTLOADED = []
 	
 	def dispatch(self, botinst, event):
 		settings = self.settings

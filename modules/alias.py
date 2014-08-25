@@ -119,11 +119,9 @@ def init(botcont):
 	"""Do startup module things. This sample just checks if table exists. If not, creates it."""
 	#require that user is loaded already:
 	# TODO: refactor to somehow access easy module availability 
-	print "is module avail"
 	if not botcont.isModuleAvailable("users"):
 		print "ERROR LOADING ALIAS: REQUIREMENT OF users MODULE NOT MET"
 		return False
-	print "MODULE AVAILABLE"
 	query = DBQuery('''SELECT name FROM sqlite_master WHERE name='alias';''')
 	if query.error:
 		#uh oh....

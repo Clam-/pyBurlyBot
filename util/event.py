@@ -1,5 +1,7 @@
 from twisted.words.protocols.irc import CHANNEL_PREFIXES
 
+#TODO: consider this, events should probably not be mutable 
+# (can this be done? might have to trust modules not to do something stupid)
 class Event:
 	def __init__(self, type, prefix, params, args=None, hostmask=None, channel=None, msg=None):
 		self.type = type

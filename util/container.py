@@ -14,6 +14,16 @@ from util.event import WaitEvent
 from util.state import Network
 from util.client import BurlyBot
 
+class TimeoutException(Exception):
+	pass
+
+class WaitData:
+	def __init__(self, interestede, stope):
+		self.done = False
+		self.q = Queue()
+		self.interestede = set(interestede)
+		self.stope = set(stope)
+
 class Container:
 	def __init__(self, settings):
 		self.network = settings.serverlabel
@@ -93,31 +103,34 @@ class Container:
 	def _moduleerr(self, e):
 		print "error:", e #exception, or Failure thing
 		
-	# BROKEN: I broke this on purpose while deciding how to resolve circular import
-	def send_and_wait(self, sendfunc, sendargs, interestede, stope, timeout=10, sendkwargs={}):
-		"""This is a super massively blocking method..."""
-		start = time()
+	def send_and_wait(self, interestede, stope, timeout=10, sendfunc, *sendargs, **sendkwargs):
+		"""This method will block and yield events as they come..."""
+		expired = time() + timeout
 		while not self._botinst:
-			if start + timeout > time(): 
-				yield None
-				return
+			if expired < time():
+				raise TimeoutException()
 			sleep(0.5)
-		
-		#yield events
-		waitevent = WaitEvent(interestede, stope)
-		#add wait events to dispatcher. ONLY MODIFY DISPATCHER IN REACTOR THREAD PLEASE.
-		#reactor.callFromThread(Dispatcher.addWaitEvent, self.settings.name, we)
-		#send...
-		sendfunc(*sendargs, **sendkwargs)
-		# and now we play the waiting game...
-		while not waitevent.done:
-			try: item = results.get(timeout=0.5)
-			except Empty: 
-				if start + timeout > time(): 
-					yield None
-					return
-			yield item
-		return
+		try:
+			wd = WaitData(interestede, stope)
+			#add wait events to dispatcher. ONLY MODIFY DISPATCHER IN REACTOR THREAD PLEASE.
+			reactor.callFromThread(Dispatcher.addWaitData, we)
+			#send...
+			sendfunc(*sendargs, **sendkwargs)
+			# and now we play the waiting game...
+			# TODO: how should expired/timeouts work? Should timeout "reset" after the last
+			# seen event? Or should it act as "run for this long total"
+			while not wd.done:
+				try: item = results.get(timeout=0.5)
+				except Empty: 
+					if expired < time():
+						raise TimeoutException()
+				yield item
+			return
+		finally:
+			# in the case that garbage collection happens (in the event that user bails the generator
+			#	before the stop event fires) we can "clean up" and remove the event from the waitdispatcher
+			reactor.callFromThread(Dispatcher.delWaitData, we)
+			
 
 # provide special container to use when feeding "init()" of modules
 # doesn't try to call methods inside reactor because already inside reactor

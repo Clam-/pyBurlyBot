@@ -17,7 +17,7 @@ class Dispatcher:
 		moddir = join(settings.botdir, "modules")
 		
 		self.eventmap = {}
-		self.waitmap = {} #TODO: finish this
+		self.waitmap = {}
 		self.MSGHOOKS = False
 		self.settings = settings
 		
@@ -95,26 +95,25 @@ class Dispatcher:
 	def processMappings(self, module):
 		eventmap = self.eventmap
 		for mapping in module.mappings:
-			for type in mapping.types:
+			for etype in mapping.etypes:
 
-				type = type.lower()
+				etype = etype.lower()
 				
-				# There's no actual reason to restrict types to a preset list, and in some cases it might be annoying
-				# (e.g. hooking a numeric event type)
-				if type not in eventmap:
-					eventmap[type] = {}
-					eventmap[type]["instant"] = []
-					eventmap[type]["regex"] = []
-					eventmap[type]["command"] = {}
-				#TODO: waitevent map?
+				# There's no actual reason to restrict etypes to a preset list, and in some cases it might be annoying
+				# (e.g. hooking a numeric event etype)
+				if etype not in eventmap:
+					eventmap[etype] = {}
+					eventmap[etype]["instant"] = []
+					eventmap[etype]["regex"] = []
+					eventmap[etype]["command"] = {}
 				
-				# Add type to servernamemapping
+				# Add etype to servernamemapping
 				# This is _addmap inlined
-				if type == "sendmsg":
+				if etype == "sendmsg":
 					self.MSGHOOKS = True
 				if not mapping.command and not mapping.regex: 
-					eventmap[type]["instant"].append(mapping)
-					eventmap[type]["instant"].sort(key=attrgetter('priority'))
+					eventmap[etype]["instant"].append(mapping)
+					eventmap[etype]["instant"].sort(key=attrgetter('priority'))
 
 				if mapping.command:
 					mapcom = mapping.command
@@ -122,16 +121,16 @@ class Dispatcher:
 					# I guess it's not a big deal to check both
 					if isinstance(mapcom, list) or isinstance(mapcom, tuple):
 						for commandname in mapcom:
-							eventmap[type]["command"].setdefault(commandname, []).append(mapping)
-							eventmap[type]["command"][commandname].sort(key=attrgetter('priority'))
+							eventmap[etype]["command"].setdefault(commandname, []).append(mapping)
+							eventmap[etype]["command"][commandname].sort(key=attrgetter('priority'))
 					# TODO: unicode command?
 					elif isinstance(mapcom, basestring):
-						eventmap[type]["command"].setdefault(mapcom, []).append(mapping)
-						eventmap[type]["command"][mapcom].sort(key=attrgetter('priority'))
+						eventmap[etype]["command"].setdefault(mapcom, []).append(mapping)
+						eventmap[etype]["command"][mapcom].sort(key=attrgetter('priority'))
 
 				if mapping.regex:
-					eventmap[type]["regex"].append(mapping)
-					eventmap[type]["regex"].sort(key=attrgetter('priority'))
+					eventmap[etype]["regex"].append(mapping)
+					eventmap[etype]["regex"].sort(key=attrgetter('priority'))
 	
 	@classmethod
 	def reset(cls):
@@ -145,56 +144,57 @@ class Dispatcher:
 		if event.channel or event.nick:
 			cont_or_wrap = BotWrapper(event, cont_or_wrap)
 		msg = event.msg
-		# Case insensitivity for types (convenience) (is this a bad idea?)
-		type = event.type.lower()
+		# Case insensitivity for etypes (convenience) (is this a bad idea?)
+		etype = event.etype.lower()
 		command = ""
-		input = ""
-		if type != "sendmsg" and msg and msg.startswith(settings.commandprefix):
+		argument = ""
+		if etype != "sendmsg" and msg and msg.startswith(settings.commandprefix):
 			#case insensitive match?
 			#also this means that commands can't have spaces in them, and lol command prefix can't be a space
 			#all are good to me, if you want a case sensitive match you can do your command as a regex - griff
 			command = msg.split(" ", 1)
 			if len(command) > 1:
-				command, input = command
+				command, argument = command
 			else:
 				command = command[0]
 			# Only one character prefix? okay... (jk it's fine) - griff
 			command = command[1:]
 			# Maintain case for event, for funny things like replying in all caps
-			event.command, event.input = (command, input)
+			event.command, event.argument = (command, argument)
 			command = command.lower()
 		
 		eventmap = self.eventmap
-		if type in eventmap:
+		if etype in eventmap:
 			#lol dispatcher is 100 more simple now, but at the cost of more dict...
-			for mapping in eventmap[type]["instant"]:
+			for mapping in eventmap[etype]["instant"]:
 				self._dispatchreally(mapping.function, event, cont_or_wrap)
 				if mapping.priority == 0: break #lol cheap and easy way to support total override
 			#super fast command dispatching now... Only thing left that's slow is the regex but has to be
-			for mapping in eventmap[type]["command"].get(command,()):
+			for mapping in eventmap[etype]["command"].get(command,()):
 				self._dispatchreally(mapping.function, event, cont_or_wrap)
 				if mapping.priority == 0: break
 			# TODO: Consider this:
 			# super priority==0 override doesn't really make much sense on a regex, but whatever
-			for mapping in eventmap[type]["regex"]:
+			for mapping in eventmap[etype]["regex"]:
 				if mapping.regex.match(msg):
 					self._dispatchreally(mapping.function, event, cont_or_wrap)
 					if mapping.priority == 0: break
 
-		if type in self.waitmap:
-			#special map to deal with WaitEvents
-			for wekey in self.waitmap[servername][type]:
-				we = self.waitmap[servername][type][wekey]
-				if type in we.stope:
-					we.q.done = True
-					for i in we.intereste:
-						try: del self.waitmap[servername][i][wekey]
-						except Exception as e: print "Already removed(?): %s" % e
-					for s in we.stopevents:
-						try: del self.waitmap[servername][s][wekey]
-						except Exception as e: print "Already removed(?): %s" % e
-				elif type in we.interestede:
-					we.q.put(event)
+		if etype in self.waitmap:
+			#special map to deal with WaitData
+			wdset = self.waitmap[etype]
+			remove = []
+			for wd in wdset:
+				# if found stopevent add it to list to remove after iteration
+				if etype in wd.stope:
+					remove.append(wd)
+					wd.q.put(event)
+					wd.done = True
+				elif etype in wd.interestede:
+					wd.q.put(event)
+			if remove:
+				for x in remove:
+					self.delWaitData(x)
 			
 	@staticmethod					
 	def _dispatchreally(func, event, cont_or_wrap):
@@ -204,14 +204,22 @@ class Dispatcher:
 		#d.addCallbacks(botinst.moduledata, botinst.moduleerr)
 		d.addErrback(cont_or_wrap._moduleerr)
 
-	@classmethod
-	def addWaitEvent(cls, servername, we):
-		for i in we.interested:
-			cls.hostwaitmap[servername][i][we.id] = we
-		for s in we.stope:
-			cls.hostwaitmap[servername][s][we.id] = we
+	def addWaitData(self, wd):
+		for ietype in wd.interested:
+			self.waitmap.setdefault(ietype, set()).add(wd)
+		for setype in wd.stope:
+			self.waitmap.setdefault(setype, set()).add(wd)
 
-
+	def delWaitData(self, wd):
+		for wdtype in (wd.interested, wd.stope):
+			for etype in wdtype:
+				wdset = self.waitmap.get(etype)
+				if wdset:
+					try: wdset.remove(wd)
+					except KeyError: pass
+				if not wdset:
+					elf.waitmap.pop(etype, None)
+		
 	@classmethod
 	def showLoadErrors(cls):
 		if cls.NOTLOADED:

@@ -30,24 +30,16 @@ class Event:
 		else: self.msg = ""
 		# Set by dispatcher, for convenience in module
 		self.command = None
-		self.input = None
+		self.argument = None
 	
 	def __repr__(self):
 		return "Event(type=%s, prefix=%s, params=%s, args=%s, hostmask=%s, nick=%s, " \
-			"ident=%s, host=%s, channel=%s, msg=%s, command=%s, input=%s" % \
+			"ident=%s, host=%s, channel=%s, msg=%s, command=%s, argument=%s" % \
 			(self.type, self.prefix, self.params, self.args, self.hostmask, self.nick,
-				self.ident, self.host, self.channel, self.msg, self.command, self.input)
+				self.ident, self.host, self.channel, self.msg, self.command, self.argument)
 	
 	# we could check if target is equal to our nick (we don't even have our own nick available here, it's in botinst)
 	#  or just check if doesn't start with "#"
 	# TODO: Should this be called "isQuery" ?
 	def isPM(self):
 		return self.channel[0] not in CHANNEL_PREFIXES
-
-class WaitEvent:
-	def __init__(self, interestede, stope):
-		self.done = False
-		self.q = Queue()
-		self.interestede = set(interestede)
-		self.stope = set(stope)
-		self.id = uuid1()	

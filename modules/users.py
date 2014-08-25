@@ -73,9 +73,9 @@ def user_seen(event, bot):
 		#alias not loaded
 		seen = _user_seen(event)
 	if not seen:
-		bot.msg(event.channel, "lol dunno.")
+		bot.say("lol dunno.")
 	else:
-		bot.msg(event.channel, "%s - %s" % (distance_of_time_in_words(seen["lastseen"]), seen["seenwhere"]))
+		bot.say("%s - %s" % (distance_of_time_in_words(seen["lastseen"]), seen["seenwhere"]))
 	return
 	
 #init should always be here to setup needed DB tables or objects or whatever

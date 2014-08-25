@@ -47,18 +47,18 @@ def alias(event, bot):
 			command, input = command[0], None
 	if command == "add":
 		if not input:
-			bot.msg(event.channel, "Need source and dest.")
+			bot.say("Need source and dest.")
 			return
 		things = input.split(" ", 1)
 		if len(things) >2:
-			bot.msg(event.channel, "Need source and dest.")
+			bot.say("Need source and dest.")
 			return
 		source, new = things
 		#check if source is alias
 		nnick = get_nick(new)
 		if nnick:
 			#alias already in use by nnick
-			bot.msg(event.channel, "Nick already in use by %s" % nnick)
+			bot.say("Nick already in use by %s" % nnick)
 			return
 		nick = get_nick(source)
 		if not nick:
@@ -69,18 +69,18 @@ def alias(event, bot):
 				return
 			if query.rows:
 				if add_alias(source, new):
-					bot.msg(event.channel, "Added %s to %s" % (new, source))
+					bot.say("Added %s to %s" % (new, source))
 			else:
-				bot.msg(event.channel, "%s not seen before." % source)
+				bot.say("%s not seen before." % source)
 				return
 			
 		else:
 			#add new to nick-source
 			if add_alias(nick, new):
-				bot.msg(event.channel, "Added %s to %s" % (new, nick))
+				bot.say("Added %s to %s" % (new, nick))
 	elif command == "del":
 		if not input:
-			bot.msg(event.channel, "Need alias to remove")
+			bot.say("Need alias to remove")
 			return
 		#just blindly delete?
 		#well I guess check if exists at least
@@ -89,13 +89,13 @@ def alias(event, bot):
 			print "bad happen bbb %s" % query.error
 			return
 		if not query.rows:
-			bot.msg(event.channel, "%s alias not found" % input)
+			bot.say("%s alias not found" % input)
 		
 		#exists
 		#okay to try delete
 		query.query('''DELETE FROM alias WHERE alias = ?;''', (input,))
 		if query.error:
-			bot.msg(event.channel, "Remove of alias failed: %s" % query.error)
+			bot.say("Remove of alias failed: %s" % query.error)
 	
 	else:
 		#show aliases:
@@ -105,13 +105,13 @@ def alias(event, bot):
 		nick = get_nick(source)
 		if nick:
 			aliases = _list_alias(nick)
-			bot.msg(event.channel, "Aliases for %s: %s" % (nick, ", ".join(aliases)))
+			bot.say("Aliases for %s: %s" % (nick, ", ".join(aliases)))
 			return
 		else:
 			#check for actual nick, actually, just blind it...
 			# can do fancy later
 			aliases = _list_alias(source)
-			bot.msg(event.channel, "Aliases for %s: %s" % (source, ", ".join(aliases)))
+			bot.say("Aliases for %s: %s" % (source, ", ".join(aliases)))
 	return
 
 #init should always be here to setup needed DB tables or objects or whatever

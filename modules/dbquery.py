@@ -5,22 +5,22 @@ from util.db import DBQuery
 def dbquery(event, bot):
 	if bot.isadmin():
 		query = event.input
-		bot.msg(event.channel, "Running: %s" % query)
+		bot.say("Running: %s" % query)
 		result = DBQuery(query)
 		if result.error:
-			return bot.msg(event.channel, "Error in query: %s" % result.error)
+			return bot.say("Error in query: %s" % result.error)
 
 		if not result.rows:
-			return bot.msg(event.channel, "No error, but nothing to display.")
+			return bot.say("No error, but nothing to display.")
 		print "GOOD"
 		#good
 		for row in result.rows:
 			nrow = []
 			for key in row.keys():
 				nrow.append((key, row[key]))
-			bot.msg(event.channel, repr(nrow))
+			bot.say(repr(nrow))
 
 	else:
-		bot.msg(event.channel, "uwish.")
+		bot.say("uwish.")
 
 mappings = (Mapping(types=["privmsged"], command="dbquery", function=dbquery),)

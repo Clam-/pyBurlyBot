@@ -14,9 +14,9 @@ def reloadmods(event, bot):
 		reactor.callFromThread(Settings.reload)
 		#also refresh dispatchers
 		reactor.callFromThread(Settings.reloadDispatchers)
-		bot.msg(event.channel, "Done.")
+		bot.say("Done.")
 	else:
-		bot.msg(event.channel, "No, you.")
+		bot.say("No, you.")
 	return
 
 mappings = (Mapping(types=["privmsged"], command="reload", function=reloadmods),)

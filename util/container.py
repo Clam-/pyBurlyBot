@@ -120,11 +120,12 @@ class Container:
 			# TODO: how should expired/timeouts work? Should timeout "reset" after the last
 			# seen event? Or should it act as "run for this long total"
 			while not wd.done:
-				try: item = results.get(timeout=0.5)
+				try: 
+					item = results.get(timeout=0.5)
+					yield item
 				except Empty: 
 					if expired < time():
 						raise TimeoutException()
-				yield item
 			return
 		finally:
 			# in the case that garbage collection happens (in the event that user bails the generator

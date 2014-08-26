@@ -225,7 +225,7 @@ class BurlyBot(IRCClient):
 			prefixes.append(p)
 		self.nickprefixes = "".join(prefixes)
 		
-		for chan in self.container._settings.channels:
+		for chan in self.settings.channels:
 			self.join(*chan)
 		
 		# TODO: Issue #12 - smarter reconnect, resend
@@ -257,7 +257,7 @@ class BurlyBot(IRCClient):
 	# TODO: Need to add more of these for hooking other outbound events maybe, like notice...
 	def sendmsg(self, channel, msg):
 		#check if there's hooks, if there is, dispatch, if not, send directly
-		if Dispatcher.hostmap[self.container.network]["MSGHOOKS"]:
+		if self.dispatcher.MSGHOOKS:
 			#dest is Event.channel, or Event.args
 			self.dispatch(self, Event(type="sendmsg", channel=channel, msg=msg))
 		else:
@@ -281,7 +281,7 @@ class BurlyBot(IRCClient):
 	# collisions. The default method appends an underscore.
 	#Just kidding, actually let's do this after all - user option
 	def alterCollidedNick(self, nickname):
-		return nickname + self.container._settings.nicksuffix.encode("utf-8")
+		return nickname + self.settings.nicksuffix.encode("utf-8")
 
 class BurlyBotFactory(ReconnectingClientFactory):
 	"""A factory for BurlyBot.
@@ -301,8 +301,11 @@ class BurlyBotFactory(ReconnectingClientFactory):
 		proto = ReconnectingClientFactory.buildProtocol(self, address)
 		proto.container = self.container
 		proto.state = self.container.state
-		proto.dispatch = self.container._settings.dispatcher.dispatch
-		proto.nickname = self.container._settings.nick.encode("utf-8")
+		# for shortcut access:
+		proto.settings = self.container._settings
+		proto.dispatch = proto.settings.dispatcher.dispatch
+		proto.dispatcher = proto.settings.dispatcher
+		proto.nickname = proto.settings.nick.encode("utf-8")
 		return proto
 		
 

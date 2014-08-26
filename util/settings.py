@@ -36,8 +36,11 @@ class ConfigException(Exception):
 	pass
 
 class BaseServer(object):
-	def __init__(self, opts, old=None):
+	def __init__(self, opts):
 		self.state = None
+		self.setup(opts)
+		
+	def setup(self, opts):
 		self.serverlabel = opts.get("serverlabel", None)
 		if not self.serverlabel:
 			raise ConfigException("Missing serverlabel" % self.serverlabel)
@@ -88,6 +91,7 @@ class BaseServer(object):
 			self.denymodules = set(opts["denymodules"])
 		else: self.denymodules = set([])
 		
+		
 	def _getDict(self):
 		d = OrderedDict()
 		for key in KEYS_SERVER:
@@ -115,25 +119,17 @@ class DummyServer(BaseServer):
 
 class Server(BaseServer):
 	
-	def __init__(self, opts, old=None):
-		BaseServer.__init__(self, opts, old)
-		
-		#reuse established container
-		if old and old.container:
-			self.container = old.container
-			#convulted:
-			self.container.settings = self
-		else:
-			self.container = Container(self)
-		
+	def __init__(self, opts):
+		BaseServer.__init__(self, opts)
 		#dispatcher placeholder (probably not needed)
 		self.dispatcher = None
+		self.container = Container(self)
 
 	def initializeDispatcher(self):
+		# this should only be done once.
+		assert self.dispatcher is None
 		#create dispatcher:
-		self.dispatcher = Dispatcher(self) #TODO: waitevents might need special attention
-		if self.container._botinst:
-			self.container._botinst.dispatch = self.container._settings.dispatcher.dispatch
+		self.dispatcher = Dispatcher(self)
 		
 	def __getattr__(self, name):
 		# get Server setting if set, else fall back to global Settings
@@ -213,13 +209,10 @@ class SettingsBase:
 							raise ConfigException("Missing serverlabel in config.")
 						label = serveropts["serverlabel"]
 						if label in self.servers:
-							#get old server instance and create new one based on old
-							server = self.servers[label]
-							server = Server(serveropts, server)
+							#refresh server settings
+							self.servers[label].setup(serveropts)
 						else:
-							server = Server(serveropts)
-						#assign new server
-						self.servers[server.serverlabel] = server
+							self.servers[label] = Server(serveropts)
 				elif opt == "modules":
 					setattr(self, opt, OrderedSet(newsets[opt]))
 				else:
@@ -236,13 +229,14 @@ class SettingsBase:
 			#attempt to load user options
 			self._loadsettings()
 	
-	def reloadDispatchers(self):
-		# Reset Dispatcher
-		print "reloading dispatchers"
+	def reloadDispatchers(self, firstRun=False):
+		# Reset Dispatcher loaded modules
 		Dispatcher.reset()
 		for server in self.servers.values():
-			print server.serverlabel
-			server.initializeDispatcher()
+			if firstRun:
+				server.initializeDispatcher()
+			else:
+				server.dispatcher.reload()
 		Dispatcher.showLoadErrors()
 	
 	def getModuleOption(self, module, option, server=None):

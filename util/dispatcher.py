@@ -9,18 +9,26 @@ from imp import find_module, load_module
 
 from wrapper import BotWrapper
 from container import SetupContainer
+from helpers import isIterable
+
 class Dispatcher:
 	MODULEDICT = {}
 	NOTLOADED = []
 	
 	def __init__(self, settings):
-		moddir = join(settings.botdir, "modules")
-		
-		self.eventmap = {}
+		self.moddir = join(settings.botdir, "modules")
 		self.waitmap = {}
-		self.MSGHOOKS = False
 		self.settings = settings
+		self.reload()
+
+	def reload(self):
+		self.eventmap = {}
+		# don't clear waitmap on reload to allow for still waiting functions to pass
+		# it's also self managed (hopefully)
 		
+		self.MSGHOOKS = False
+		
+		settings = self.settings
 		# prepare list of modules to be loaded
 		self.allowedmodules = settings.allowmodules if settings.allowmodules else settings.modules
 		# remove denied modules
@@ -30,11 +38,11 @@ class Dispatcher:
 		# load modules if they haven't been loaded before
 		for modulename in self.allowedmodules:
 			if modulename not in self.MODULEDICT:
-				self.loadModule(moddir, modulename)
-
-	def checkAndLoadReqs(self, moddir, module, resolvedmodules):
+				self.loadModule(modulename)
+	
+	def checkAndLoadReqs(self, module, resolvedmodules):
 		reqs = module.REQUIRES
-		if not isinstance(reqs, tuple) or isinstance(reqs, list):
+		if not isIterable(reqs):
 			reqs = (reqs,) #assume string?
 		for req in reqs:
 			if req in self.MODULEDICT: continue
@@ -42,18 +50,18 @@ class Dispatcher:
 				#attempt to load
 				if req not in self.allowedmodules:
 					return False
-				if not self.loadModule(moddir, req, resolvedmodules):
+				if not self.loadModule(req, resolvedmodules):
 					return None
 		return True
 				
-	def loadModule(self, moddir, modulename, resolvedmodules=[]):
+	def loadModule(self, modulename, resolvedmodules=[]):
 		print "Loading %s..." % modulename
 		if modulename in resolvedmodules:
 			self.NOTLOADED.append((modulename, "Circular module dependency. Parents: %s" % (modulename, resolvedmodules)))
 			return None
 		module = None
 		try:
-			(f, pathname, description) = find_module(modulename, [moddir])
+			(f, pathname, description) = find_module(modulename, [self.moddir])
 			try:
 				module = load_module(modulename, f, pathname, description)
 			except Exception as e:
@@ -71,7 +79,7 @@ class Dispatcher:
 			return None
 		# process module requirements before calling init:
 		if hasattr(module, "REQUIRES"):
-			reqsloaded = self.checkAndLoadReqs(moddir, module, resolvedmodules if resolvedmodules else [modulename])
+			reqsloaded = self.checkAndLoadReqs(module, resolvedmodules if resolvedmodules else [modulename])
 			if reqsloaded is False:
 				self.NOTLOADED.append((modulename, "Requirement cannot be loaded because it's not allowed. (add to allowmodules)"))
 				return None
@@ -95,7 +103,7 @@ class Dispatcher:
 	def processMappings(self, module):
 		eventmap = self.eventmap
 		for mapping in module.mappings:
-			for etype in mapping.etypes:
+			for etype in mapping.types:
 
 				etype = etype.lower()
 				
@@ -119,7 +127,7 @@ class Dispatcher:
 					mapcom = mapping.command
 					#check if tuple or list or basestring (str or unicodes)
 					# I guess it's not a big deal to check both
-					if isinstance(mapcom, list) or isinstance(mapcom, tuple):
+					if isIterable(mapcom):
 						for commandname in mapcom:
 							eventmap[etype]["command"].setdefault(commandname, []).append(mapping)
 							eventmap[etype]["command"][commandname].sort(key=attrgetter('priority'))
@@ -145,7 +153,7 @@ class Dispatcher:
 			cont_or_wrap = BotWrapper(event, cont_or_wrap)
 		msg = event.msg
 		# Case insensitivity for etypes (convenience) (is this a bad idea?)
-		etype = event.etype.lower()
+		etype = event.type.lower()
 		command = ""
 		argument = ""
 		if etype != "sendmsg" and msg and msg.startswith(settings.commandprefix):
@@ -179,7 +187,10 @@ class Dispatcher:
 				if mapping.regex.match(msg):
 					self._dispatchreally(mapping.function, event, cont_or_wrap)
 					if mapping.priority == 0: break
-
+		
+		if etype == "noticed":
+			print "NOTICED"
+			print self.waitmap
 		if etype in self.waitmap:
 			#special map to deal with WaitData
 			wdset = self.waitmap[etype]
@@ -199,26 +210,25 @@ class Dispatcher:
 	@staticmethod					
 	def _dispatchreally(func, event, cont_or_wrap):
 		d = deferToThread(func, event, cont_or_wrap)
-		#add callback and errback
-		#I think we should just add an errback
-		#d.addCallbacks(botinst.moduledata, botinst.moduleerr)
+		#add errback
 		d.addErrback(cont_or_wrap._moduleerr)
 
 	def addWaitData(self, wd):
-		for ietype in wd.interested:
+		for ietype in wd.interestede:
 			self.waitmap.setdefault(ietype, set()).add(wd)
 		for setype in wd.stope:
 			self.waitmap.setdefault(setype, set()).add(wd)
+		print self.waitmap
 
 	def delWaitData(self, wd):
-		for wdtype in (wd.interested, wd.stope):
+		for wdtype in (wd.interestede, wd.stope):
 			for etype in wdtype:
 				wdset = self.waitmap.get(etype)
 				if wdset:
 					try: wdset.remove(wd)
 					except KeyError: pass
 				if not wdset:
-					elf.waitmap.pop(etype, None)
+					self.waitmap.pop(etype, None)
 		
 	@classmethod
 	def showLoadErrors(cls):

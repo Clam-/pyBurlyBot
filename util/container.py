@@ -9,10 +9,11 @@ from functools import partial
 
 from twisted.internet import reactor
 from twisted.internet.threads import blockingCallFromThread
+from twisted.python.failure import Failure
 
-from util.event import WaitEvent
 from util.state import Network
 from util.client import BurlyBot
+from util.helpers import isIterable
 
 class TimeoutException(Exception):
 	pass
@@ -21,8 +22,16 @@ class WaitData:
 	def __init__(self, interestede, stope):
 		self.done = False
 		self.q = Queue()
-		self.interestede = set(interestede)
-		self.stope = set(stope)
+		#assume interestede (&stope) may be string for single event 
+		# (because I accidently made that mistake!)
+		if isIterable(interestede):
+			self.interestede = set(interestede)
+		else:
+			self.interestede = set((interestede,))
+		if isIterable(stope):
+			self.stope = set(stope)
+		else:
+			self.stope = set((stope,))
 
 class Container:
 	def __init__(self, settings):
@@ -76,6 +85,7 @@ class Container:
 				print "PROCESSING QUEUED THINGS"
 				# These will always be BurlyBot functions so let's do some magic.
 				# There shouldn't be any AttributeError, and if there is, bad luck I guess.
+				# This should always be called from inside the reactor so don't need to pass it to the reactor
 				getattr(self.botinst, outbound[0])(*outbound[1], **outbound[2])
 
 	# Option getter/setters	
@@ -100,11 +110,27 @@ class Container:
 		return blockingCallFromThread(reactor, self._settings.isModuleAvailable, modname)
 	
 	#callback to handle module errors
+	#TODO: maybe provide modules a way to hook these?
+	#	like if we let a module provide a function, we can pass the Failure object to it.
 	def _moduleerr(self, e):
-		print "error:", e #exception, or Failure thing
-		
-	def send_and_wait(self, interestede, stope, timeout=10, sendfunc, *sendargs, **sendkwargs):
+		if isinstance(e, Failure):
+			e.cleanFailure()
+			e.printTraceback()
+		else:
+			print "error:", e
+	
+	# stop event optional since you can just bail out of the generator if you know you have all
+	# the things you want
+	# f is the send function you want to call to start the waiting
+	# Warning: if you are not using stopevents and you are doing many blocking operations before your
+	# function using send_and_wait finishes, the generator won't have been GC'd for cleanup so bad things might happen.
+	# generator.close() if you suspect that your function won't be finished for some time after bailing from a generator.
+	# BIG WARNING: iterate over the generator with something like "for e in bot.send_and_wait(...
+	#	May leak very fast if you have unhandled exceptions inside the loop, (the above mitigates this I think...)
+	def send_and_wait(self, interestede, stope=[], timeout=10, f=None, fargs=[], **kwargs):
 		"""This method will block and yield events as they come..."""
+		if not f:
+			raise ValueError("Missing function")
 		expired = time() + timeout
 		while not self._botinst:
 			if expired < time():
@@ -113,24 +139,29 @@ class Container:
 		try:
 			wd = WaitData(interestede, stope)
 			#add wait events to dispatcher. ONLY MODIFY DISPATCHER IN REACTOR THREAD PLEASE.
-			reactor.callFromThread(Dispatcher.addWaitData, we)
+			reactor.callFromThread(self._settings.dispatcher.addWaitData, wd)
 			#send...
-			sendfunc(*sendargs, **sendkwargs)
+			f(*fargs, **kwargs)
 			# and now we play the waiting game...
 			# TODO: how should expired/timeouts work? Should timeout "reset" after the last
 			# seen event? Or should it act as "run for this long total"
 			while not wd.done:
 				try: 
-					item = results.get(timeout=0.5)
+					item = wd.q.get(timeout=0.5)
 					yield item
 				except Empty: 
 					if expired < time():
 						raise TimeoutException()
+			while not wd.q.empty():
+				try:
+					yield wd.q.get()
+				except Empty:
+					break
 			return
 		finally:
 			# in the case that garbage collection happens (in the event that user bails the generator
 			#	before the stop event fires) we can "clean up" and remove the event from the waitdispatcher
-			reactor.callFromThread(Dispatcher.delWaitData, we)
+			reactor.callFromThread(self._settings.dispatcher.delWaitData, wd)
 			
 
 # provide special container to use when feeding "init()" of modules

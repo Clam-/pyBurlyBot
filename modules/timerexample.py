@@ -7,7 +7,7 @@ def timercallback(bot=None, channel=None, msg=None):
 	bot.msg(channel, msg)
 
 def timers(event, bot):
-	command, args = commandSplit(event.input)
+	command, args = commandSplit(event.argument)
 	
 	if command == "show":
 		bot.say("Timers:")

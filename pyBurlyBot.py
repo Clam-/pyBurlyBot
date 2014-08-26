@@ -74,12 +74,13 @@ if __name__ == '__main__':
 	
 	setupDB(join(Settings.botdir, Settings.datadir), Settings.datafile)
 	DBQuery.dbThread.start()
-	Settings.reloadDispatchers()
+	Settings.reloadDispatchers(firstRun=True)
 	#start dbcommittimer
 	#def addtimer(cls, name, interval, f, kwargs={}, reps=None, startnow=False):
 	Timers._addTimer("_dbcommit", 60*60, dbcommit, reps=-1) #every hour (60*60)
 	
-	# create factory protocol and application
+	# create botprotocol factories
+	# TODO: abstract this so we can dynamically connect/disconnect to servers on reload command.
 	if Settings.servers:
 		for server in Settings.servers.values():
 			if server.ssl:

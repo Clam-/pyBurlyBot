@@ -2,12 +2,9 @@
 from datetime import timedelta
 from time import time
 
-# some codes stolen from here 
-# http://stackoverflow.com/questions/2119472/convert-a-timedelta-to-days-hours-and-minutes
-
+# adapted http://stackoverflow.com/a/2119512
 def days_hours_minutes(td):
 	return td.days, td.seconds//3600, (td.seconds//60)%60, td.seconds % 60
-
 
 def pluralize(term, num):
 	if num > 1: return term + "s"
@@ -17,13 +14,11 @@ def pluralize(term, num):
 def distance_of_time_in_words(fromtime, totime=None):
 	if not totime:
 		totime = time()
-		
 	past = True
 	diff = totime-fromtime
 	if diff < 0:
 		past = False
 		diff = abs(diff)
-	
 	if diff < 10:
 		if past: return "Just a moment ago."
 		else: return "In just a moment."
@@ -48,9 +43,11 @@ def distance_of_time_in_words(fromtime, totime=None):
 			else: 
 				s += "."
 				s = "in " + s
-				
 	return s
 			
-	
+#isIterable (the tuple or list kind of iterable)
+# maybe there is a more apt name
+def isIterable(i):
+	return isinstance(i, tuple) or isinstance(i, list)
 	
 	

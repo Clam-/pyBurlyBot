@@ -4,6 +4,7 @@
 #it also holds a queue for messages attempted to be sent while there is no current botinstance
 
 from Queue import Queue, Empty
+from collections import deque
 from time import time
 from functools import partial
 
@@ -39,7 +40,7 @@ class Container:
 		self._settings = settings
 		self.state = Network(settings.serverlabel)
 		self._botinst = None
-		self._outqueue = Queue() #deque or Queue, whatever
+		self._outqueue = deque() #deque or Queue, whatever
 
 	def __getattr__(self, name):
 		#if name isn't in container, look in botinst IF BOTINST EXISTS
@@ -55,8 +56,8 @@ class Container:
 					return attr
 			else:
 				if hasattr(attr, '__call__'):
-					# return queueable
-					return partial(self._queuer, name)
+					# return function to queue the real method call
+					return partial(reactor.callFromThread, self._queuer, name)
 				else:
 					# SPECIAL CASE: if module requests attribute from BurlyBot
 					#  but there is no botinst, None will be returned.
@@ -64,10 +65,6 @@ class Container:
 					#		Interesting to consider trying to block until available...
 					return None 
 
-	#TODO: why is there two of these
-	def _setbotinst(self, botinst):
-		self._botinst = botinst
-	
 	def _queuer(self, funcname, *args, **kwargs):
 		self._outqueue.append((funcname, args, kwargs))
 	
@@ -77,16 +74,23 @@ class Container:
 	
 	def _setBotinst(self, botinst):
 		self._botinst = botinst
-		# TODO: (another), because of the nature of queues and "empty", we should probably check this queue whenever any action is triggered
-		#	in case things get left in the _outqueue
-		if botinst:
-			while not self._outqueue.empty():
-				outbound = self._outqueue.get()
-				print "PROCESSING QUEUED THINGS"
+		# also keep checking this outqueue 2 seconds later if there is still elements left
+		self._checkQueue()
+	
+	def _checkQueue(self):
+		checkAgain = False
+		if self.botinst:
+			while self._outqueue:
+				outbound = self._outqueue.popleft()
+				print "PROCESSING QUEUED METHODS"
 				# These will always be BurlyBot functions so let's do some magic.
 				# There shouldn't be any AttributeError, and if there is, bad luck I guess.
 				# This should always be called from inside the reactor so don't need to pass it to the reactor
 				getattr(self.botinst, outbound[0])(*outbound[1], **outbound[2])
+				checkAgain = True
+		# check again in case we missed some
+		if checkAgain:
+			reactor.callLater(2, self._checkQueue)
 
 	# Option getter/setters	
 	def getOption(self, opt):

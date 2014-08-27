@@ -76,13 +76,12 @@ if __name__ == '__main__':
 	DBQuery.dbThread.start()
 	Settings.reloadDispatchers(firstRun=True)
 	#start dbcommittimer
-	#def addtimer(cls, name, interval, f, kwargs={}, reps=None, startnow=False):
 	Timers._addTimer("_dbcommit", 60*60, dbcommit, reps=-1) #every hour (60*60)
 	
 	# create botprotocol factories
 	# TODO: abstract this so we can dynamically connect/disconnect to servers on reload command.
 	if Settings.servers:
-		for server in Settings.servers.values():
+		for server in Settings.servers.itervalues():
 			if server.ssl:
 				if not SSL:
 					print "Error: Cannot connect to '%s', pyOpenSSL not installed" % server.serverlabel

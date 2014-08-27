@@ -12,7 +12,7 @@ from util.dispatcher import Dispatcher
 KEYS_COMMON = ("nick", "nicksuffix", "commandprefix", "admins")
 KEYS_SERVER = ("serverlabel",) + KEYS_COMMON + ("host", "port", "channels", "allowmodules", "denymodules")
 KEYS_SERVER_SET = set(KEYS_SERVER)
-KEYS_MAIN = KEYS_COMMON + ("modules", "datadir", "datafile", "console", "servers")
+KEYS_MAIN = KEYS_COMMON + ("modules", "debug", "datadir", "datafile", "console", "servers")
 KEYS_MAIN_SET = set(KEYS_MAIN)
 #keys to create a copy of so no threading bads
 KEYS_COPY = ("admins", "channels", "allowmodules", "denymodules", "modules")
@@ -180,6 +180,7 @@ class SettingsBase:
 	nicksuffix = "_"
 	commandprefix = "!"
 	datadir = "data"
+	debug = False
 	datafile = "BurlyBot.db"
 	console = True
 	modules = OrderedSet(["core"])
@@ -232,7 +233,7 @@ class SettingsBase:
 	def reloadDispatchers(self, firstRun=False):
 		# Reset Dispatcher loaded modules
 		Dispatcher.reset()
-		for server in self.servers.values():
+		for server in self.servers.itervalues():
 			if firstRun:
 				server.initializeDispatcher()
 			else:
@@ -258,7 +259,7 @@ class SettingsBase:
 		for key in KEYS_MAIN:
 			d[key] = getattr(self, key)
 		if self.servers:
-			d["servers"] = [serv._getDict() for serv in self.servers.values()]
+			d["servers"] = [serv._getDict() for serv in self.servers.itervalues()]
 		else:
 			EXAMPLE_SERVER = DummyServer(EXAMPLE_OPTS)
 			EXAMPLE_SERVER2 = DummyServer(EXAMPLE_OPTS2)

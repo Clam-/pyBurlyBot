@@ -15,7 +15,7 @@ def _user_update(event, nick=None):
 	#check if exists, then update
 	if not nick: nick = event.nick
 	result = DBQuery('''INSERT OR REPLACE INTO user (nick, host, lastseen, seenwhere) VALUES(?,?,?,?);''',
-		(nick, event.hostmask, int(time()), event.channel))
+		(nick, event.hostmask, int(time()), event.target))
 	if result.error:
 		print "What happened?: %s" % result.error
 

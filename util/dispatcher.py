@@ -149,7 +149,7 @@ class Dispatcher:
 		settings = self.settings
 		servername = settings.serverlabel
 		cont_or_wrap = botinst.container
-		if event.channel or event.nick:
+		if event.target or event.nick:
 			cont_or_wrap = BotWrapper(event, cont_or_wrap)
 		msg = event.msg
 		# Case insensitivity for etypes (convenience) (is this a bad idea?)
@@ -188,9 +188,6 @@ class Dispatcher:
 					self._dispatchreally(mapping.function, event, cont_or_wrap)
 					if mapping.priority == 0: break
 		
-		if etype == "noticed":
-			print "NOTICED"
-			print self.waitmap
 		if etype in self.waitmap:
 			#special map to deal with WaitData
 			wdset = self.waitmap[etype]

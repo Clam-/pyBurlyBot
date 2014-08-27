@@ -3,12 +3,12 @@ from twisted.words.protocols.irc import CHANNEL_PREFIXES
 #TODO: consider this, events should probably not be mutable 
 # (can this be done? might have to trust modules not to do something stupid)
 class Event:
-	def __init__(self, type, prefix, params, args=None, hostmask=None, channel=None, msg=None):
+	def __init__(self, type, prefix=None, params=None, hostmask=None, target=None, msg=None, **kwargs):
 		self.type = type
 		# Consider args as a dict of uncommon event attributes
+		# changing this to kwargs
 		self.prefix = prefix
 		self.params = params
-		self.args = args
 		self.hostmask = hostmask
 		self.nick = None
 		self.ident = None
@@ -23,23 +23,24 @@ class Event:
 				self.nick = nick
 				self.ident = ident
 				self.host = host
-		self.channel = channel
+		self.target = target
 		# TODO: handle non-UTF8 cases
-		#  probably by just trying a few different encodes and then giving up?
+		#  probably by just try a few different encodings and then give up?
 		if msg is not None: self.msg = msg.decode("utf-8") 
 		else: self.msg = ""
 		# Set by dispatcher, for convenience in module
 		self.command = None
 		self.argument = None
+		self.kwargs = kwargs
 	
 	def __repr__(self):
 		return "Event(type=%s, prefix=%s, params=%s, args=%s, hostmask=%s, nick=%s, " \
-			"ident=%s, host=%s, channel=%s, msg=%s, command=%s, argument=%s" % \
+			"ident=%s, host=%s, target=%s, msg=%s, command=%s, argument=%s" % \
 			(self.type, self.prefix, self.params, self.args, self.hostmask, self.nick,
-				self.ident, self.host, self.channel, self.msg, self.command, self.argument)
+				self.ident, self.host, self.target, self.msg, self.command, self.argument)
 	
 	# we could check if target is equal to our nick (we don't even have our own nick available here, it's in botinst)
 	#  or just check if doesn't start with "#"
 	# TODO: Should this be called "isQuery" ?
 	def isPM(self):
-		return self.channel[0] not in CHANNEL_PREFIXES
+		return self.target[0] not in CHANNEL_PREFIXES

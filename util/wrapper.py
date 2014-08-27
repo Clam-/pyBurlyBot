@@ -21,7 +21,7 @@ class BotWrapper:
 		if self.event.isPM():
 			self.msg(self.event.nick, msg)
 		else:
-			self.msg(self.event.channel, msg)
+			self.msg(self.event.target, msg)
 			
 	def isadmin(self, module=None):
 		return blockingCallFromThread(reactor, self._isadmin, module)

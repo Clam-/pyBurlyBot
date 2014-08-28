@@ -5,12 +5,13 @@ from tempfile import NamedTemporaryFile
 from twisted.trial.unittest import TestCase
 from twisted.test import proto_helpers
 
-from pyBurlyBot.pyBurlyBot import BurlyBot
+from pyBurlyBot.pyBurlyBot.util.client import BurlyBot
 from pyBurlyBot.util.settings import EXAMPLE_SERVER, EXAMPLE_SERVER2, KEYS_MAIN, \
 	SettingsBase, Settings
 
 #Settings.botdir = botdir
 
+# TODO: HORRIBLY OUTDATED
 class pyBurlyBotTest(TestCase):
 	
 	def setUp(self):

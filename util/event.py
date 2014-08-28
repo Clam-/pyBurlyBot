@@ -1,35 +1,29 @@
 from twisted.words.protocols.irc import CHANNEL_PREFIXES
+from helpers import coerceToUnicode
 
 #TODO: consider this, events should probably not be mutable 
 # (can this be done? might have to trust modules not to do something stupid)
 class Event:
-	def __init__(self, type, prefix=None, params=None, hostmask=None, target=None, msg=None, **kwargs):
+	def __init__(self, type, prefix=None, params=None, hostmask=None, target=None, msg=None, 
+		nick=None, ident=None, host=None, **kwargs):
 		self.type = type
-		# Consider args as a dict of uncommon event attributes
-		# changing this to kwargs
+		# kwargs is a dict of uncommon event attributes
 		self.prefix = prefix
 		self.params = params
 		self.hostmask = hostmask
-		self.nick = None
-		self.ident = None
-		self.host = None
-		if hostmask:
-			try:
-				nick, ident = hostmask.split('!', 1)
-				ident, host = ident.split('@', 1)
-			except ValueError:
-				pass
-			else:
-				self.nick = nick
-				self.ident = ident
-				self.host = host
+		self.nick = nick
+		self.ident = ident
+		self.host = host
+		
 		self.target = target
-		# TODO: handle non-UTF8 cases
-		#  probably by just try a few different encodings and then give up?
-		if msg is not None: self.msg = msg.decode("utf-8") 
-		else: self.msg = ""
+		
+		if msg is not None: 
+			self.msg = coerceToUnicode(msg)
+		else: 
+			self.msg = ""
 		# Set by dispatcher, for convenience in module
 		self.command = None
+		
 		self.argument = None
 		self.kwargs = kwargs
 	

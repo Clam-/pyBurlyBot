@@ -11,7 +11,8 @@ from twisted.python import log
 from time import asctime, time
 from collections import deque
 #BurlyBot imports
-from util.event import Event
+from event import Event
+from helpers import processHostmask
 
 # inject some other common symbolic IDs:
 symbolic_to_numeric["RPL_YOURID"] = '042'
@@ -31,12 +32,14 @@ class BurlyBot(IRCClient):
 	_lines = 0
 	_lastmsg = 0
 	_lastCL = None
+	supported = None
+	
 	# http://twistedmatrix.com/trac/browser/trunk/twisted/words/protocols/irc.py
 	# irc_ and RPL_ methods are duplicated here verbatim so that we can dispatch higher level
 	# events with the low level data intact.
 	
-	# custom sendline throttler. This might be overly complex and maybe the default IRCClient's
-	# lineRate would be better
+	# custom sendline throttler. This might be overly complex and the default IRCClient's
+	# lineRate might be better
 	def sendLine(self, line):
 		t = time()
 		if self._lastmsg + 1 < t:
@@ -85,35 +88,41 @@ class BurlyBot(IRCClient):
 		"""
 		Called when a user joins a channel.
 		"""
-		nick = prefix.split('!')[0]
+		nick, ident, host = processHostmask(prefix)
 		channel = params[-1]
 		if nick == self.nickname:
-			#self.state.joinchannel(channel)
-			self.dispatch(self, Event("joined", prefix, params, hostmask=prefix, target=channel))
+			self.state.joinchannel(channel)
+			self.dispatch(self, Event("joined", prefix, params, hostmask=prefix, target=channel, 
+				nick=nick, ident=ident, host=host))
 		else:
-			#self.state.adduser(channel, nick)
-			self.dispatch(self, Event("userJoined", prefix, params, hostmask=prefix, target=channel))
+			self.state.userjoin(channel, nick, ident, host, prefix)
+			self.dispatch(self, Event("userJoined", prefix, params, hostmask=prefix, target=channel, 
+				nick=nick, ident=ident, host=host))
 
 	def irc_PART(self, prefix, params):
 		"""
 		Called when a user leaves a channel.
 		"""
-		nick = prefix.split('!')[0]
+		nick, ident, host = processHostmask(prefix)
 		channel = params[0]
 		if nick == self.nickname:
-			#self.state.leavechannel(channel)
-			self.dispatch(self, Event("left", prefix, params, hostmask=prefix, target=channel))
+			self.state.leavechannel(channel)
+			self.dispatch(self, Event("left", prefix, params, hostmask=prefix, target=channel, 
+				nick=nick, ident=ident, host=host))
 		else:
-			#self.state.removeuser(channel, user)
-			self.dispatch(self, Event("userLeft", prefix, params, hostmask=prefix, target=channel))
+			self.state.userpart(channel, nick, ident, host, prefix)
+			self.dispatch(self, Event("userLeft", prefix, params, hostmask=prefix, target=channel, 
+				nick=nick, ident=ident, host=host))
 			
 
 	def irc_QUIT(self, prefix, params):
 		"""
 		Called when a user has quit.
 		"""
-		#self.state.nukeuser(prefix.split('!')[0])
-		self.dispatch(self, Event("userQuit", prefix, params, hostmask=prefix, msg=params[0]))
+		nick, ident, host = processHostmask(prefix)
+		self.state.userquit(nick)
+		self.dispatch(self, Event("userQuit", prefix, params, hostmask=prefix, msg=params[0], 
+			nick=nick, ident=ident, host=host))
 
 	# TODO: Store modes in state? (+m might be good to know about, as well as our own modes)
 	def irc_MODE(self, prefix, params):
@@ -138,6 +147,8 @@ class BurlyBot(IRCClient):
 			log.err(None, 'An error occured while parsing the following '
 						  'MODE message: MODE %s' % (' '.join(params),))
 		else:
+			if channel != self.nickname:
+				self.state.modechange(channel, added, removed)
 			self.dispatch(self, Event("modeChanged", prefix, params, hostmask=prefix, target=channel,
 				added=added, removed=removed, args=args))
 
@@ -162,9 +173,11 @@ class BurlyBot(IRCClient):
 				return
 
 			message = ' '.join(m['normal'])
-
+		
+		nick, ident, host = processHostmask(prefix)
 		# privmsged because PRIVMSG is dispatched as the low-level version
-		self.dispatch(self, Event("privmsged", prefix, params, hostmask=user, target=channel, msg=message))
+		self.dispatch(self, Event("privmsged", prefix, params, hostmask=user, target=channel, msg=message, 
+			nick=nick, ident=ident, host=host))
 
 	def irc_NOTICE(self, prefix, params):
 		"""
@@ -190,14 +203,15 @@ class BurlyBot(IRCClient):
 		"""
 		Called when a user changes their nickname.
 		"""
-		nick = prefix.split('!', 1)[0]
+		nick, ident, host = processHostmask(prefix)
+		
 		if nick == self.nickname:
 			self.nickChanged(params[0])
 			self.dispatch(self, Event("nickChanged", prefix, params, hostmask=prefix, newname=params[0]))
 		else:
-			#update state user
-			#self.state.changeuser(nick, params[0])
-			self.dispatch(self, Event("userRenamed", prefix, params, hostmask=prefix, newname=params[0]))
+			self.state.userrename(nick, params[0], ident, host)
+			self.dispatch(self, Event("userRenamed", prefix, params, hostmask=prefix, newname=params[0], 
+				nick=nick, ident=ident, host=host))
 
 	def irc_KICK(self, prefix, params):
 		"""
@@ -208,42 +222,43 @@ class BurlyBot(IRCClient):
 		kicked = params[1]
 		message = params[-1]
 		if kicked.lower() == self.nickname.lower():
-			#self.state.leavechannel(channel)
+			self.state.leavechannel(channel)
 			self.dispatch(self, Event("kickedFrom", prefix, params, hostmask=prefix, target=channel, msg=message, kicked=kicked))
 		else:
-			#self.state.removeuser(kicked, user)
+			self.state.userpart(channel, kicked)
 			self.dispatch(self, Event("userKicked", prefix, params, hostmask=prefix, target=channel, msg=message, kicked=kicked))
 
+	# This should never get triggered, but monitor just in case
+	# and if it does, reimplement IRCClient's implementation
 	def irc_TOPIC(self, prefix, params):
-		"""
-		Someone in the channel set the topic.
-		"""
-		#user = prefix.split('!')[0]
-		channel = params[0]
-		newtopic = params[1]
-		self.dispatch(self, Event("topicUpdated", prefix, params, hostmask=prefix, target=channel, newtopic=newtopic))
+		if self.settings.debug:
+			print "irc_TOPIC USED??"
 
-	# TODO: does irc_RPL_TOPIC get fired every time irc_TOPIC does?
-	# Do we want to store topic in state?  Guess might as well, already have channel object (TODO)
+	# does irc_RPL_TOPIC get fired every time irc_TOPIC does?
 	# Also, what is in params[0]?  ~SPOOKY~
 	def irc_RPL_TOPIC(self, prefix, params):
 		"""
 		Called when the topic for a channel is initially reported or when it
 		subsequently changes.
 		"""
-		#user = prefix.split('!')[0]
+		nick, ident, host = processHostmask(prefix)
 		channel = params[1]
 		newtopic = params[2]
-		self.dispatch(self, Event("topicUpdated", prefix, params, hostmask=prefix, target=channel, newtopic=newtopic))
+		
+		self.state.settopic(channel, newtopic, nick, ident, host)
+		self.dispatch(self, Event("topicUpdated", prefix, params, hostmask=prefix, target=channel, newtopic=newtopic, 
+				nick=nick, ident=ident, host=host))
 
 	def irc_RPL_NOTOPIC(self, prefix, params):
 		"""
 		...
 		"""
-		#user = prefix.split('!')[0]
+		nick, ident, host = processHostmask(prefix)
 		channel = params[1]
 		newtopic = ""
-		self.dispatch(self, Event("topicUpdated", prefix, params, hostmask=prefix, target=channel, newtopic=newtopic))
+		self.state.settopic(channel, newtopic, nick, ident, host)
+		self.dispatch(self, Event("topicUpdated", prefix, params, hostmask=prefix, target=channel, newtopic=newtopic, 
+				nick=nick, ident=ident, host=host))
 
 	def irc_RPL_ENDOFMOTD(self, prefix, params):
 		"""
@@ -252,6 +267,7 @@ class BurlyBot(IRCClient):
 		motd is a list containing the accumulated contents of the message of the day.
 		"""
 		motd = self.motd
+		self.state.motd = motd
 		# The following sets self.motd to None, so we get the motd first
 		IRCClient.irc_RPL_ENDOFMOTD(self, prefix, params)
 		self.dispatch(self, Event("receivedMOTD", prefix, params, motd=motd))
@@ -269,15 +285,15 @@ class BurlyBot(IRCClient):
 		"""
 		Called when NAMES reply is received from the server.
 		"""
-		print 'NAMES:', params
+		print 'NAMES: %s-%s' % (prefix, params)
 		channel = params[2]
 		users = params[3].split(" ")
 		self.dispatch(self, Event("nameReply", prefix, params, target=channel, users=users))
-
+		
 		for nick in users:
 			nick = nick.lstrip(self.nickprefixes)
 			if nick == self.nickname: continue
-			#self.state.adduser(channel, nick)
+			self.state.userjoin(channel, nick)
 	
 	# TODO: this should probably collect the names from the above and dispatch them
 	#  Not sure how to deal with multiple queries being returned at once, 
@@ -323,20 +339,9 @@ class BurlyBot(IRCClient):
 		for chan in self.settings.channels:
 			self.join(*chan)
 		
-		# TODO: Issue #12 - smarter reconnect, resend
-		self.container._setbotinst(self)
+		self.container._setBotinst(self)
 		self.state.resetnetwork()
 		self.dispatch(self, Event("signedOn"))
-
-	def joined(self, channel):
-		"""This will get called when the bot joins the channel."""
-		IRCClient.joined(self, channel)
-		print "[I have joined %s]" % channel
-		#nuke channel
-		# TODO: When implementing part/kick, use nukechannel(channel)
-		#self.state.joinchannel(channel)
-		# TODO: decide whether to use /names (auto) or /who... /names only gives nicknames, /who gives a crapton of infos...
-		#self.names(channel)
 
 	#TODO: proper CTCP things
 	def action(self, hostmask, channel, msg):
@@ -385,7 +390,7 @@ class BurlyBot(IRCClient):
 
 	def connectionLost(self, reason):
 		IRCClient.connectionLost(self, reason)
-		self.container._setbotinst(None)
+		self.container._setBotinst(None)
 		self.state.resetnetwork()
 		print "[disconnected]"
 

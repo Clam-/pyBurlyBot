@@ -74,19 +74,20 @@ class Container:
 	
 	def _setBotinst(self, botinst):
 		self._botinst = botinst
+		# checkqueue 2 seconds after signedOn to give time to join channels and stablize
 		# also keep checking this outqueue 2 seconds later if there is still elements left
-		self._checkQueue()
+		reactor.callLater(2, self._checkQueue)
 	
 	def _checkQueue(self):
 		checkAgain = False
-		if self.botinst:
+		if self._botinst:
 			while self._outqueue:
 				outbound = self._outqueue.popleft()
 				print "PROCESSING QUEUED METHODS"
 				# These will always be BurlyBot functions so let's do some magic.
 				# There shouldn't be any AttributeError, and if there is, bad luck I guess.
 				# This should always be called from inside the reactor so don't need to pass it to the reactor
-				getattr(self.botinst, outbound[0])(*outbound[1], **outbound[2])
+				getattr(self._botinst, outbound[0])(*outbound[1], **outbound[2])
 				checkAgain = True
 		# check again in case we missed some
 		if checkAgain:

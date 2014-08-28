@@ -50,4 +50,33 @@ def distance_of_time_in_words(fromtime, totime=None):
 def isIterable(i):
 	return isinstance(i, tuple) or isinstance(i, list)
 	
-	
+def processHostmask(h):
+	if h:
+		try:
+			nick, ident = h.split('!', 1)
+			ident, host = ident.split('@', 1)
+		except ValueError:
+			pass
+		else:
+			return (nick, ident, host)
+	return (None, None, None)
+
+# Useful thing http://stackoverflow.com/a/8528866
+# This may return incorrectly decoded string because naive
+ENCODINGS = ("utf-8", "sjis", "latin_1", "gb2312", "cp1251", "cp1252",
+	"gbk", "cp1256", "euc_jp")
+class UnknownEncoding(UnicodeDecodeError):
+	pass
+def coerceToUnicode(s):
+	for enc in ENCODINGS:
+		try:
+			return s.decode(enc)
+		except UnicodeDecodeError:
+			continue
+	s = s.decode("utf-8", "replace")
+	print "Warning, unknown coded character encounted in %s" % s
+	return s
+		
+		
+		
+		

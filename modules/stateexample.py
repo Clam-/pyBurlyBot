@@ -1,21 +1,38 @@
 #state example
 from util import Mapping, commandSplit
 
+#Note: Smart use of only referencing dict, set and list attributes once (or as few times as possible) will make
+#	state use much much quicker (probably)
+
 def statecommand(event, bot):
 	command, args = commandSplit(event.argument)
 	
 	if command == "channel":
 		if not args:
-			for chan in bot.state.channels.keys():
-				bot.say("Channel (%s): %s" % (chan,
-					", ".join(bot.state.channels[chan].users)))
+			for chan in bot.state.channels.itervalues():
+				bot.say("Users on channel (%s): %s" % (chan.name,
+					", ".join(chan.users)))
 		else:
-			if args in bot.state.channels:
-				bot.say("Channel (%s): %s" % (args, 
-					", ".join(bot.state.channels[args].users)))
+			chan = bot.state.channels.get(args, None)
+			if chan:
+				bot.say("Users on channel (%s): %s" % (args, 
+					", ".join(chan.users)))
 			else:
 				bot.say("lol dunno channel %s" % args)
-		
+	
+	if command == "bans":
+		if not args:
+			for chan in bot.state.channels.itervalues():
+				bot.say("Bans on channel (%s): %s" % (chan.name,
+					", ".join(chan.banlist.iterkeys())))
+		else:
+			chan = bot.state.channels.get(args, None)
+			if chan:
+				bot.say("Bans on channel (%s): %s" % (args, 
+					", ".join(chan.banlist.iterkeys())))
+			else:
+				bot.say("lol dunno channel %s" % args)
+	
 	elif command == "network":
 		bot.say("Known users on network: %s" % ", ".join(bot.state.users.keys()))
 		

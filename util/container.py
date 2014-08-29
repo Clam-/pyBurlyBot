@@ -188,4 +188,3 @@ class SetupContainer(object):
 			return getattr(self, name)
 		else:
 			return getattr(self.container, name)
-		

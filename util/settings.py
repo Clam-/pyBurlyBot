@@ -12,7 +12,7 @@ from util.dispatcher import Dispatcher
 KEYS_COMMON = ("nick", "nicksuffix", "commandprefix", "admins")
 KEYS_SERVER = ("serverlabel",) + KEYS_COMMON + ("host", "port", "channels", "allowmodules", "denymodules")
 KEYS_SERVER_SET = set(KEYS_SERVER)
-KEYS_MAIN = KEYS_COMMON + ("modules", "debug", "datadir", "datafile", "console", "servers")
+KEYS_MAIN = KEYS_COMMON + ("console", "debug", "datadir", "datafile", "enablestate", "modules", "servers")
 KEYS_MAIN_SET = set(KEYS_MAIN)
 #keys to create a copy of so no threading bads
 KEYS_COPY = ("admins", "channels", "allowmodules", "denymodules", "modules")
@@ -182,6 +182,7 @@ class SettingsBase:
 	datadir = "data"
 	debug = False
 	datafile = "BurlyBot.db"
+	enablestate = False
 	console = True
 	modules = OrderedSet(["core"])
 	admins = []

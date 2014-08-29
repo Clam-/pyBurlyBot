@@ -234,4 +234,3 @@ class Dispatcher:
 			for module, traceback in cls.NOTLOADED:
 				print >> stderr, module + ':'
 				print >> stderr, traceback
-

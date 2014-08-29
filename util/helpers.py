@@ -2,6 +2,8 @@
 from datetime import timedelta
 from time import time
 
+from operator import itemgetter
+
 # adapted http://stackoverflow.com/a/2119512
 def days_hours_minutes(td):
 	return td.days, td.seconds//3600, (td.seconds//60)%60, td.seconds % 60
@@ -77,6 +79,43 @@ def coerceToUnicode(s):
 	print "Warning, unknown coded character encounted in %s" % s
 	return s
 		
+def processListReply(params):
+	channel = params[1]
+	mask = params[2]
+	nick, ident, host = processHostmask(params[3])
+	t = params[4]
+	return channel, mask, nick, ident, host, t, params[3]
+	
+class PrefixMap(object):
+	def __init__(self, prefixiter):
+		prefixes = []
+		opfixes = []
+		opcmds = []
+		foundop = False
+		foundvoice = False
+		usermodemap = {}
+		voicefixes = []
+		voicecmds = []
+		for cmd, p, num in sorted(((cmd, p, num) for cmd, (p, num) in prefixiter), key=itemgetter(2)):
+			#('~', 0)
+			# identify index of traditional op (@) and class everything under "op"
+			# also identify index of voice and likewise
+			prefixes.append(p)
+			if not foundop:
+				opfixes.append(p)
+				opcmds.append(cmd)
+			elif not foundvoice:
+				voicefixes.append(p)
+				voicecmds.append(cmd)
+			if p == "@":
+				foundop = True
+			elif p == "v":
+				foundvoice = True
+			usermodemap[cmd] = p
 		
-		
-		
+		self.opprefixes = "".join(opfixes)
+		self.opcmds = "".join(opcmds)
+		self.nickprefixes = "".join(prefixes)
+		self.usermodemap = usermodemap
+		self.voiceprefixes = "".join(voicefixes)
+		self.voicecmds = "".join(voicecmds)

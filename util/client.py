@@ -13,16 +13,18 @@ from collections import deque
 
 #BurlyBot imports
 from event import Event
-from helpers import processHostmask, processListReply, PrefixMap
+from helpers import processHostmask, processListReply, PrefixMap, isIterable
 
 # inject some other common symbolic IDs:
 symbolic_to_numeric["RPL_YOURID"] = '042'
 symbolic_to_numeric["RPL_LOCALUSERS"] = '265'
 symbolic_to_numeric["RPL_GLOBALUSERS"] = '266'
+symbolic_to_numeric["RPL_CREATIONTIME"] = '329'
 # and the reverse:
 numeric_to_symbolic["042"] = 'RPL_YOURID'
 numeric_to_symbolic["265"] = 'RPL_LOCALUSERS'
 numeric_to_symbolic["266"] = 'RPL_GLOBALUSERS'
+numeric_to_symbolic["329"] = 'RPL_CREATIONTIME'
 
 class BurlyBot(IRCClient):
 	"""BurlyBot"""
@@ -73,14 +75,12 @@ class BurlyBot(IRCClient):
 		else:
 			self._lastCL = None
 		
-		
-	
-	# TODO: IRC RFC says this is supposed to be able to support multiple channels... Make it so.
-	#	Although if you passed a string with #channel,#channel2 it would work as intended but I think a list is more appropriate.
-	# TODO: (also) Do this better.
-	def names(self, channel):
-		"""List the users in 'channel', usage: client.names('#testroom')"""
-		self.sendLine('NAMES %s' % channel)
+	def names(self, channels):
+		"""List the users in a channel"""
+		if isIterable(channels):
+			self.sendLine('NAMES %s' % ",".join(channels))
+		else:
+			self.sendLine('NAMES %s' % channels)
 
 	def banlist(self, channel):
 		self.mode(channel, True, "b")
@@ -173,7 +173,7 @@ class BurlyBot(IRCClient):
 		if message[0] == X_DELIM:
 			m = ctcpExtract(message)
 			if m['extended']:
-				self.ctcpQuery(user, channel, m['extended'])
+				self.ctcpQuery(user, channel, m['extended'], params)
 
 			if not m['normal']:
 				return
@@ -181,7 +181,7 @@ class BurlyBot(IRCClient):
 			message = ' '.join(m['normal'])
 		
 		nick, ident, host = processHostmask(prefix)
-		# privmsged because PRIVMSG is dispatched as the low-level version
+		# These are actually messages, ctcp's aren't dispatched here
 		self.dispatch(self, Event("privmsged", prefix, params, hostmask=user, target=channel, msg=message, 
 			nick=nick, ident=ident, host=host))
 
@@ -196,11 +196,9 @@ class BurlyBot(IRCClient):
 		if message[0] == X_DELIM:
 			m = ctcpExtract(message)
 			if m['extended']:
-				self.ctcpReply(user, channel, m['extended'])
-
+				self.ctcpReply(user, channel, m['extended'], params)
 			if not m['normal']:
 				return
-
 			message = ' '.join(m['normal'])
 
 		self.dispatch(self, Event("noticed", prefix, params, hostmask=user, target=channel, msg=message))
@@ -283,7 +281,6 @@ class BurlyBot(IRCClient):
 		"""
 		Parse a RPL_CHANNELMODEIS message.
 		"""
-		
 		channel, modes, args = params[1], params[2], params[3:]
 
 		if modes[0] not in '-+':
@@ -298,6 +295,11 @@ class BurlyBot(IRCClient):
 				self.state._modechange(channel, None, added, [])
 			self.dispatch(self, Event("channelModeIs", prefix, params, hostmask=prefix, target=channel,
 				added=added, modes=modes, args=args))
+	
+	def irc_RPL_CREATIONTIME(self, prefix, params):
+		channel = params[1]
+		t = params[2]
+		self.dispatch(self, Event("creationTime", prefix, params, target=channel, creationtime=t))
 	
 	def irc_RPL_NAMREPLY(self, prefix, params):
 		"""
@@ -393,6 +395,36 @@ class BurlyBot(IRCClient):
 	###
 	### The following are "preprocessed" events normally called from IRCClient
 	###
+	def ctcpQuery(self, user, channel, messages, params):
+		"""
+		Dispatch method for any CTCP queries received.
+		Duplicate tags ignored.
+		Override from IRCClient
+		"""
+		seen = set()
+		nick, ident, host = processHostmask(user)
+		for tag, data in messages:
+			if tag not in seen:
+				#dispatch event
+				self.dispatch(self, Event("ctcpQuery", user, params, hostmask=user, target=channel, tag=tag, 
+					data=data, nick=nick, ident=ident, host=host))
+			seen.add(tag)
+			
+	def ctcpReply(self, user, channel, messages, params):
+		"""
+		Dispatch method for any CTCP replies received.
+		Duplicate tags ignored.
+		Override from IRCClient
+		"""
+		seen = set()
+		nick, ident, host = processHostmask(user)
+		for tag, data in messages:
+			if tag not in seen:
+				#dispatch event
+				self.dispatch(self, Event("ctcpReply", user, params, hostmask=user, target=channel, tag=tag, 
+					data=data, nick=nick, ident=ident, host=host))
+			seen.add(tag)
+	
 	def signedOn(self):
 		"""Called when bot has succesfully signed on to server."""
 		print "[Signed on]"
@@ -411,12 +443,13 @@ class BurlyBot(IRCClient):
 		if self.state: self.state._resetnetwork()
 		self.dispatch(self, Event("signedOn"))
 
-	#TODO: proper CTCP things
-	def action(self, hostmask, channel, msg):
+	# TODO: this currently doesn't get called. Do we want to dispatch these events? Or just make
+	#	module catch ctcp events and check for ACTION tag?
+	def action(self, hostmask, channel, msg, params):
 		"""
 		This will get called when the bot sees someone do an action.
 		"""
-		self.dispatch(self, Event(type="action", hostmask=hostmask, target=channel, msg=msg))
+		self.dispatch(self, Event("action", params, hostmask=hostmask, target=channel, msg=msg))
 	
 	#overriding msg
 	# need to consider dipatching this event and allow for some override somehow

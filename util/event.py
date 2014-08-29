@@ -3,6 +3,7 @@ from helpers import coerceToUnicode
 
 #TODO: consider this, events should probably not be mutable 
 # (can this be done? might have to trust modules not to do something stupid)
+# TODO: prefix and hostmask are I think always the same. What to do?
 class Event:
 	def __init__(self, type, prefix=None, params=None, hostmask=None, target=None, msg=None, 
 		nick=None, ident=None, host=None, **kwargs):

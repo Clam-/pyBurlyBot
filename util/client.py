@@ -35,6 +35,7 @@ class BurlyBot(IRCClient):
 	_lastmsg = 0
 	_lastCL = None
 	supported = None
+	altindex = 0
 	
 	# http://twistedmatrix.com/trac/browser/trunk/twisted/words/protocols/irc.py
 	# irc_ and RPL_ methods are duplicated here verbatim so that we can dispatch higher level
@@ -462,10 +463,20 @@ class BurlyBot(IRCClient):
 		else: IRCClient.msg(self, user, msg)
 		
 	# override the method that determines how a nickname is changed on
-	# collisions. The default method appends an underscore.
-	#Just kidding, actually let's do this after all - user option
+	# collisions.
+	# TODO: At the moment this attempts to iterate the altnicks if it exists and falls back to
+	# suffix after iterating. When to reset the iteration? At the moment it does it on connection
+	# should probably make a reactor.callLater, and cancel it on disconnect or something.
 	def alterCollidedNick(self, nickname):
-		return nickname + self.settings.nicksuffix.encode("utf-8")
+		if self.settings.altnicks:
+			print self.settings.altnicks, self.altindex
+			if self.altindex < len(self.settings.altnicks):
+				s = self.settings.altnicks[self.altindex].encode(self.settings.encoding)
+				self.altindex += 1
+				return s
+			elif nickname != self.settings.nick:
+				return self.settings.nick.encode(self.settings.encoding)
+		return (nickname + self.settings.nicksuffix).encode(self.settings.encoding)
 		
 	def irc_unknown(self, prefix, command, params):
 		if self.settings.debug:
@@ -494,6 +505,7 @@ class BurlyBot(IRCClient):
 		self._banlist = {}
 		self._exceptlist = {}
 		self._invitelist = {}
+		self.altindex = 0
 
 	def connectionLost(self, reason):
 		IRCClient.connectionLost(self, reason)

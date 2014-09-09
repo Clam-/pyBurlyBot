@@ -67,9 +67,10 @@ def processHostmask(h):
 # This may return incorrectly decoded string because naive
 ENCODINGS = ("utf-8", "sjis", "latin_1", "gb2312", "cp1251", "cp1252",
 	"gbk", "cp1256", "euc_jp")
-class UnknownEncoding(UnicodeDecodeError):
-	pass
-def coerceToUnicode(s):
+def coerceToUnicode(s, enc=None):
+	if enc:
+		try: return s.decode(enc)
+		except UnicodeDecodeError: pass
 	for enc in ENCODINGS:
 		try:
 			return s.decode(enc)
@@ -85,7 +86,8 @@ def processListReply(params):
 	nick, ident, host = processHostmask(params[3])
 	t = params[4]
 	return channel, mask, nick, ident, host, t, params[3]
-	
+
+# TODO: This seems pretty clunky. Maybe revisit/refactor it in future...	
 class PrefixMap(object):
 	def __init__(self, prefixiter):
 		prefixes = []

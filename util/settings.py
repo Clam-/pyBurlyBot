@@ -9,7 +9,7 @@ from util.libs import OrderedSet
 from util.container import Container
 from util.dispatcher import Dispatcher
 
-KEYS_COMMON = ("nick", "nicksuffix", "commandprefix", "admins")
+KEYS_COMMON = ("altnicks", "encoding", "nick", "nicksuffix", "commandprefix", "admins")
 KEYS_SERVER = ("serverlabel",) + KEYS_COMMON + ("host", "port", "channels", "allowmodules", "denymodules")
 KEYS_SERVER_SET = set(KEYS_SERVER)
 KEYS_MAIN = KEYS_COMMON + ("console", "debug", "datadir", "datafile", "enablestate", "modules", "servers")
@@ -50,6 +50,10 @@ class BaseServer(object):
 
 		if "nicksuffix" in opts:
 			self.nicksuffix = opts["nicksuffix"].encode('utf-8')
+			
+		if "altnicks" in opts:
+			an = opts["altnicks"]
+			self.altnicks = an if isinstance(an, list) else (an,)
 
 		self.host = opts.get("host", None)
 		if not self.host:
@@ -177,12 +181,14 @@ class Server(BaseServer):
 
 class SettingsBase:
 	nick = "BurlyBot"
+	altnicks = []
 	nicksuffix = "_"
 	commandprefix = "!"
 	datadir = "data"
 	debug = False
 	datafile = "BurlyBot.db"
 	enablestate = False
+	encoding = "utf-8"
 	console = True
 	modules = OrderedSet(["core"])
 	admins = []

@@ -1,7 +1,7 @@
 #timehelpers.py
 from datetime import timedelta
 from time import time
-
+from codecs import lookup
 from operator import itemgetter
 
 # adapted http://stackoverflow.com/a/2119512
@@ -90,6 +90,9 @@ def processListReply(params):
 # TODO: This seems pretty clunky. Maybe revisit/refactor it in future...	
 class PrefixMap(object):
 	def __init__(self, prefixiter):
+		self.loadfromprefix(prefixiter)
+		
+	def loadfromprefix(self, prefixiter):
 		prefixes = []
 		opfixes = []
 		opcmds = []
@@ -121,3 +124,93 @@ class PrefixMap(object):
 		self.usermodemap = usermodemap
 		self.voiceprefixes = "".join(voicefixes)
 		self.voicecmds = "".join(voicecmds)
+
+
+# Simple command parse and return (command, argument)
+# split arguments in to [nargs] number of elements 
+# only if number of arguments would equal nargs, otherwise return None argument
+def commandSplit(s, nargs=1):
+	command = ""
+	if s:
+		command = s.split(" ", 1)
+		if len(command) > 1:
+			if nargs > 1:
+				a = command[1].split(" ", nargs)
+				if len(a) != nargs:
+					return (command[0], None)
+				else:
+					return (command[0], a)
+			else:
+				return command
+		else:
+			return command[0], None
+	return (None, None)
+
+# like commandSplit, this is only for splitting arguments up
+def argumentSplit(s, nargs):
+	if s:
+		a = s.split(" ", nargs)
+		if len(a) != nargs:
+			return ()
+		else:
+			return a
+	else:
+		return ()
+
+# TODO: add more outgoing things here for length calculation		
+commandlength = {
+	"sendmsg" : 'PRIVMSG %s :',
+}
+
+
+def splitEncodedUnicode(s, length, encoding="utf-8", n=1):
+	if length < 1: return [""]
+	le = len(s.encode(encoding))
+	if le <= length:
+		return [s]
+	else:
+		splits = []
+		ib = 0 # start of segment
+		# UTF-8 makes this somewhat easy
+		if lookup(encoding).name == "utf-8":
+			es = s.encode("utf-8")
+			while ib < le and len(splits) < n:
+				ie = ib+length # end of segment
+				if ie >= le: 
+					splits.append(es[ib:ie])
+					break
+				c = es[ie]
+				#check for unicode character start byte, and backtrack if not found
+				while (0b10000000 & ord(c) != 0) and (0b11000000 & ord(c) != 0b11000000):
+					ie -= 1
+					c = es[ie]
+				splits.append(es[ib:ie])
+				if ib == ie: 
+					# in rare case that a character can't fit, skip it.
+					ie += 1
+					c = es[ie]
+					while (0b10000000 & ord(c) != 0) and (0b11000000 & ord(c) != 0b11000000):
+						ie += 1
+						c = es[ie]
+				ib = ie
+			splits = [s.decode("utf-8") for s in splits] #TODO: this double conversion seems kind of wasteful
+			# it might be faster to calc all the endchar points first and then translate back.
+		else:
+			# not as bad as I thought it would be, but pretty bad
+			sl = len(s) # length of original string
+			while ib < sl and len(splits) < n:
+				ie = ib+length 				# end of segment
+				ss = s[ib:ie] 				# original string spliced
+				sse = ss.encode(encoding) 	# encoding of that splice
+				le = len(sse) 				# length of encoded splice
+				while le > length:
+					ie -= int(round((le - length) / 1.8)) # trim 1.8 times the extra length, seemed like good compromise
+					ss = s[ib:ie]
+					sse = ss.encode(encoding)
+					le = len(sse)
+				splits.append(ss)
+				ib = ie
+		return splits
+	
+
+	

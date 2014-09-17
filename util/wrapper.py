@@ -17,11 +17,11 @@ class BotWrapper:
 	# I think say should act as like a "reply" sending message back to whatever
 	#  send it, be it channel or user
 	# TODO: should be renamed "reply" ?
-	def say(self, msg):
+	def say(self, msg, **kwargs):
 		if self.event.isPM():
-			self.msg(self.event.nick, msg)
+			self.sendmsg(self.event.nick, msg, **kwargs)
 		else:
-			self.msg(self.event.target, msg)
+			self.sendmsg(self.event.target, msg, **kwargs)
 			
 	def isadmin(self, module=None):
 		return blockingCallFromThread(reactor, self._isadmin, module)

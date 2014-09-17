@@ -2,29 +2,31 @@
 
 # twisted imports
 from twisted.words.protocols.irc import IRCClient, IRCBadModes, parseModes, X_DELIM, \
-	symbolic_to_numeric, numeric_to_symbolic, ctcpExtract
+	symbolic_to_numeric, numeric_to_symbolic, ctcpExtract, lowQuote
 from twisted.internet import reactor
 from twisted.internet.protocol import ReconnectingClientFactory
 from twisted.python import log
+from twisted.protocols.basic import LineReceiver
 
 # system imports
 from time import asctime, time
 from collections import deque
 
 #BurlyBot imports
-from event import Event
-from helpers import processHostmask, processListReply, PrefixMap, isIterable
+from helpers import processHostmask, processListReply, PrefixMap, isIterable, commandlength, splitEncodedUnicode
 
 # inject some other common symbolic IDs:
 symbolic_to_numeric["RPL_YOURID"] = '042'
 symbolic_to_numeric["RPL_LOCALUSERS"] = '265'
 symbolic_to_numeric["RPL_GLOBALUSERS"] = '266'
 symbolic_to_numeric["RPL_CREATIONTIME"] = '329'
+symbolic_to_numeric["RPL_HOSTHIDDEN"] = '396'
 # and the reverse:
 numeric_to_symbolic["042"] = 'RPL_YOURID'
 numeric_to_symbolic["265"] = 'RPL_LOCALUSERS'
 numeric_to_symbolic["266"] = 'RPL_GLOBALUSERS'
 numeric_to_symbolic["329"] = 'RPL_CREATIONTIME'
+symbolic_to_numeric["396"] = 'RPL_HOSTHIDDEN'
 
 class BurlyBot(IRCClient):
 	"""BurlyBot"""
@@ -36,14 +38,19 @@ class BurlyBot(IRCClient):
 	_lastCL = None
 	supported = None
 	altindex = 0
+	prefixlen = None
+	delimiter = '\r\n' # stick to specification
 	
 	# http://twistedmatrix.com/trac/browser/trunk/twisted/words/protocols/irc.py
 	# irc_ and RPL_ methods are duplicated here verbatim so that we can dispatch higher level
 	# events with the low level data intact.
 	
-	# custom sendline throttler. This might be overly complex and the default IRCClient's
-	# lineRate might be better
+	# custom sendline throttler. This might be overly complex but should behave similar to mIRC
+	# where lines are only throttled once you cross a threshold. I don't know if the cooldown is similar though
 	def sendLine(self, line):
+		#main point of encoding outbound messages:
+		if isinstance(line, unicode): line = line.encode(self.settings.encoding)
+		if len(line) > 512: line = line[:512] #blindly truncate to not get killed for huge messages.
 		t = time()
 		if self._lastmsg + 1 < t:
 			# if message hasn't been sent for 1 seconds, go for it
@@ -75,7 +82,13 @@ class BurlyBot(IRCClient):
 				self._lastCL = None
 		else:
 			self._lastCL = None
-		
+
+	# sticking to specification
+	def _reallySendLine(self, line):
+		return LineReceiver.sendLine(self, lowQuote(line) + '\r\n')
+	def dataReceived(self, data):
+		LineReceiver.dataReceived(self, data)
+	
 	def names(self, channels):
 		"""List the users in a channel"""
 		if isIterable(channels):
@@ -96,15 +109,17 @@ class BurlyBot(IRCClient):
 		nick, ident, host = processHostmask(prefix)
 		channel = params[-1]
 		if nick == self.nickname:
+			# take note of our prefix! (for message length calculation
+			self.prefixlen = len(prefix)
 			if self.state: 
 				self.state._joinchannel(channel)
 				self.sendLine("MODE %s" % channel)
-			self.dispatch(self, Event("joined", prefix, params, hostmask=prefix, target=channel, 
-				nick=nick, ident=ident, host=host))
+			self.dispatch(self, "joined", prefix=prefix, params=params, hostmask=prefix, target=channel, 
+				nick=nick, ident=ident, host=host)
 		else:
 			if self.state: self.state._userjoin(channel, nick, ident, host, prefix)
-			self.dispatch(self, Event("userJoined", prefix, params, hostmask=prefix, target=channel, 
-				nick=nick, ident=ident, host=host))
+			self.dispatch(self, "userJoined", prefix=prefix, params=params, hostmask=prefix, target=channel, 
+				nick=nick, ident=ident, host=host)
 
 	def irc_PART(self, prefix, params):
 		"""
@@ -113,13 +128,15 @@ class BurlyBot(IRCClient):
 		nick, ident, host = processHostmask(prefix)
 		channel = params[0]
 		if nick == self.nickname:
+			# take note of our prefix! (for message length calculation
+			self.prefixlen = len(prefix)
 			if self.state: self.state._leavechannel(channel)
-			self.dispatch(self, Event("left", prefix, params, hostmask=prefix, target=channel, 
-				nick=nick, ident=ident, host=host))
+			self.dispatch(self, "left", prefix=prefix, params=params, hostmask=prefix, target=channel, 
+				nick=nick, ident=ident, host=host)
 		else:
 			if self.state: self.state._userpart(channel, nick, ident, host, prefix)
-			self.dispatch(self, Event("userLeft", prefix, params, hostmask=prefix, target=channel, 
-				nick=nick, ident=ident, host=host))
+			self.dispatch(self, "userLeft", prefix=prefix, params=params, hostmask=prefix, target=channel, 
+				nick=nick, ident=ident, host=host)
 			
 
 	def irc_QUIT(self, prefix, params):
@@ -128,8 +145,8 @@ class BurlyBot(IRCClient):
 		"""
 		nick, ident, host = processHostmask(prefix)
 		if self.state: self.state._userquit(nick)
-		self.dispatch(self, Event("userQuit", prefix, params, hostmask=prefix, msg=params[0], 
-			nick=nick, ident=ident, host=host))
+		self.dispatch(self, "userQuit", prefix=prefix, params=params, hostmask=prefix, msg=params[0], 
+			nick=nick, ident=ident, host=host)
 
 	def irc_MODE(self, prefix, params):
 		"""
@@ -144,6 +161,8 @@ class BurlyBot(IRCClient):
 			# This is a mode change to our individual user, not a channel mode
 			# that involves us.
 			paramModes = self.getUserModeParams()
+			# take note of our prefix! (for message length calculation
+			self.prefixlen = len(prefix)
 		else:
 			paramModes = self.getChannelModeParams()
 
@@ -156,8 +175,8 @@ class BurlyBot(IRCClient):
 			nick, ident, host = processHostmask(prefix)
 			if self.state and (channel != self.nickname):
 				self.state._modechange(channel, nick, added, removed)
-			self.dispatch(self, Event("modeChanged", prefix, params, hostmask=prefix, target=channel,
-				added=added, removed=removed, modes=modes, args=args, nick=nick, ident=ident, host=host))
+			self.dispatch(self, "modeChanged", prefix=prefix, params=params, hostmask=prefix, target=channel,
+				added=added, removed=removed, modes=modes, args=args, nick=nick, ident=ident, host=host)
 
 	def irc_PRIVMSG(self, prefix, params):
 		"""
@@ -182,9 +201,12 @@ class BurlyBot(IRCClient):
 			message = ' '.join(m['normal'])
 		
 		nick, ident, host = processHostmask(prefix)
+		if nick == self.nickname:
+			# take note of our prefix! (for message length calculation
+			self.prefixlen = len(prefix)
 		# These are actually messages, ctcp's aren't dispatched here
-		self.dispatch(self, Event("privmsged", prefix, params, hostmask=user, target=channel, msg=message, 
-			nick=nick, ident=ident, host=host))
+		self.dispatch(self, "privmsged", prefix=prefix, params=params, hostmask=user, target=channel, msg=message, 
+			nick=nick, ident=ident, host=host)
 
 	def irc_NOTICE(self, prefix, params):
 		"""
@@ -201,8 +223,13 @@ class BurlyBot(IRCClient):
 			if not m['normal']:
 				return
 			message = ' '.join(m['normal'])
-
-		self.dispatch(self, Event("noticed", prefix, params, hostmask=user, target=channel, msg=message))
+		
+		nick, ident, host = processHostmask(prefix)
+		if nick == self.nickname:
+			# take note of our prefix! (for message length calculation
+			self.prefixlen = len(prefix)
+		self.dispatch(self, "noticed", prefix=prefix, params=params, hostmask=user, target=channel, msg=message,
+			nick=nick, ident=ident, host=host)
 
 	def irc_NICK(self, prefix, params):
 		"""
@@ -211,12 +238,14 @@ class BurlyBot(IRCClient):
 		nick, ident, host = processHostmask(prefix)
 		
 		if nick == self.nickname:
+			# take note of our prefix! (for message length calculation
+			self.prefixlen = len(prefix)
 			self.nickChanged(params[0])
-			self.dispatch(self, Event("nickChanged", prefix, params, hostmask=prefix, newname=params[0]))
+			self.dispatch(self, "nickChanged", prefix=prefix, params=params, hostmask=prefix, newname=params[0])
 		else:
 			if self.state: self.state._userrename(nick, params[0], ident, host)
-			self.dispatch(self, Event("userRenamed", prefix, params, hostmask=prefix, newname=params[0], 
-				nick=nick, ident=ident, host=host))
+			self.dispatch(self, "userRenamed", prefix=prefix, params=params, hostmask=prefix, newname=params[0], 
+				nick=nick, ident=ident, host=host)
 
 	def irc_KICK(self, prefix, params):
 		"""
@@ -228,10 +257,10 @@ class BurlyBot(IRCClient):
 		message = params[-1]
 		if kicked.lower() == self.nickname.lower():
 			if self.state: self.state._leavechannel(channel)
-			self.dispatch(self, Event("kickedFrom", prefix, params, hostmask=prefix, target=channel, msg=message, kicked=kicked))
+			self.dispatch(self, "kickedFrom", prefix=prefix, params=params, hostmask=prefix, target=channel, msg=message, kicked=kicked)
 		else:
 			if self.state: self.state._userpart(channel, kicked)
-			self.dispatch(self, Event("userKicked", prefix, params, hostmask=prefix, target=channel, msg=message, kicked=kicked))
+			self.dispatch(self, "userKicked", prefix=prefix, params=params, hostmask=prefix, target=channel, msg=message, kicked=kicked)
 
 	def irc_RPL_TOPIC(self, prefix, params):
 		"""
@@ -243,8 +272,8 @@ class BurlyBot(IRCClient):
 		newtopic = params[2]
 		
 		if self.state: self.state._settopic(channel, newtopic, nick, ident, host)
-		self.dispatch(self, Event("topicUpdated", prefix, params, hostmask=prefix, target=channel, newtopic=newtopic, 
-				nick=nick, ident=ident, host=host))
+		self.dispatch(self, "topicUpdated", prefix=prefix, params=params, hostmask=prefix, target=channel, newtopic=newtopic, 
+				nick=nick, ident=ident, host=host)
 
 	def irc_RPL_NOTOPIC(self, prefix, params):
 		"""
@@ -254,8 +283,8 @@ class BurlyBot(IRCClient):
 		channel = params[1]
 		newtopic = ""
 		if self.state: self.state._settopic(channel, newtopic, nick, ident, host)
-		self.dispatch(self, Event("topicUpdated", prefix, params, hostmask=prefix, target=channel, newtopic=newtopic, 
-				nick=nick, ident=ident, host=host))
+		self.dispatch(self, "topicUpdated", prefix=prefix, params=params, hostmask=prefix, target=channel, newtopic=newtopic, 
+				nick=nick, ident=ident, host=host)
 
 	def irc_RPL_ENDOFMOTD(self, prefix, params):
 		"""
@@ -267,15 +296,15 @@ class BurlyBot(IRCClient):
 		if self.state: self.state._motd = motd
 		# The following sets self.motd to None, so we get the motd first
 		IRCClient.irc_RPL_ENDOFMOTD(self, prefix, params)
-		self.dispatch(self, Event("receivedMOTD", prefix, params, motd=motd))
+		self.dispatch(self, "receivedMOTD", prefix=prefix, params=params, motd=motd)
 			
 	def irc_RPL_MYINFO(self, prefix, params):
 		info = params[1].split(None, 3)
 		while len(info) < 4:
 			info.append(None)
 		servername, version, umodes, cmodes = info
-		self.dispatch(self, Event("myInfo", prefix, params, servername=servername, version=version, 
-			umodes=umodes, cmodes=cmodes))
+		self.dispatch(self, "myInfo", prefix=prefix, params=params, servername=servername, version=version, 
+			umodes=umodes, cmodes=cmodes)
 	
 	### The following are custom, not taken from IRCClient:
 	def irc_RPL_CHANNELMODEIS(self, prefix, params):
@@ -294,13 +323,13 @@ class BurlyBot(IRCClient):
 		else:
 			if self.state:
 				self.state._modechange(channel, None, added, [])
-			self.dispatch(self, Event("channelModeIs", prefix, params, hostmask=prefix, target=channel,
-				added=added, modes=modes, args=args))
+			self.dispatch(self, "channelModeIs", prefix=prefix, params=params, hostmask=prefix, target=channel,
+				added=added, modes=modes, args=args)
 	
 	def irc_RPL_CREATIONTIME(self, prefix, params):
 		channel = params[1]
 		t = params[2]
-		self.dispatch(self, Event("creationTime", prefix, params, target=channel, creationtime=t))
+		self.dispatch(self, "creationTime", prefix=prefix, params=params, target=channel, creationtime=t)
 	
 	def irc_RPL_NAMREPLY(self, prefix, params):
 		"""
@@ -311,12 +340,12 @@ class BurlyBot(IRCClient):
 		# TODO: should we give this event a copy of PrefixMap? check state._addusers as for why
 		if self.state: self.state._addusers(channel, users)
 		self._names.setdefault(channel, []).extend(users)
-		self.dispatch(self, Event("nameReply", prefix, params, target=channel, users=users))
+		self.dispatch(self, "nameReply", prefix=prefix, params=params, target=channel, users=users)
 		
 			
 	def irc_RPL_ENDOFNAMES(self, prefix, params):
 		channel = params[1]
-		self.dispatch(self, Event("endOfNames", prefix, params, target=channel, users=self._names.pop(channel)))
+		self.dispatch(self, "endOfNames", prefix=prefix, params=params, target=channel, users=self._names.pop(channel))
 	
 	def irc_RPL_BANLIST(self, prefix, params):
 		"""
@@ -325,14 +354,14 @@ class BurlyBot(IRCClient):
 		channel, banmask, nick, ident, host, t, hostmask = processListReply(params)
 		
 		self._banlist.setdefault(channel, []).append((banmask, hostmask, t, nick))
-		self.dispatch(self, Event("banList", prefix, params, target=channel, banmask=banmask, hostmask=hostmask, 
-			timeofban=t, nick=nick, ident=ident, host=host))
+		self.dispatch(self, "banList", prefix=prefix, params=params, target=channel, banmask=banmask, hostmask=hostmask, 
+			timeofban=t, nick=nick, ident=ident, host=host)
 	
 	def irc_RPL_ENDOFBANLIST(self, prefix, params):
 		channel = params[1]
 		banlist = self._banlist.pop(channel, [])
 		if self.state: self.state._addbans(channel, banlist)
-		self.dispatch(self, Event("endOfBanList", prefix, params, target=channel, banlist=banlist))
+		self.dispatch(self, "endOfBanList", prefix=prefix, params=params, target=channel, banlist=banlist)
 			
 	def irc_RPL_EXCEPTLIST(self, prefix, params):
 		"""
@@ -341,15 +370,15 @@ class BurlyBot(IRCClient):
 		channel, exceptmask, nick, ident, host, t, hostmask = processListReply(params)
 
 		self._exceptlist.setdefault(channel, []).append((exceptmask, hostmask, t, nick))
-		self.dispatch(self, Event("exceptList", prefix, params, target=channel, exceptmask=exceptmask, hostmask=hostmask, 
-			timeofban=t, nick=nick, ident=ident, host=host))
+		self.dispatch(self, "exceptList", prefix=prefix, params=params, target=channel, exceptmask=exceptmask, hostmask=hostmask, 
+			timeofban=t, nick=nick, ident=ident, host=host)
 	
 	def irc_RPL_ENDOFEXCEPTLIST(self, prefix, params):
 		channel = params[1]
 
 		exceptlist = self._exceptlist.pop(channel, [])
 		if self.state: self.state._addexcepts(channel, exceptlist)
-		self.dispatch(self, Event("endOfBanList", prefix, params, target=channel, exceptlist=exceptlist))
+		self.dispatch(self, "endOfBanList", prefix=prefix, params=params, target=channel, exceptlist=exceptlist)
 
 		
 	def irc_RPL_INVITELIST(self, prefix, params):
@@ -359,16 +388,21 @@ class BurlyBot(IRCClient):
 		channel, invitemask, nick, ident, host, t, hostmask = processListReply(params)
 
 		self._invitelist.setdefault(channel, []).append((invitemask, hostmask, t, nick))
-		self.dispatch(self, Event("inviteList", prefix, params, target=channel, invitemask=invitemask, hostmask=hostmask, 
-			timeofban=t, nick=nick, ident=ident, host=host))
+		self.dispatch(self, "inviteList", prefix=prefix, params=params, target=channel, invitemask=invitemask, hostmask=hostmask, 
+			timeofban=t, nick=nick, ident=ident, host=host)
 	
 	def irc_RPL_ENDOFINVITELIST(self, prefix, params):
 		channel = params[1]
 
 		invitelist = self._invitelist.pop(channel, [])
 		if self.state: self.state._addinvites(channel, invitelist)
-		self.dispatch(self, Event("endOfInviteList", prefix, params, target=channel, invitelist=invitelist))
-
+		self.dispatch(self, "endOfInviteList", prefix=prefix, params=params, target=channel, invitelist=invitelist)
+	
+	def irc_RPL_ISUPPORT(self, prefix, params):
+		IRCClient.irc_RPL_ISUPPORT(self, prefix, params)
+		# This seems excessive but it's the only way to reliably update the prefixmap
+		self.prefixmap.loadfromprefix(self.supported.getFeature("PREFIX").iteritems())
+		
 	###
 	### Modified command handler from IRCCLient
 	###
@@ -379,6 +413,7 @@ class BurlyBot(IRCClient):
 		"""
 		method_name = "irc_%s" % command
 		method = getattr(self, method_name, None)
+		print "INCOMING (%s): %s, %s" % (command, prefix, params)
 		try:
 			if method is not None:
 				method(prefix, params)
@@ -386,15 +421,19 @@ class BurlyBot(IRCClient):
 			log.deferr()
 		else:
 			# All low level (RPL_type) events dispatched as they are
-			self.dispatch(self, Event(command, prefix, params))
+			self.dispatch(self, command, prefix=prefix, params=params)
 			if command in symbolic_to_numeric:
 				# we are dispatching symbolic event so also dispatch the numeric event
-				self.dispatch(self, Event(symbolic_to_numeric[command], prefix, params))
+				self.dispatch(self, symbolic_to_numeric[command], prefix=prefix, params=params)
 			if method is None:
 				self.irc_unknown(prefix, command, params)
+
+	def lineReceived(self, line):
+		print "---%s---" % line
+		IRCClient.lineReceived(self, line)
 				
 	###
-	### The following are "preprocessed" events normally called from IRCClient
+	### The following are "preprocessed" events normally called from IRCClient and mostly duplicated from IRCClient
 	###
 	def ctcpQuery(self, user, channel, messages, params):
 		"""
@@ -404,11 +443,14 @@ class BurlyBot(IRCClient):
 		"""
 		seen = set()
 		nick, ident, host = processHostmask(user)
+		if nick == self.nickname:
+			# take note of our prefix! (for message length calculation
+			self.prefixlen = len(prefix)
 		for tag, data in messages:
 			if tag not in seen:
 				#dispatch event
-				self.dispatch(self, Event("ctcpQuery", user, params, hostmask=user, target=channel, tag=tag, 
-					data=data, nick=nick, ident=ident, host=host))
+				self.dispatch(self, "ctcpQuery", prefix=user, params=params, hostmask=user, target=channel, tag=tag, 
+					data=data, nick=nick, ident=ident, host=host)
 			seen.add(tag)
 			
 	def ctcpReply(self, user, channel, messages, params):
@@ -419,12 +461,75 @@ class BurlyBot(IRCClient):
 		"""
 		seen = set()
 		nick, ident, host = processHostmask(user)
+		if nick == self.nickname:
+			# take note of our prefix! (for message length calculation
+			self.prefixlen = len(prefix)
 		for tag, data in messages:
 			if tag not in seen:
 				#dispatch event
-				self.dispatch(self, Event("ctcpReply", user, params, hostmask=user, target=channel, tag=tag, 
-					data=data, nick=nick, ident=ident, host=host))
+				self.dispatch(self, "ctcpReply", prefix=user, params=params, hostmask=user, target=channel, tag=tag, 
+					data=data, nick=nick, ident=ident, host=host)
 			seen.add(tag)
+	
+	def _sendmsg(self, target, message, split, strins, fcfs):
+		if strins:
+			message = self.assembleMsgWLen('PRIVMSG %s :%s' % (target, message), strins, fcfs)
+			self.sendLine(message)
+		else:
+			fmt = 'PRIVMSG %s :%%s' % (target,)
+			if split:
+				for msg in splitEncodedUnicode(message, self.calcAvailableMsgLength(fmt % ""), encoding=self.settings.encoding, n=4):
+					self.sendLine(fmt % msg)
+			else:
+				# blindly truncate message at sendLine level
+				self.sendLine(fmt % message)
+	
+	# helper method to automatically truncate string to be replaced
+	# TODO: need decide on string format method, either "%s" % x or "{0}".format(x)
+	def assembleMsgWLen(self, s, strins, fcfs):
+		if isinstance(strins, basestring):
+			return s % splitEncodedUnicode(strins, self.calcAvailableMsgLength(s)-2, encoding=self.settings.encoding)[0]
+		if fcfs:
+			if isIterable(strins):
+				l = len(strins)
+				for i, rep in enumerate(strins):
+					# TODO: this is a little ghetto but I'm unsure of a better way at this point in time
+					s = s % ((splitEncodedUnicode(rep, self.calcAvailableMsgLength(s)-((l-i)*2), encoding=self.settings.encoding)[0],) + ("%s",)*l-i)
+				return s
+			elif isinstance(strins, dict):
+				# TODO: defaultdict makes this surprisingly straightforward. Maybe should make a custom list object that
+				# returns "%s" for invalid indexes
+				d = defaultdict(lambda: "%s")
+				db = defaultdict(lambda: "")
+				for key, value in strins.iteritems():
+					d[key] = splitEncodedUnicode(value, self.calcAvailableMsgLength(s % db), encoding=self.settings.encoding)[0]
+					s = s % d
+				return s
+			else:
+				raise ValueError("Require list/tuple, dict, or string for strins.")
+		else:
+			# round 2, even divide
+			l = len(strins)
+			if isIterable(strins):
+				segmentlength = int(floor((self.calcAvailableMsgLength(s)-(l*2)) / l))
+				if isinstance(strins, tuple):
+					strins = list(strins)
+				for i, sr in enumerate(strins):
+					strins[i] = splitEncodedUnicode(sr, segmentlength, encoding=self.settings.encoding)[0]
+				return s % strins
+				
+			if isinstance(strins, dict):
+				db = defaultdict(lambda: "")
+				segmentlength = int(floor((self.calcAvailableMsgLength(s % db) / l)))
+				for key, value in strins.iteritems():
+					strins[key] = splitEncodedUnicode(value, segmentlength, encoding=self.settings.encoding)[0]
+				return s % strins
+	
+	def calcAvailableMsgLength(self, command):
+		if self.prefixlen:
+			return 510 - self.prefixlen - len(command) # 510 = line terminator
+		else:
+			return self._safeMaximumLineLength(command) - 2 #line terminator
 	
 	def signedOn(self):
 		"""Called when bot has succesfully signed on to server."""
@@ -434,15 +539,19 @@ class BurlyBot(IRCClient):
 		# reason for this is to class prefixes in to "op" and "voice"
 		# and reason for that is because most important IRC operations are classed on OP or VOICE
 		self.prefixmap = PrefixMap(self.supported.getFeature("PREFIX").iteritems())
-		if self.state: 
+		if self.state:
 			self.state.prefixmap = self.prefixmap
+		if self.settings.nickservpass:
+			self.sendmsg("nickserv", "identify %s" % self.settings.nickservpass)
+			# send notice to self to see if prefix changed, allow for some latency:
+			reactor.callLater(1.0, self.notice, self.nickname, "\x1b")
 		
 		for chan in self.settings.channels:
 			self.join(*chan)
 		
 		self.container._setBotinst(self)
 		if self.state: self.state._resetnetwork()
-		self.dispatch(self, Event("signedOn"))
+		self.dispatch(self, "signedOn")
 
 	# TODO: this currently doesn't get called. Do we want to dispatch these events? Or just make
 	#	module catch ctcp events and check for ACTION tag?
@@ -450,17 +559,11 @@ class BurlyBot(IRCClient):
 		"""
 		This will get called when the bot sees someone do an action.
 		"""
-		self.dispatch(self, Event("action", params, hostmask=hostmask, target=channel, msg=msg))
+		pass
 	
 	#overriding msg
-	# need to consider dipatching this event and allow for some override somehow
-	# TODO: need to do some funky UTF-8 length calculation. Most naive one would be to keep adding a
-	#	character so like for char in msg: t += char if len(t.encode("utf-8")) > max: send(old) else: old = t 
-	#	or something... google or stackoverflow I guess WORRY ABOUT THIS LATER THOUGH
-	def msg(self, user, msg, length=None):
-		msg = msg.encode("utf-8")
-		if length: IRCClient.msg(self, user, msg, length)
-		else: IRCClient.msg(self, user, msg)
+	def msg(self, user, msg, length=None, strins=None):
+		raise NotImplementedError("Use sendmsg instead.")
 		
 	# override the method that determines how a nickname is changed on
 	# collisions.
@@ -469,7 +572,6 @@ class BurlyBot(IRCClient):
 	# should probably make a reactor.callLater, and cancel it on disconnect or something.
 	def alterCollidedNick(self, nickname):
 		if self.settings.altnicks:
-			print self.settings.altnicks, self.altindex
 			if self.altindex < len(self.settings.altnicks):
 				s = self.settings.altnicks[self.altindex].encode(self.settings.encoding)
 				self.altindex += 1
@@ -486,26 +588,25 @@ class BurlyBot(IRCClient):
 	### Custom outgoing methods
 	###
 	# TODO: Need to add more of these for hooking other outbound events maybe, like notice...
-	def sendmsg(self, channel, msg):
+	def sendmsg(self, target, msg, strins=None, split=False, direct=False, fcfs=False):
 		#check if there's hooks, if there is, dispatch, if not, send directly
-		if self.dispatcher.MSGHOOKS:
-			#dest is Event.channel, or Event.args
-			self.dispatch(self, Event(type="sendmsg", target=channel, msg=msg))
+		if self.dispatcher.MSGHOOKS and not direct:
+			self.dispatch(self, "sendmsg", target=target, msg=msg, strins=None, fcfs=fcfs)
 		else:
-			self.msg(channel, msg)
-	
+			self._sendmsg(target, msg, split, strins, fcfs)
+			
 	###
 	### Connection management methods
 	###
 	def connectionMade(self):
 		IRCClient.connectionMade(self)
-		#reset connection factory delay:
-		self.factory.resetDelay()
 		self._names = {}
 		self._banlist = {}
 		self._exceptlist = {}
 		self._invitelist = {}
-		self.altindex = 0
+		# TODO: I think this should be on "signedOn()" just in case part of the signon is causing instant disconnect
+		# reset connection factory delay:
+		self.factory.resetDelay()
 
 	def connectionLost(self, reason):
 		IRCClient.connectionLost(self, reason)
@@ -536,7 +637,7 @@ class BurlyBotFactory(ReconnectingClientFactory):
 		else: proto.state = None
 		proto.dispatch = proto.settings.dispatcher.dispatch
 		proto.dispatcher = proto.settings.dispatcher
-		proto.nickname = proto.settings.nick.encode("utf-8")
+		proto.nickname = proto.settings.nick
 		#throttle queue
 		proto._dqueue = deque()
 		return proto

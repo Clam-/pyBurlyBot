@@ -9,7 +9,7 @@ from util.libs import OrderedSet
 from util.container import Container
 from util.dispatcher import Dispatcher
 
-KEYS_COMMON = ("altnicks", "encoding", "nick", "nicksuffix", "commandprefix", "admins")
+KEYS_COMMON = ("altnicks", "encoding", "nick", "nickservpass", "nicksuffix", "commandprefix", "admins")
 KEYS_SERVER = ("serverlabel",) + KEYS_COMMON + ("host", "port", "channels", "allowmodules", "denymodules")
 KEYS_SERVER_SET = set(KEYS_SERVER)
 KEYS_MAIN = KEYS_COMMON + ("console", "debug", "datadir", "datafile", "enablestate", "modules", "servers")
@@ -41,60 +41,45 @@ class BaseServer(object):
 		self.setup(opts)
 		
 	def setup(self, opts):
-		self.serverlabel = opts.get("serverlabel", None)
-		if not self.serverlabel:
-			raise ConfigException("Missing serverlabel" % self.serverlabel)
-
-		if "nick" in opts:
-			self.nick = opts["nick"].encode('utf-8')
-
-		if "nicksuffix" in opts:
-			self.nicksuffix = opts["nicksuffix"].encode('utf-8')
-			
-		if "altnicks" in opts:
-			an = opts["altnicks"]
-			self.altnicks = an if isinstance(an, list) else (an,)
-
-		self.host = opts.get("host", None)
-		if not self.host:
-			raise ConfigException("%s must have a host" % self.serverlabel)
-		
-		#process port number with SSL prefix
-		#TODO: should we have a server config attribute called "ssl" instead?
-		port = opts.get("port", "6667")
-		if isinstance(port, int):
-			self.ssl = False
-		elif port.startswith("+"):
-			port = port[1:]
-			self.ssl = True
-		else:
-			self.ssl = False
-		self.port = int(port)
-
-		if "commandprefix" in opts:
-			self.commandprefix = opts["commandprefix"]
-
 		self.channels = []
-		if "channels" in opts:
-			for channel in opts['channels']:
-				if isinstance(channel, list):
-					if len(channel) > 1 and channel[1]:
-						self.channels.append(
-							(channel[0].encode('utf-8'), 
-							channel[1].encode('utf-8'))
-							)
-					else:
-						self.channels.append((channel[0].encode('utf-8'),))
+		for key in KEYS_SERVER:
+			opt = opts.get(key, None)
+			if key == "serverlabel" and opt is None:
+				raise ConfigException("Missing serverlabel" % self.serverlabel)
+			elif key == "host" and opt is None:
+				raise ConfigException("%s must have a host" % self.serverlabel)
+			
+			if key == "altnicks":
+				self.altnicks = opt if isinstance(opt, list) else (opt,)
+			elif key == "port":
+				#process port number with SSL prefix
+				#TODO: should we have a server config attribute called "ssl" instead?
+				opt = opt if opt else "6667"
+				if isinstance(opt, int):
+					self.ssl = False
+				elif opt.startswith("+"):
+					opt = opt[1:]
+					self.ssl = True
 				else:
-					self.channels.append((channel.encode('utf-8'),))
+					self.ssl = False
+				self.port = int(opt)
+			elif key == "channels":
+				if opt:
+					for channel in opt:
+						if isinstance(channel, list):
+							if len(channel) > 1 and channel[1]:
+								self.channels.append((channel[0], channel[1]))
+							else:
+								self.channels.append((channel[0],))
+						else:
+							self.channels.append((channel,))
 		
-		if "allowmodules" in opts:
-			self.allowmodules = set(opts["allowmodules"])
-		else: self.allowmodules = set([])
-		if "denymodules" in opts:
-			self.denymodules = set(opts["denymodules"])
-		else: self.denymodules = set([])
-		
+			elif key == "allowmodules":
+				self.allowmodules = set(opt) if opt else set([])
+			elif key == "denymodules":
+				self.denymodules = set(opt) if opt else set([])
+			elif opt:
+				setattr(self, key, opt)
 		
 	def _getDict(self):
 		d = OrderedDict()
@@ -183,6 +168,7 @@ class SettingsBase:
 	nick = "BurlyBot"
 	altnicks = []
 	nicksuffix = "_"
+	nickservpass = None
 	commandprefix = "!"
 	datadir = "data"
 	debug = False

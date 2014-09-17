@@ -9,7 +9,8 @@ from imp import find_module, load_module
 
 from wrapper import BotWrapper
 from container import SetupContainer
-from helpers import isIterable
+from helpers import isIterable, commandSplit, coerceToUnicode
+from event import Event
 
 class Dispatcher:
 	MODULEDICT = {}
@@ -145,65 +146,76 @@ class Dispatcher:
 		cls.MODULEDICT = {}
 		cls.NOTLOADED = []
 	
-	def dispatch(self, botinst, event):
+	def dispatch(self, botinst, eventtype, **eventkwargs):
 		settings = self.settings
 		servername = settings.serverlabel
 		cont_or_wrap = botinst.container
-		if event.target or event.nick:
-			cont_or_wrap = BotWrapper(event, cont_or_wrap)
-		msg = event.msg
-		# Case insensitivity for etypes (convenience) (is this a bad idea?)
-		etype = event.type.lower()
+		event = None
+		# Case insensitivity for etypes (convenience) 
+		#TODO: (is this a bad idea?)
+		eventtype = eventtype.lower()
+		
+		msg = eventkwargs.get("msg", None)
+		if msg and eventtype != "sendmsg": eventkwargs["msg"] = msg = coerceToUnicode(eventkwargs["msg"], settings.encoding)
 		command = ""
-		argument = ""
-		if etype != "sendmsg" and msg and msg.startswith(settings.commandprefix):
-			#case insensitive match?
-			#also this means that commands can't have spaces in them, and lol command prefix can't be a space
-			#all are good to me, if you want a case sensitive match you can do your command as a regex - griff
-			command = msg.split(" ", 1)
-			if len(command) > 1:
-				command, argument = command
-			else:
-				command = command[0]
-			# Only one character prefix? okay... (jk it's fine) - griff
-			command = command[1:]
+		if eventtype != "sendmsg" and msg and msg.startswith(settings.commandprefix):
+			#case insensitive command (see below)
+			#commands can't have spaces in them, and lol command prefix can't be a space
+			#if you want a case sensitive match you can do your command as a regex
+			command, argument = commandSplit(msg)
+			#support multiple character commandprefix
+			command = command[len(settings.commandprefix):]
 			# Maintain case for event, for funny things like replying in all caps
-			event.command, event.argument = (command, argument)
+			eventkwargs["command"], eventkwargs["argument"] = (command, argument)
 			command = command.lower()
 		
 		eventmap = self.eventmap
-		if etype in eventmap:
+		if eventtype in eventmap:
+			#delayed event creation as late as possible:
+			if event is None: 
+				eventkwargs["encoding"] = settings.encoding
+				event, cont_or_wrap = self.createEventAndWrap(cont_or_wrap, eventtype, eventkwargs)
 			#lol dispatcher is 100 more simple now, but at the cost of more dict...
-			for mapping in eventmap[etype]["instant"]:
+			for mapping in eventmap[eventtype]["instant"]:
 				self._dispatchreally(mapping.function, event, cont_or_wrap)
 				if mapping.priority == 0: break #lol cheap and easy way to support total override
 			#super fast command dispatching now... Only thing left that's slow is the regex but has to be
-			for mapping in eventmap[etype]["command"].get(command,()):
+			for mapping in eventmap[eventtype]["command"].get(command,()):
 				self._dispatchreally(mapping.function, event, cont_or_wrap)
 				if mapping.priority == 0: break
 			# TODO: Consider this:
 			# super priority==0 override doesn't really make much sense on a regex, but whatever
-			for mapping in eventmap[etype]["regex"]:
+			for mapping in eventmap[eventtype]["regex"]:
 				if mapping.regex.match(msg):
 					self._dispatchreally(mapping.function, event, cont_or_wrap)
 					if mapping.priority == 0: break
 		
-		if etype in self.waitmap:
+		if eventtype in self.waitmap:
 			#special map to deal with WaitData
-			wdset = self.waitmap[etype]
+			#delayed event creation as late as possible:
+			if event is None: 
+				event, cont_or_wrap = self.createEventAndWrap(cont_or_wrap, eventtype, eventkwargs)
+			wdset = self.waitmap[eventtype]
 			remove = []
 			for wd in wdset:
 				# if found stopevent add it to list to remove after iteration
-				if etype in wd.stope:
+				if eventtype in wd.stope:
 					remove.append(wd)
 					wd.q.put(event)
 					wd.done = True
-				elif etype in wd.interestede:
+				elif eventtype in wd.interestede:
 					wd.q.put(event)
 			if remove:
 				for x in remove:
 					self.delWaitData(x)
-			
+	
+	def createEventAndWrap(self, cont_or_wrap, eventtype, eventkwargs):
+		event = Event(eventtype, **eventkwargs)
+		if event.target or event.nick:
+			return event, BotWrapper(event, cont_or_wrap)
+		else:
+			return event
+	
 	@staticmethod					
 	def _dispatchreally(func, event, cont_or_wrap):
 		d = deferToThread(func, event, cont_or_wrap)

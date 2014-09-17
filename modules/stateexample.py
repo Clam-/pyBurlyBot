@@ -20,7 +20,7 @@ def statecommand(event, bot):
 			else:
 				bot.say("lol dunno channel %s" % args)
 	
-	if command == "bans":
+	elif command == "bans":
 		if not args:
 			for chan in bot.state.channels.itervalues():
 				bot.say("Bans on channel (%s): %s" % (chan.name,

@@ -4,7 +4,7 @@ from util import Mapping, Timers, commandSplit, argumentSplit
 
 # requires keyword arguments
 def timercallback(bot=None, channel=None, msg=None):
-	bot.msg(channel, msg)
+	bot.sendmsg(channel, msg)
 
 def timers(event, bot):
 	command, args = commandSplit(event.argument)

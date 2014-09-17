@@ -5,27 +5,25 @@ from helpers import coerceToUnicode
 # TODO: prefix and hostmask are I think always the same. What to do?
 class Event:
 	def __init__(self, type, prefix=None, params=None, hostmask=None, target=None, msg=None, 
-		nick=None, ident=None, host=None, **kwargs):
+		nick=None, ident=None, host=None, encoding="utf-8", command=None, argument=None, **kwargs):
 		self.type = type
 		# kwargs is a dict of uncommon event attributes
 		self.prefix = prefix
 		self.params = params
 		self.hostmask = hostmask
-		self.nick = nick
-		self.ident = ident
+		self.nick = coerceToUnicode(nick, encoding) if nick else nick
+		self.ident = coerceToUnicode(ident, encoding) if ident else ident
+		# Note: if unicode/punycode hostnames becomes a thing for IRC, .decode("idna") I guess
 		self.host = host
 		
-		self.target = target
+		self.target = coerceToUnicode(target, encoding) if target else target
 		
-		# TODO: bind a partial(coerceToUnicode...) with settings.encoding somewhere
-		if msg is not None: 
-			self.msg = coerceToUnicode(msg)
-		else: 
-			self.msg = ""
-		# Set by dispatcher, for convenience in module
-		self.command = None
+		# if there is a msg, it's already unicode (done in dispatcher.)
+		self.msg = msg
 		
-		self.argument = None
+		self.command = command
+		self.argument = argument
+		
 		self.kwargs = kwargs
 	
 	def __repr__(self):

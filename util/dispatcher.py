@@ -132,7 +132,7 @@ class Dispatcher:
 						for commandname in mapcom:
 							eventmap[etype]["command"].setdefault(commandname, []).append(mapping)
 							eventmap[etype]["command"][commandname].sort(key=attrgetter('priority'))
-					# TODO: unicode command?
+					# TODO: unicode command, should work...
 					elif isinstance(mapcom, basestring):
 						eventmap[etype]["command"].setdefault(mapcom, []).append(mapping)
 						eventmap[etype]["command"][mapcom].sort(key=attrgetter('priority'))

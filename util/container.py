@@ -42,6 +42,9 @@ class Container:
 		self._botinst = None
 		self._outqueue = deque() #deque or Queue, whatever
 
+	# TODO: instead of just redirecting the attribute lookup to _botinst maybe we should
+	# define an explicit API and only allow access to those attributes, rather than
+	# allowing access to everything in _botinst, like callbacks and stuff
 	def __getattr__(self, name):
 		#if name isn't in container, look in botinst IF BOTINST EXISTS
 		if name in self.__dict__: 

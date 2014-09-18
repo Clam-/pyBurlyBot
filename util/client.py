@@ -573,12 +573,12 @@ class BurlyBot(IRCClient):
 	def alterCollidedNick(self, nickname):
 		if self.settings.altnicks:
 			if self.altindex < len(self.settings.altnicks):
-				s = self.settings.altnicks[self.altindex].encode(self.settings.encoding)
+				s = self.settings.altnicks[self.altindex]
 				self.altindex += 1
 				return s
 			elif nickname != self.settings.nick:
-				return self.settings.nick.encode(self.settings.encoding)
-		return (nickname + self.settings.nicksuffix).encode(self.settings.encoding)
+				return self.settings.nick
+		return (nickname + self.settings.nicksuffix)
 		
 	def irc_unknown(self, prefix, command, params):
 		if self.settings.debug:

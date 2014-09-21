@@ -9,6 +9,9 @@ from util.libs import OrderedSet
 from util.container import Container
 from util.dispatcher import Dispatcher
 
+from twisted.python.logger import Logger
+log = Logger()
+
 KEYS_COMMON = ("altnicks", "encoding", "nick", "nickservpass", "nicksuffix", "commandprefix", "admins")
 KEYS_SERVER = ("serverlabel",) + KEYS_COMMON + ("host", "port", "channels", "allowmodules", "denymodules")
 KEYS_SERVER_SET = set(KEYS_SERVER)
@@ -44,8 +47,11 @@ class BaseServer(object):
 		self.channels = []
 		for key in KEYS_SERVER:
 			opt = opts.get(key, None)
-			if key == "serverlabel" and opt is None:
-				raise ConfigException("Missing serverlabel" % self.serverlabel)
+			if key == "serverlabel":
+				if opt is None:
+					raise ConfigException("Missing serverlabel.")
+				elif ":" in opt:
+					raise ConfigException('serverlabel ($s) cannot contain ":"' % self.serverlabel)
 			elif key == "host" and opt is None:
 				raise ConfigException("%s must have a host" % self.serverlabel)
 			

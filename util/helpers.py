@@ -127,30 +127,37 @@ class PrefixMap(object):
 
 
 # Simple command parse and return (command, argument)
-# split arguments in to [nargs] number of elements 
-# only if number of arguments would equal nargs, otherwise return None argument
-def commandSplit(s, nargs=1):
+# split arguments in to [nargs] number of elements in the case of nargs > 1 else argument will be singular string
+# if pad=False: if len(arguments) < nargs return None as argument, 
+# else pad missing arguments with None
+def commandSplit(s, nargs=1, pad=True):
 	command = ""
 	if s:
-		command = s.split(" ", 1)
+		command = s.split(None, 1)
 		if len(command) > 1:
 			if nargs > 1:
-				a = command[1].split(" ", nargs)
-				if len(a) != nargs:
-					return (command[0], None)
-				else:
+				a = argumentSplit(command[1], nargs, pad)
+				if a:
 					return (command[0], a)
+				else:
+					return (command[0], None)
 			else:
 				return command
 		else:
+			if pad and nargs > 1:
+				return command[0], (None,) * nargs
 			return command[0], None
 	return (None, None)
 
 # like commandSplit, this is only for splitting arguments up
-def argumentSplit(s, nargs):
+# except will return empty tuple in the case of nargs < len(arguments) if pad is false
+def argumentSplit(s, nargs, pad=True):
 	if s:
-		a = s.split(" ", nargs)
-		if len(a) != nargs:
+		a = s.split(None, nargs-1)
+		la = len(a)
+		if la < nargs:
+			if pad:
+				return a+[None]*(nargs-la)
 			return ()
 		else:
 			return a

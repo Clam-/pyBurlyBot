@@ -14,6 +14,7 @@ def doeval(bot, event):
 	except Exception as e:
 		return "%s : %s" % (type(e).__name__, e.message)
 
+# WARNING: DO NOT CALL A METHOD THAT CALLS "blockingCallFromThread", you will have bad time and freeze bot.
 def runeval(event, bot):
 	if bot.isadmin():
 		r = blockingCallFromThread(reactor, doeval, bot, event)

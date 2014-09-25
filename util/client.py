@@ -21,12 +21,14 @@ symbolic_to_numeric["RPL_LOCALUSERS"] = '265'
 symbolic_to_numeric["RPL_GLOBALUSERS"] = '266'
 symbolic_to_numeric["RPL_CREATIONTIME"] = '329'
 symbolic_to_numeric["RPL_HOSTHIDDEN"] = '396'
+symbolic_to_numeric["ERR_NOTEXTTOSEND"] = '412'
 # and the reverse:
 numeric_to_symbolic["042"] = 'RPL_YOURID'
 numeric_to_symbolic["265"] = 'RPL_LOCALUSERS'
 numeric_to_symbolic["266"] = 'RPL_GLOBALUSERS'
 numeric_to_symbolic["329"] = 'RPL_CREATIONTIME'
-symbolic_to_numeric["396"] = 'RPL_HOSTHIDDEN'
+numeric_to_symbolic["396"] = 'RPL_HOSTHIDDEN'
+numeric_to_symbolic["412"] = 'ERR_NOTEXTTOSEND'
 
 class BurlyBot(IRCClient):
 	"""BurlyBot"""

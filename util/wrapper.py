@@ -39,3 +39,18 @@ class BotWrapper:
 			if madmins:
 				admins.extend(madmins)
 		return self.event.nick in admins
+		
+	# option getter/setters
+	# if channel is None, pass current channel.
+	# otherwise duplicated from container
+	def getOption(self, opt, channel=None, **kwargs):
+		if not self.event.isPM() and channel is None:
+			return blockingCallFromThread(reactor, self._botcont._settings.getOption, opt, channel=self.event.target, **kwargs)
+		else:
+			return blockingCallFromThread(reactor, self._botcont._settings.getOption, opt, channel=channel, **kwargs)
+	
+	def setOption(self, opt, value, channel=None, **kwargs):
+		if not self.event.isPM() and channel is None:
+			blockingCallFromThread(reactor, self._botcont._settings.setOption, opt, value, channel=self.event.target, **kwargs)
+		else:
+			blockingCallFromThread(reactor, self._botcont._settings.setOption, opt, value, channel=channel, **kwargs)

@@ -42,4 +42,4 @@ def statecommand(event, bot):
 		bot.say("state: channel, network, channels")
 
 #mappings to methods
-mappings = (Mapping(types=["privmsged"], command="state", function=statecommand),)
+mappings = (Mapping(command="state", function=statecommand),)

@@ -55,10 +55,10 @@ class Dispatcher:
 					return None
 		return True
 				
-	def loadModule(self, modulename, resolvedmodules=[]):
+	def loadModule(self, modulename, resolvedmodules=None):
 		print "Loading %s..." % modulename
-		if modulename in resolvedmodules:
-			self.NOTLOADED.append((modulename, "Circular module dependency. Parents: %s" % (modulename, resolvedmodules)))
+		if resolvedmodules and modulename in resolvedmodules:
+			self.NOTLOADED.append((modulename, "Circular module dependency. Parents: %s" % (resolvedmodules)))
 			return None
 		module = None
 		try:
@@ -87,7 +87,16 @@ class Dispatcher:
 			elif reqsloaded is None:
 				self.NOTLOADED.append((modulename, "Requirements cannot be loaded."))
 				return None
-		#process module init if it has one
+		# process module default settings
+		if hasattr(module, "OPTIONS"):
+			for opt, params in module.OPTIONS.iteritems():
+				if len(params) != 3:
+					self.NOTLOADED.append((modulename, "Invalid number of parameters for OPTIONS. Require: type, desc, default."))
+					return None
+				#using getOption because it already has all the functionality coded in to do this default option setting.
+				self.settings.getOption(opt, server=False, module=modulename, default=params[2], setDefault=True)
+				
+		# process module init if it has one
 		if hasattr(module, "init"):
 			try:
 				if not module.init(SetupContainer(self.settings.container)):
@@ -140,6 +149,15 @@ class Dispatcher:
 				if mapping.regex:
 					eventmap[etype]["regex"].append(mapping)
 					eventmap[etype]["regex"].sort(key=attrgetter('priority'))
+	
+	def getCommandFuncs(self, cmd):
+		cmds = []
+		for mapping in self.eventmap.get("privmsged", {}).get("command", {}).get(cmd, []):
+			cmds.append((mapping.function, mapping.command))
+		return cmds
+	
+	def getCommands(self):
+		return self.eventmap.get("privmsged", {}).get("command", {}).keys()[:]
 	
 	@classmethod
 	def reset(cls):

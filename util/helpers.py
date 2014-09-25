@@ -4,6 +4,8 @@ from time import time
 from codecs import lookup
 from operator import itemgetter
 
+from inspect import getdoc
+
 # adapted http://stackoverflow.com/a/2119512
 def days_hours_minutes(td):
 	return td.days, td.seconds//3600, (td.seconds//60)%60, td.seconds % 60
@@ -162,7 +164,8 @@ def argumentSplit(s, nargs, pad=True):
 		else:
 			return a
 	else:
-		return ()
+		if pad: return [None]*nargs
+		else: return ()
 
 # TODO: add more outgoing things here for length calculation		
 commandlength = {
@@ -218,6 +221,19 @@ def splitEncodedUnicode(s, length, encoding="utf-8", n=1):
 				splits.append(ss)
 				ib = ie
 		return splits
-	
 
-	
+def functionHelp(f, sub=None):
+	doc = getdoc(f)
+	if doc:
+		docs = doc.replace("\n", " ").split("|")
+		if not sub:
+			return docs[0]
+		else:
+			for subdoc in docs:
+				try: 
+					if subdoc.split(" ", 1)[1].startswith(sub):
+						return subdoc
+				except IndexError: pass
+			return docs[0]
+	else:
+		return ""

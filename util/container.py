@@ -97,25 +97,22 @@ class Container:
 			reactor.callLater(2, self._checkQueue)
 
 	# Option getter/setters	
-	def getOption(self, opt):
-		return blockingCallFromThread(reactor, self._settings.getOption, opt)
-	def getModuleOption(self, module, option):
-		return blockingCallFromThread(reactor, self._settings.getModuleOption, module, option)
+	def getOption(self, opt, **kwargs):
+		return blockingCallFromThread(reactor, self._settings.getOption, opt, **kwargs)
 		
-	# Use blockingCallFromThread on these so the modules can get the Exceptions
-	#  (in which case the bot will just receive it back if unhandled, bummer)
-	#  What exceptions you might ask? Well we'll only allow setting of values that exist
-	def setOption(self, opt, value):
-		return blockingCallFromThread(reactor, setattr, self._settings, opt, value)
-	def setModuleOption(self, module, option, value):
-		return blockingCallFromThread(reactor, setattr, self._settings.getModuleOption, module, option)
+	def setOption(self, opt, value, **kwargs):
+		blockingCallFromThread(reactor, self._settings.setOption, opt, value, **kwargs)
 		
 	# Some module helpers
+	def _getModule(self, modname):
+		return self._settings.getModule(modname)
 	def getModule(self, modname):
-		return blockingCallFromThread(reactor, self._settings.getModule, modname)
+		return blockingCallFromThread(reactor, self._getModule, modname)
 	
+	def _isModuleAvailable(self, modname):
+		return self._settings.isModuleAvailable(modname)
 	def isModuleAvailable(self, modname):
-		return blockingCallFromThread(reactor, self._settings.isModuleAvailable, modname)
+		return blockingCallFromThread(reactor, self._isModuleAvailable, modname)
 	
 	#callback to handle module errors
 	#TODO: maybe provide modules a way to hook these?
@@ -180,13 +177,12 @@ class SetupContainer(object):
 		
 	# Some module helpers
 	def getModule(self, modname):
-		return self._settings.getModule(modname)
+		return self._getModule(modname)
 	
 	def isModuleAvailable(self, modname):
-		return self._settings.isModuleAvailable(modname)
+		return self._isModuleAvailable(modname)
 		
 	def __getattr__(self, name):
-		# get Server setting if set, else fall back to global Settings
 		if name in self.__dict__: 
 			return getattr(self, name)
 		else:

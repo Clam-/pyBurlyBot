@@ -1,6 +1,8 @@
 from twisted.words.protocols.irc import CHANNEL_PREFIXES
 from helpers import coerceToUnicode
 
+from time import time
+
 # NOTHING IN EVENT SHOULD BE MODIFIED BY MODULES EVER, THANKS.
 # TODO: prefix and hostmask are I think always the same. What to do?
 class Event:
@@ -25,6 +27,9 @@ class Event:
 		self.argument = argument
 		
 		self.kwargs = kwargs
+		
+		# might be useful
+		self.time = time()
 	
 	def __repr__(self):
 		return "Event(type=%s, prefix=%s, params=%s, args=%s, hostmask=%s, nick=%s, " \

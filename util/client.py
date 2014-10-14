@@ -338,7 +338,7 @@ class BurlyBot(IRCClient):
 		Called when NAMES reply is received from the server.
 		"""
 		channel = params[2]
-		users = params[3].split(" ")
+		users = params[3].split()
 		# TODO: should we give this event a copy of PrefixMap? check state._addusers as for why
 		if self.state: self.state._addusers(channel, users)
 		self._names.setdefault(channel, []).extend(users)
@@ -347,7 +347,7 @@ class BurlyBot(IRCClient):
 			
 	def irc_RPL_ENDOFNAMES(self, prefix, params):
 		channel = params[1]
-		self.dispatch(self, "endOfNames", prefix=prefix, params=params, target=channel, users=self._names.pop(channel))
+		self.dispatch(self, "endOfNames", prefix=prefix, params=params, target=channel, users=self._names.pop(channel, []))
 	
 	def irc_RPL_BANLIST(self, prefix, params):
 		"""
@@ -405,6 +405,11 @@ class BurlyBot(IRCClient):
 		# This seems excessive but it's the only way to reliably update the prefixmap
 		self.prefixmap.loadfromprefix(self.supported.getFeature("PREFIX").iteritems())
 		
+	# This method is interesting, for example ERROR gets sent from Rizon when you quit
+	# TODO: find out what to actually do with this.
+	def irc_ERROR(self, prefix, params):
+		print "ERROR received: %s" % params
+		
 	###
 	### Modified command handler from IRCCLient
 	###
@@ -415,7 +420,7 @@ class BurlyBot(IRCClient):
 		"""
 		method_name = "irc_%s" % command
 		method = getattr(self, method_name, None)
-		print "INCOMING (%s): %s, %s" % (command, prefix, params)
+		#print "INCOMING (%s): %s, %s" % (command, prefix, params)
 		try:
 			if method is not None:
 				method(prefix, params)
@@ -431,7 +436,7 @@ class BurlyBot(IRCClient):
 				self.irc_unknown(prefix, command, params)
 
 	def lineReceived(self, line):
-		print "---%s---" % line
+		#print "---%s---" % line
 		IRCClient.lineReceived(self, line)
 				
 	###
@@ -472,66 +477,6 @@ class BurlyBot(IRCClient):
 				self.dispatch(self, "ctcpReply", prefix=user, params=params, hostmask=user, target=channel, tag=tag, 
 					data=data, nick=nick, ident=ident, host=host)
 			seen.add(tag)
-	
-	def _sendmsg(self, target, message, split, strins, fcfs):
-		if strins:
-			message = self.assembleMsgWLen('PRIVMSG %s :%s' % (target, message), strins, fcfs)
-			self.sendLine(message)
-		else:
-			fmt = 'PRIVMSG %s :%%s' % (target,)
-			if split:
-				for msg in splitEncodedUnicode(message, self.calcAvailableMsgLength(fmt % ""), encoding=self.settings.encoding, n=4):
-					self.sendLine(fmt % msg)
-			else:
-				# blindly truncate message at sendLine level
-				self.sendLine(fmt % message)
-	
-	# helper method to automatically truncate string to be replaced
-	# TODO: need decide on string format method, either "%s" % x or "{0}".format(x)
-	def assembleMsgWLen(self, s, strins, fcfs):
-		if isinstance(strins, basestring):
-			return s % splitEncodedUnicode(strins, self.calcAvailableMsgLength(s)-2, encoding=self.settings.encoding)[0]
-		if fcfs:
-			if isIterable(strins):
-				l = len(strins)
-				for i, rep in enumerate(strins):
-					# TODO: this is a little ghetto but I'm unsure of a better way at this point in time
-					s = s % ((splitEncodedUnicode(rep, self.calcAvailableMsgLength(s)-((l-i)*2), encoding=self.settings.encoding)[0],) + ("%s",)*l-i)
-				return s
-			elif isinstance(strins, dict):
-				# TODO: defaultdict makes this surprisingly straightforward. Maybe should make a custom list object that
-				# returns "%s" for invalid indexes
-				d = defaultdict(lambda: "%s")
-				db = defaultdict(lambda: "")
-				for key, value in strins.iteritems():
-					d[key] = splitEncodedUnicode(value, self.calcAvailableMsgLength(s % db), encoding=self.settings.encoding)[0]
-					s = s % d
-				return s
-			else:
-				raise ValueError("Require list/tuple, dict, or string for strins.")
-		else:
-			# round 2, even divide
-			l = len(strins)
-			if isIterable(strins):
-				segmentlength = int(floor((self.calcAvailableMsgLength(s)-(l*2)) / l))
-				if isinstance(strins, tuple):
-					strins = list(strins)
-				for i, sr in enumerate(strins):
-					strins[i] = splitEncodedUnicode(sr, segmentlength, encoding=self.settings.encoding)[0]
-				return s % strins
-				
-			if isinstance(strins, dict):
-				db = defaultdict(lambda: "")
-				segmentlength = int(floor((self.calcAvailableMsgLength(s % db) / l)))
-				for key, value in strins.iteritems():
-					strins[key] = splitEncodedUnicode(value, segmentlength, encoding=self.settings.encoding)[0]
-				return s % strins
-	
-	def calcAvailableMsgLength(self, command):
-		if self.prefixlen:
-			return 510 - self.prefixlen - len(command) # 510 = line terminator
-		else:
-			return self._safeMaximumLineLength(command) - 2 #line terminator
 	
 	def signedOn(self):
 		"""Called when bot has succesfully signed on to server."""
@@ -595,8 +540,76 @@ class BurlyBot(IRCClient):
 		if self.dispatcher.MSGHOOKS and not direct:
 			self.dispatch(self, "sendmsg", target=target, msg=msg, strins=None, fcfs=fcfs)
 		else:
-			self._sendmsg(target, msg, split, strins, fcfs)
-			
+			self.sendLine(self._buildmsg(target, msg, split, strins, fcfs))
+	
+	# will return true if sendmsg can proceed without truncation, false otherwise.
+	# will provide incorrect results if any sendmsg hooks change lengths of messages
+	# TODO: (very low priority I guess) somehow get a builtmsg from sendmsg hooks
+	# NOTE: USAGE OF THIS MESSAGE MUST TEST FOR TRUE AND FALSE EXPLICITLY. None will be returned if bot isn't connected
+	#		at the time of call.
+	def checkSendMsg(self, target, msg):
+		return len(self._buildmsg(target, msg).encode(self.settings.encoding)) <= self.calcAvailableMsgLength("")
+		
+	def _buildmsg(self, target, message, split=False, strins=None, fcfs=False):
+		if strins:
+			message = self.assembleMsgWLen('PRIVMSG %s :%s' % (target, message), strins, fcfs)
+			return message
+		else:
+			fmt = 'PRIVMSG %s :%%s' % (target,)
+			if split:
+				return (fmt % msg for msg in 
+					splitEncodedUnicode(message, self.calcAvailableMsgLength(fmt % ""), encoding=self.settings.encoding, n=4))
+			else:
+				# blindly truncate message at sendLine level, also useful for checkSendMsg
+				return fmt % message
+	
+	# helper method to automatically truncate string to be replaced
+	# TODO: need decide on string format method, either "%s" % x or "{0}".format(x)
+	def assembleMsgWLen(self, s, strins, fcfs):
+		if isinstance(strins, basestring):
+			return s % splitEncodedUnicode(strins, self.calcAvailableMsgLength(s)-2, encoding=self.settings.encoding)[0]
+		if fcfs:
+			if isIterable(strins):
+				l = len(strins)
+				for i, rep in enumerate(strins):
+					# TODO: this is a little ghetto but I'm unsure of a better way at this point in time
+					s = s % ((splitEncodedUnicode(rep, self.calcAvailableMsgLength(s)-((l-i)*2), encoding=self.settings.encoding)[0],) + ("%s",)*l-i)
+				return s
+			elif isinstance(strins, dict):
+				# TODO: defaultdict makes this surprisingly straightforward. Maybe should make a custom list object that
+				# returns "%s" for invalid indexes
+				d = defaultdict(lambda: "%s")
+				db = defaultdict(lambda: "")
+				for key, value in strins.iteritems():
+					d[key] = splitEncodedUnicode(value, self.calcAvailableMsgLength(s % db), encoding=self.settings.encoding)[0]
+					s = s % d
+				return s
+			else:
+				raise ValueError("Require list/tuple, dict, or string for strins.")
+		else:
+			# round 2, even divide
+			l = len(strins)
+			if isIterable(strins):
+				segmentlength = int(floor((self.calcAvailableMsgLength(s)-(l*2)) / l))
+				if isinstance(strins, tuple):
+					strins = list(strins)
+				for i, sr in enumerate(strins):
+					strins[i] = splitEncodedUnicode(sr, segmentlength, encoding=self.settings.encoding)[0]
+				return s % strins
+				
+			if isinstance(strins, dict):
+				db = defaultdict(lambda: "")
+				segmentlength = int(floor((self.calcAvailableMsgLength(s % db) / l)))
+				for key, value in strins.iteritems():
+					strins[key] = splitEncodedUnicode(value, segmentlength, encoding=self.settings.encoding)[0]
+				return s % strins
+	
+	def calcAvailableMsgLength(self, command):
+		if self.prefixlen:
+			return 510 - self.prefixlen - len(command) # 510 = line terminator
+		else:
+			return self._safeMaximumLineLength(command) - 2 #line terminator
+
 	###
 	### Connection management methods
 	###
@@ -614,6 +627,7 @@ class BurlyBot(IRCClient):
 		IRCClient.connectionLost(self, reason)
 		self.container._setBotinst(None)
 		if self.state: self.state._resetnetwork()
+		# TODO: reason needs to be properly formatted/actual reason being extracted from the "Failure" or whatever
 		print "[disconnected: %s]" % reason
 
 class BurlyBotFactory(ReconnectingClientFactory):

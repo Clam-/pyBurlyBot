@@ -26,4 +26,4 @@ def timers(event, bot):
 		bot.say(Timers.deltimer(args)[1])
 
 #mappings to methods
-mappings = (Mapping(types=["privmsged"], command="timers", function=timers),)
+mappings = (Mapping(command="timers", function=timers),)

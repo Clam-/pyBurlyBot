@@ -96,6 +96,7 @@ def config(event, bot):
 			except Exception as e:
 				return bot.say("Error: %s" % e)
 			# check type of non module option:
+			# TODO: some things won't be able to have the same type, like set for modules, allowmodules and such. What do?
 			if not module:
 				t = type(old)
 				if not t is tvalue:

@@ -1,7 +1,6 @@
-#sample module
+#samplemodule
 from re import compile as recompile
 from util import Mapping, commandSplit, functionHelp
-from util import DBQuery
 
 # options types for dynamic configuration setting via config module
 # options not specified here will have no help text nor type checking and will not have defaults automatically set
@@ -36,19 +35,12 @@ def samplecommand(event, bot):
 #init should always be here to setup needed DB tables or objects or whatever
 def init(bot):
 	"""Do startup module things. This sample just checks if table exists. If not, creates it."""
-	result = DBQuery("SELECT name FROM sqlite_master WHERE name='sample_table'")
-	if result.error:
-		#uh oh....
-		print "What happened?: %s" % result.error
-	else:
-		#good
-		if not result.rows:
-			DBQuery('''
-			create table sample_table(
+	bot.dbCheckCreateTable('sample_table',
+		'''create table sample_table(
 			columnA,
 			columnB
-			);''')
-		return True
+		);''')
+	return True
 
 #mappings to methods
 mappings = (Mapping(types=["privmsged"], regex=recompile(r"\|.*"), function=repeater),

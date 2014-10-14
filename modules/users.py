@@ -1,106 +1,105 @@
 #users
+from util import Mapping, distance_of_time_in_words, fetchone, pastehelper, ADDONS
 
-#BROKEN: awaiting new msg hooks
+ALIAS_MODULE = None
 
-#twisted
-from twisted.python import log
-#bbm
-from util import dbCheckCreateTable, DBQuery, Mapping
-#python
-from time import time
-#helpers
-from util import distance_of_time_in_words
+OPTIONS = {
+	"hidden" : (list, "Channels in this list will not be shown in seen requests.", []),
+}
 
-def _user_update(event, nick=None):
+SEENMSGWSOURCE = 'I last saw %s %s on %s. "%s"'
+SEENMSG = 'I last saw %s %s.'
+
+def _user_update(qfunc, event, nick=None):
 	#check if exists, then update
 	if not nick: nick = event.nick
-	result = DBQuery('''INSERT OR REPLACE INTO user (nick, host, lastseen, seenwhere) VALUES(?,?,?,?);''',
-		(nick, event.hostmask, int(time()), event.target))
-	if result.error:
-		print "What happened?: %s" % result.error
+	qfunc('''INSERT OR REPLACE INTO user (user, host, lastseen, seenwhere, lastmsg) VALUES(?,?,?,?,?);''',
+		(nick, event.hostmask, int(event.time), event.target, event.msg))
 
 def user_update(event, bot):
 	#check is alias is loaded and available
-	# this method gets called on the reactor so it may cause many many context switches
+	# this method gets called on the reactor so it may cause many context switches :(
 	if bot.isModuleAvailable("alias"):
-		# TODO: use some alias module methods using bot.getModule("alias").method()
-		result = DBQuery('''SELECT nick FROM alias WHERE alias = ?;''', (event.nick,))
-		if not result.error:
-			#check rows...
-			if not result.rows:
-				#if no results:
-				_user_update(event)
-			else:
-				nick = result.rows[0]["nick"]
-				_user_update(event, nick)
-		else:
-			print "What happened?: %s" % result.error
+		_user_update(bot.dbQuery, event, ALIAS_MODULE.get_nick(bot.dbQuery, event.nick))
 	else:
 		#alias not loaded
-		_user_update(event)
+		_user_update(bot.dbQuery, event)
 	return
 
-def _user_seen(event, nick=None):
-	#check if exists, then update
-	if not nick: nick = event.input
-	result = DBQuery('''SELECT lastseen, seenwhere FROM user WHERE nick = ?;''', (nick, ))
-	if result.error:
-		print "What happened?: %s" % result.error
-		return None
-	return result.rows[0] if result.rows else None
+def get_user(qfunc, nick):
+	user = qfunc('''SELECT user FROM user WHERE user = ?;''', (nick,), func=fetchone)
+	if user: return user['user']
+	return user
+
+def _user_seen(qfunc, nick):
+	return qfunc('''SELECT lastseen, seenwhere, lastmsg FROM user WHERE user = ?;''', (nick, ), fetchone)
 
 def user_seen(event, bot):
-	if not event.input:
-		print "what"
-		return
+	target = event.argument
+	if not target:
+		return bot.say("Seen who?")
 	
-	seen = None
+	hidden = bot.getOption("hidden", module="users")
+	
 	if bot.isModuleAvailable("alias"):
-		# TODO: use some alias module methods using bot.getModule("alias").method()
-		result = DBQuery('''SELECT nick FROM alias WHERE alias = ?;''', (event.input,))
-		if result.error:
-			print "What happened?: %s" % result.error
-			return
-		#check rows...
-		if not result.rows:
-			#if no results:
-			seen = _user_seen(event)
-		else:
-			nick = result.rows[0]["nick"]
-			seen = _user_seen(event, nick)
-
+		# do magic for group
+		group = ALIAS_MODULE.group_list(bot.dbQuery, target)
+		if group:
+			msgs = []
+			for member in group:
+				seen = _user_seen(bot.dbQuery, member)
+				if seen['seenwhere'] in hidden:
+					msgs.append(SEENMSG % (target, distance_of_time_in_words(seen['lastseen']) ))
+				else:
+					msgs.append(SEENMSGWSOURCE % (target, distance_of_time_in_words(seen['lastseen']),
+						seen['seenwhere'], seen['lastmsg']))
+			if len(group) > 3:
+				try:
+					return "%s, see %s" % (event.nick, ADDONS.paste("\n".join(msgs), title="Seen %s" % target))
+				except AttributeError:
+					return bot.say("Too many users and no paste available.")
+			else:
+				first = True
+				for msg in msgs: 
+					if first: bot.say("%s, %s" % (event.nick, msg))
+					else: bot.say(msg)
+					first = False
+				return
+		
+		# not group, look for alias:
+		nick = ALIAS_MODULE.get_nick(bot.dbQuery, target)
+		seen = _user_seen(bot.dbQuery, nick if nick else target)
 	else:
-		#alias not loaded
-		seen = _user_seen(event)
+		seen = _user_seen(target)
+	
 	if not seen:
-		bot.say("lol dunno.")
+		bot.say("%s, lol dunno." % event.nick)
 	else:
-		bot.say("%s - %s" % (distance_of_time_in_words(seen["lastseen"]), seen["seenwhere"]))
+		if seen['seenwhere'] in hidden:
+			bot.say("%s, %s" % (event.nick, SEENMSG % (target, distance_of_time_in_words(seen['lastseen'])) ))
+		else:
+			bot.say("%s, %s" % (event.nick, SEENMSGWSOURCE % (target, distance_of_time_in_words(seen['lastseen']),
+				seen['seenwhere'], seen['lastmsg'])))
 	return
 	
 #init should always be here to setup needed DB tables or objects or whatever
 def init(bot):
 	"""Do startup module things. This just checks if table exists. If not, creates it."""
-	
-	if not dbCheckCreateTable("user", '''
-		create table user(
-		user TEXT PRIMARY KEY,
-		host TEXT,
-		lastseen INTEGER,
-		seenwhere TEXT
-	);'''):
-		print "Failed to initialize users module (table)"
-		return False
+	bot.dbCheckCreateTable('user',
+		'''CREATE TABLE user(
+			user TEXT PRIMARY KEY,
+			host TEXT,
+			lastseen INTEGER,
+			seenwhere TEXT,
+			lastmsg TEXT
+		);''')
 
 	#should probably index nick column
 	#unique does this for us
 	#but should probably index lastseen so can ez-tells:
 	# if not exists:
-	if not dbCheckCreateTable("user_lastseen_idx", '''CREATE INDEX user_lastseen_idx ON user(lastseen);'''):
-		print "Failed to initialize users module (index)"
-		return False
-
+	bot.dbCheckCreateTable("user_lastseen_idx", '''CREATE INDEX user_lastseen_idx ON user(lastseen);''')
 	return True
 
 #mappings to methods
-mappings = (Mapping(types=["privmsged"], function=user_update), Mapping(types=["privmsged"], command="seen", function=user_seen))
+mappings = (Mapping(types=["privmsged"], function=user_update), Mapping(command="seen", function=user_seen))

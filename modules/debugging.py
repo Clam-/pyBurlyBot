@@ -28,5 +28,5 @@ def flood(event, bot):
 		bot.say("Hello %s" % x)
 
 #mappings to methods
-mappings = (Mapping(types=["privmsged"], command="eval", function=runeval),
-	Mapping(types=["privmsged"], command="flood", function=flood),)
+mappings = (Mapping(command="eval", function=runeval),
+	Mapping(command="flood", function=flood),)

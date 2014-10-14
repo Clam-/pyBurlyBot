@@ -7,26 +7,18 @@ from sys import exit, stdout
 from argparse import ArgumentParser
 
 # twisted imports
-from twisted.internet import reactor
-try: 
-	SSL = True
-	from twisted.internet.ssl import ClientContextFactory
-except:
-	SSL = None
 from twisted.python import log
+from twisted.internet import reactor
 
 #BurlyBot imports
-from util.client import BurlyBotFactory
 from util.settings import Settings, ConfigException
-from util.container import Container
-from util.db import DBQuery, dbcommit, setupDB
 from util.timer import Timers
 
 if __name__ == '__main__':
 	
 	#TODO: make botdir an argument maybe
 	Settings.botdir = getcwdu()
-	# initialize logging
+	# temporary logging
 	templog = log.startLogging(stdout)
 	print "Starting pyBurlyBot, press CTRL+C to quit."
 	
@@ -60,41 +52,19 @@ if __name__ == '__main__':
 		print "Error: Settings file (%s) not found." % args.config
 		exit(2)
 	try:
-		Settings.reload()
+		Settings.load()
 	except ConfigException as e:
 		print "Error:", e
 		exit(2)
-
-	#setup log options
-	if not Settings.console:
-		templog.stop()
-		log.startLogging(open(join(Settings.botdir, "BurlyBot.log"), 'a'), setStdout=False)
-	# else:
-		# log.startLogging(stdout)
 	
-	setupDB(join(Settings.botdir, Settings.datadir), Settings.datafile)
-	DBQuery.dbThread.start()
-	Settings.reloadDispatchers(firstRun=True)
+	Settings.initialize(logger=templog)
+	
 	#start dbcommittimer
-	Timers._addTimer("_dbcommit", 60*60, dbcommit, reps=-1) #every hour (60*60)
+	Timers._addTimer("_dbcommit", 60*60, Settings.dbcommit, reps=-1) #every hour (60*60)
 	
-	# create botprotocol factories
-	# TODO: abstract this so we can dynamically connect/disconnect to servers on reload command.
-	if Settings.servers:
-		for server in Settings.servers.itervalues():
-			if server.ssl:
-				if not SSL:
-					print "Error: Cannot connect to '%s', pyOpenSSL not installed" % server.serverlabel
-				else:
-					reactor.connectSSL(server.host, server.port, BurlyBotFactory(server), ClientContextFactory())
-			else:
-				reactor.connectTCP(server.host, server.port, BurlyBotFactory(server))
-		# run bot
-		reactor.run()
-	else:
-		print "No servers to connect to. Bailing."
+	# start reactor (which in a sense starts bot proper)
+	reactor.run()
 	
 	#stop timers or just not care...
 	Timers._stopall()
-	DBQuery.dbQueue.put("STOP")
-	DBQuery.dbThread.join()
+	Settings.databasemanager.shutdown()

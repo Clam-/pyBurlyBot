@@ -2,101 +2,187 @@ from threading import Thread
 from Queue import Queue
 from traceback import print_exc
 
+from os.path import exists, join, isfile
+from os import mkdir
+
 try:
 	from pysqlite2 import dbapi2 as sqlite3
 except:
 	import sqlite3
-#DB handler
+	
+fetchone = sqlite3.Cursor.fetchone
+fetchall = sqlite3.Cursor.fetchall
+fetchmany = sqlite3.Cursor.fetchmany
 
-from os.path import exists, join, isfile
-from os import mkdir
+### DBManager
+### DBManager managers the global bot database and server-specific databases.
+### To use a specific database for a server you must configure that server to have a unique datafile.
 
-class DBaccess(Thread):
-	def __init__(self, incoming, datadir, datafile):
-		Thread.__init__(self)
+class DBManager(object):
+	def __init__(self, datadir, datafile):
+		self.serverDBMap = {}
+		self.fileDBMap = {}
+		self.mainDB = DBaccess(datadir, datafile)
 		self.datadir = datadir
 		self.datafile = datafile
-		if not exists(self.datadir):
-			mkdir(self.datadir)
-		elif isfile(self.datadir):
-			raise IOError("data should not be file")
-		#just to see if we can open the file
-		dbcon = sqlite3.connect(join(self.datadir, self.datafile))
+		self.managerThread = ManagerThread()
+		self.managerThread.start()
+		self.mainDB.start()
+		
+	def query(self, serverlabel, q, params=(), func=None):
+		db = self.managerThread.call(self._getDB, serverlabel)
+		return db.query(q, params, func)
+		
+	def _addServer(self, serverlabel, datafile):
+		if not datafile == self.datafile:
+			if serverlabel in self.serverDBMap:
+				#determine if we need to shutdown DB and restart with different file
+				if datafile == self.serverDBMap[serverlabel].datafile:
+					return # exists and is correct file
+				# stop
+				self.serverDBMap[serverlabel].stop()
+			
+			# add new server if datafile isn't already used
+			if datafile in self.fileDBMap:
+				db = self.fileDBMap[datafile]
+				db.servers += 1
+				self.serverDBMap[serverlabel] = db
+			else:
+				db = DBaccess(self.datadir, datafile)
+				self.serverDBMap[serverlabel] = db
+				self.fileDBMap[datafile] = db
+				db.start()
+	
+	def addServer(self, serverlabel, datafile):
+		self.managerThread.call(self._addServer, serverlabel, datafile)
+		
+	def _delServer(self, serverlabel):
+		if serverlabel in self.serverDBMap:
+			db = self.serverDBMap[serverlabel]
+			if db.datafile != self.datafile:
+				db.servers -= 1
+				if db.servers < 1:
+					db.stop()
+					del self.fileDBMap[db.datafile]
+				del self.serverDBMap[serverlabel]
+	
+	def delServer(self, serverlabel):
+		self.managerThread.call(self._delServer, serverlabel)
+	
+	def _getDB(self, serverlabel):
+		return self.serverDBMap.get(serverlabel, self.mainDB)
+		
+	def _shutdown(self):
+		for db in self.serverDBMap.itervalues():
+			db.stop()
+		self.mainDB.stop()
+	
+	def shutdown(self):
+		self.managerThread.call(self._shutdown)
+		self.managerThread.stop()
+		
+	#DB helper for easy module use:
+	def dbCheckCreateTable(self, serverlabel, tablename, createstmt):
+		if not self.query(serverlabel, '''SELECT name FROM sqlite_master WHERE name=?;''', (tablename,)):
+			self.query(serverlabel, createstmt)
+		return True
+		
+	def _dbcommit(self):
+		for db in self.serverDBMap.itervalues():
+			db.commit()
+		
+	def dbcommit(self):
+		self.managerThread.call(self._dbcommit)
+			
+	
+class ManagerThread(Thread):
+	def __init__(self):
+		Thread.__init__(self)
+		self.callQueue = Queue()
+		self.name = "ManagerThread"
+	
+	def run(self):
+		while True:
+			c = self.callQueue.get()
+			if c == "QUIT":
+				break
+			q, f, args, kwargs = c
+			try: ret = f(*args, **kwargs)
+			except Exception as e:
+				ret = e
+			q.put(ret)
+			
+	def call(self, f, *args, **kwargs):
+		q = Queue()
+		self.callQueue.put((q, f, args, kwargs))
+		ret = q.get()
+		if isinstance(ret, Exception):
+			raise ret
+		return ret
+		
+	def stop(self):
+		self.callQueue.put("QUIT")
+		self.join()
+
+
+# how should we deal with commits and stuff, can you even commit with execute? 
+# You can if you change transactional mode. What transactional mode do we want?
+class DBaccess(Thread):
+	def __init__(self, datadir, datafile):
+		Thread.__init__(self)
+		self.name = "DBaccessThread(%s)" % datafile
+		self.datafile = datafile
+		if not exists(datadir):
+			mkdir(datadir)
+		elif isfile(datadir):
+			raise IOError("datadir should not be file")
+		self.f = join(datadir, self.datafile)
+		self.qq = Queue() # QueryQueue, QQ
+		self.servers = 1
+		#just to see if we can open the file/db
+		dbcon = sqlite3.connect(self.f)
 		dbcon.close()
-		self.incoming = incoming
 		
 	def run(self):
-		dbcon = sqlite3.connect(join(self.datadir, self.datafile))
+		dbcon = sqlite3.connect(self.f)
 		dbcon.row_factory = sqlite3.Row
-		running = True
-		while running:
-			query = self.incoming.get()
+		
+		while True:
+			query = self.qq.get()
 			try:
 				if query == "STOP":
-					running = False
 					break
 				# TODO: Test commit methods
 				elif query == "COMMIT":
 					dbcon.commit()
 					continue
-				# ("select stuff where name_last=? and age=?", (who, age))
-				query, params, returnq = query
-				returnq.put(("SUCCESS", dbcon.execute(query, params).fetchall()))
+				#func should be something that can work with a cursor object
+				# e.g. sqlite3.Cursor.fetchall
+				query, params, func, resultq  = query
+				if func:
+					resultq.put(func(dbcon.execute(query, params)))
+				else:
+					resultq.put(dbcon.execute(query, params).fetchall())
 			except Exception as e:
-				if returnq: returnq.put(("ERROR", e))
+				if resultq: resultq.put(e)
 				else: print_exc()
-		print "SHUTTING DOWN DB THREAD"
 		dbcon.commit()
 		dbcon.close()
-	# how should we deal with commits and stuff, can you even commit with execute? 
-	# You can if you change transactional mode. Dont' really know which way should go
-
-class DBQuery(object):
-	dbQueue = None
-	dbThread = None
-	__slots__ = ('returnq', 'error', 'rows')
-	
-	def __init__(self, query=None, params=()):
-		self.returnq = Queue()
-
-		# For instanciating at the beginning of a bunch of if/else things
-		if query:
-			self.query(query, params)
-		else:
-			# This is kinda weird
-			self.error = None
-			self.rows = []
-
-	def query(self, query, params=()):
-		self.error = None
-		DBQuery.dbQueue.put((query, params, self.returnq))
-		results = self.returnq.get()
-		if results[0] == "ERROR":
-			self.error = results[1]
-			return
-
-		self.rows = results[1]
-
-def setupDB(datadir, datafile="bbm.db"):
-	DBQuery.dbQueue = Queue()
-	DBQuery.dbThread = DBaccess(DBQuery.dbQueue, datadir, datafile)
 		
-def dbcommit():
-	print "Timered commit"
-	DBQuery.dbQueue.put("COMMIT")
-
-#DB helpers for easy module use:
-def dbCheckCreateTable(name, createstmt):
-	query = DBQuery('''SELECT name FROM sqlite_master WHERE name=?;''', (name,))
-	if query.error:
-		#uh oh....
-		print "What happened?: %s" % query.error
-		return False
-
-	if not query.rows:
-		query.query(createstmt)
-		# should probably make sure this returns valid
-		if query.error:
-			print "Error creating table... %s" % query.error
-			return False
-	return True
+	def query(self, q, params=(), func=None):
+		if not self.isAlive():
+			raise RuntimeError("Attempted query on non running (%s)" % self.name)
+		resultq = Queue()
+		self.qq.put((q, params, func, resultq))
+		result = resultq.get()
+		if isinstance(result, Exception):
+			raise result
+		return result
+		
+	def stop(self):
+		self.qq.put("STOP")
+		print "STOPPING %s" % self.name
+		self.join()
+		
+	def commit(self):
+		self.qq.put("COMMIT")

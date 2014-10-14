@@ -1,23 +1,36 @@
 #settings and stuff
 from os.path import join, exists
-# TODO: is channels safe to shallow copy? (for example channel with password, I don't think so)
 from copy import deepcopy
 from Queue import Queue
 from json import dump, load, JSONEncoder
 from collections import MutableSet, OrderedDict
+from sys import modules
+
+from twisted.python import log
+
+try: 
+	SSL = True
+	from twisted.internet.ssl import ClientContextFactory
+except:
+	SSL = None
+from twisted.internet import reactor
+
 #BurlyBot
 from util.libs import OrderedSet
 from util.container import Container
 from util.dispatcher import Dispatcher
+from util.client import BurlyBotFactory
+from util.db import DBManager
 
-KEYS_COMMON = ("altnicks", "encoding", "nick", "nickservpass", "nicksuffix", "commandprefix", "admins", "moduleopts")
+KEYS_COMMON = ("admins", "altnicks", "commandprefix", "datafile", "encoding", "moduleopts", "nick", "nickservpass", "nicksuffix")
 KEYS_SERVER = ("serverlabel",) + KEYS_COMMON + ("host", "port", "channels", "allowmodules", "denymodules")
 KEYS_SERVER_SET = set(KEYS_SERVER)
-KEYS_MAIN = KEYS_COMMON + ("console", "debug", "datadir", "datafile", "enablestate", "modules", "servers")
+KEYS_MAIN = KEYS_COMMON + ("console", "debug", "datadir", "enablestate", "logfile", "modules", "servers")
 KEYS_MAIN_SET = set(KEYS_MAIN)
 #keys to create a copy of so no threading bads
 KEYS_COPY = set(("admins", "channels", "allowmodules", "denymodules", "modules"))
 #keys to deny getOption for:
+# TODO: probably needs more things here
 KEYS_DENY = set(("servers", "dispatcher", "moduleopts"))
 # TODO: this may be incomplete
 # list of module setting types to copy to make sure no thread bads
@@ -55,7 +68,6 @@ class BaseServer(object):
 	moduleopts = None # {}
 	
 	def __init__(self, opts):
-		self.state = None
 		self.moduleopts = {}
 		self.setup(opts)
 		
@@ -124,9 +136,7 @@ class BaseServer(object):
 						d[key] = value
 		return d
 		
-class DummyServer(BaseServer):
-	def __init__(self, opts):
-		BaseServer.__init__(self, opts)
+DummyServer = BaseServer # alias to make example server code clear
 
 class Server(BaseServer):
 	
@@ -134,13 +144,18 @@ class Server(BaseServer):
 		BaseServer.__init__(self, opts)
 		#dispatcher placeholder (probably not needed)
 		self.dispatcher = None
+		# TODO: fix the complicated relationship between Factory<->Settings<->Container<->Factory
 		self.container = Container(self)
+		self._factory = BurlyBotFactory(self)
 
-	def initializeDispatcher(self):
-		# this should only be done once.
-		assert self.dispatcher is None
-		#create dispatcher:
-		self.dispatcher = Dispatcher(self)
+	def initializeReload(self):
+		# Dispatcher should only be created once.
+		if self.dispatcher is None:
+			#create dispatcher:
+			self.dispatcher = Dispatcher(self)
+		#else reload it
+		else:
+			self.dispatcher.reload()
 		
 	def __getattr__(self, name):
 		# get Server setting if set, else fall back to global Settings
@@ -274,11 +289,11 @@ class Server(BaseServer):
 		if not self.isModuleAvailable(modname):
 			raise ConfigException("Module (%s) is not available." % modname)
 		else:
-			return Dispatcher.MODULEDICT[modname]
+			return Dispatcher.MODULEDICT.get(modname)
 	
 	def isModuleAvailable(self, modname):
 		return (modname not in self.denymodules) and (modname in Dispatcher.MODULEDICT)
-		
+	
 
 class SettingsBase:
 	nick = "BurlyBot"
@@ -292,13 +307,14 @@ class SettingsBase:
 	enablestate = False
 	encoding = "utf-8"
 	console = True
+	logfile = None
 	modules = None # OrderedSet(["core"])
 	admins = None # []
 	servers = None # {}
 	botdir = None
 	configfile = None
 	moduleopts = None # {}
-	moduledict = None # {}
+	databasemanager = None
 	
 	#TODO: not sure if the following is needed or not. Class.dict seems to behave strangely
 	def _setDefaults(self):
@@ -306,7 +322,6 @@ class SettingsBase:
 		self.modules = OrderedSet(["core"])
 		self.admins = []
 		self.moduleopts = {}
-		self.moduledict = {}
 		
 	def __init__(self):
 		self.servers = {}
@@ -320,27 +335,78 @@ class SettingsBase:
 			raise ConfigException("Config file (%s) contains errors: %s"
 				"\nTry http://jsonlint.com/ and make sure no trailing commas." % (self.configfile, e))
 		
+		self.newservers = newservers = []
+		self.oldservers = oldservers = []
 		# Only look for options we care about
 		for opt in KEYS_MAIN:
 			if opt in newsets:
 				if opt == "servers":
+					# calculate difference to know which servers to disconnect:
+					oldservers = set(self.servers.iterkeys())
 					# Create servers and put them in the server map
 					for serveropts in newsets["servers"]:
 						if "serverlabel" not in serveropts: 
-							# TODO: instead of raise, create error and continue loading.
-							raise ConfigException("Missing serverlabel in config.")
+							# TODO: instead of raise, create warning and continue loading.
+							print "Missing serverlabel in config. Skipping server"
+							continue
 						label = serveropts["serverlabel"]
 						if label in self.servers:
 							#refresh server settings
-							self.servers[label].setup(serveropts)
+							try:
+								self.servers[label].setup(serveropts)
+							except Exception as e:
+								print "Error in server setup for (%s), server settings may be in inconsistent state. %s" % (label, e)
+								continue
 						else:
-							self.servers[label] = Server(serveropts)
+							try:
+								s = Server(serveropts)
+							except Exception as e:
+								print "Error in server setup for (%s), skipping. %s" % (label, e)
+								continue
+							self.servers[label] = s
+							newservers.append(s)
+						try: oldservers.remove(label) #remove new server from old set
+						except KeyError: pass
 				elif opt == "modules":
 					setattr(self, opt, OrderedSet(newsets[opt]))
 				else:
 					setattr(self, opt, newsets[opt])
+		# store servers for connection/disconnection at a latter time
+		self.newservers = newservers
+		self.oldservers = oldservers
+		
+	def _connect(self, servers):
+		for server in servers:
+			if server.ssl:
+				if SSL:
+					reactor.connectSSL(server.host, server.port, server._factory, ClientContextFactory())
+				else:
+					print "Error: Cannot connect to '%s', pyOpenSSL not installed" % server.serverlabel
+					self.databasemanager.delServer(server.serverlabel)
+			else:
+				reactor.connectTCP(server.host, server.port, server._factory)
+			
+	def createDatabases(self, servers):
+		for server in servers:
+			self.databasemanager.addServer(server.serverlabel, server.datafile)
+			
+	def _disconnect(self, servers):
+		#NOTE: this is serverlabel
+		for server in servers:
+			print "DISCONNECTING: %s" % server
+			server = self.servers[server]
+			if server.container._botinst:
+				server.container._botinst.quit()
+			server._factory.stopTrying()
+			#callLater delserver so that just incase some modules catch quit or error event
+			# May cause race condition when connecting to new server that uses same name but different DBfile
+			# Hope someone doesn't do that...
+			reactor.callLater(1.0, self.databasemanager.delServer, server.serverlabel)
+		
+	def load(self):
+		self.reloadStage1()
 	
-	def reload(self):
+	def reloadStage1(self):
 		#restore "defaults"
 		for key in KEYS_MAIN:
 			if key == "servers": continue #never nuke servers
@@ -351,15 +417,48 @@ class SettingsBase:
 			#attempt to load user options
 			self._loadsettings()
 	
-	def reloadDispatchers(self, firstRun=False):
+	def reloadStage2(self):
+		#disconnect before reloading dispatchers
+		self._disconnect(self.oldservers)
 		# Reset Dispatcher loaded modules
+		# get a list of previously loaded modules so can track stale modules
+		oldmodules = set(Dispatcher.MODULEDICT.keys())
 		Dispatcher.reset()
+		#create databases so init() can do database things.
+		self.createDatabases(self.newservers)
 		for server in self.servers.itervalues():
-			if firstRun:
-				server.initializeDispatcher()
-			else:
-				server.dispatcher.reload()
+			server.initializeReload()
 		Dispatcher.showLoadErrors()
+		#compare currently loaded modules to oldmodules
+		oldmodules = oldmodules.difference(set(Dispatcher.MODULEDICT.keys()))
+		#remove oldmodules from sys.modules
+		for module in oldmodules:
+			module = "pyBurlyBot_%s" % module #prefix as was set in Dispatcher.load
+			print "Removing module: %s" % module
+			try: del modules[module]
+			except KeyError:
+				print "WARNING: module was never in modules %s" % module
+		# connect after load dispatchers
+		self._connect(self.newservers)
+		self.oldservers = self.newservers = []
+		
+	# TODO: when twisted supports good logger, consider allowing per-server logfile
+	# NOTE: logfile is not chat logging
+	# This must be called only once
+	def initialize(self, logger=None):
+		#setup log options
+		if not self.console:
+			logger.stop()
+		if self.logfile:
+			log.startLogging(open(join(self.botdir, self.logfile), 'a'), setStdout=False)
+		
+		# setup global database and databasemanager
+		self.databasemanager = DBManager(self.datadir, self.datafile)
+		self.reloadStage2()
+		
+	# save database(s)
+	def dbcommit(self):
+		self.databasemanager.dbcommit()
 	
 	def saveOptions(self):
 		d = OrderedDict()

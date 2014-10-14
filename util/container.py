@@ -35,6 +35,10 @@ class WaitData:
 			self.stope = set((stope,))
 
 class Container:
+	# BurlyBot methods that should be waited on, and returned value of
+	BLOCKINGCALLS = set([BurlyBot.checkSendMsg.__name__, BurlyBot.assembleMsgWLen.__name__,
+		BurlyBot.calcAvailableMsgLength.__name__])
+
 	def __init__(self, settings):
 		self.network = settings.serverlabel
 		self._settings = settings
@@ -54,7 +58,11 @@ class Container:
 			if self._botinst:
 				attr = getattr(self._botinst, name)
 				if hasattr(attr, '__call__'):
-					return partial(reactor.callFromThread, attr)
+					# check if we need to blocking call or not:
+					if name in self.BLOCKINGCALLS:
+						return partial(blockingCallFromThread, reactor, attr)
+					else:
+						return partial(reactor.callFromThread, attr)
 				else:
 					return attr
 			else:
@@ -63,10 +71,8 @@ class Container:
 					return partial(reactor.callFromThread, self._queuer, name)
 				else:
 					# SPECIAL CASE: if module requests attribute from BurlyBot
-					#  but there is no botinst, None will be returned.
-					# TODO: This should maybe raise exception else how determine what is None for real?
-					#		Interesting to consider trying to block until available...
-					return None 
+					#  but there is no botinst, exception will be raised
+					raise ValueError("Bot not connected.")
 
 	def _queuer(self, funcname, *args, **kwargs):
 		self._outqueue.append((funcname, args, kwargs))
@@ -167,7 +173,13 @@ class Container:
 			# in the case that garbage collection happens (in the event that user bails the generator
 			#	before the stop event fires) we can "clean up" and remove the event from the waitdispatcher
 			reactor.callFromThread(self._settings.dispatcher.delWaitData, wd)
-			
+	
+	# DB methods
+	def dbQuery(self, q, params=(), func=None):
+		return self._settings.databasemanager.query(self.network, q, params, func)
+		
+	def dbCheckCreateTable(self, tablename, createstmt):
+		return self._settings.databasemanager.dbCheckCreateTable(self.network, tablename, createstmt)
 
 # provide special container to use when feeding "init()" of modules
 # doesn't try to call methods inside reactor because already inside reactor

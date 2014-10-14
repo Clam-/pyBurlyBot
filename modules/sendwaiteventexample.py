@@ -1,4 +1,4 @@
-#waiteventexample.py
+#sendwaiteventexample.py
 
 #example on how to send and then wait on events
 
@@ -8,7 +8,6 @@ from twisted.internet.threads import blockingCallFromThread
 
 def waitexample(event, bot):
 	count = 0
-	#gen = 
 	try:
 		for event in bot.send_and_wait("noticed", f=bot.notice, fargs=(event.nick, "sending...")):
 			bot.say("Recieved: %s" % event.msg)

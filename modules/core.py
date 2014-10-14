@@ -9,12 +9,16 @@ from twisted.internet import reactor
 from twisted.internet.threads import blockingCallFromThread
 ###
 
-def reloadmods(event, bot):
+def _reallyReload():
+	Settings.reloadStage1()
+	Settings.reloadStage2()
+	
+def reloadbot(event, bot):
 	if bot.isadmin():
 		#reload settings, important to do only from within reactor
-		reactor.callFromThread(Settings.reload)
 		#also refresh dispatchers
-		blockingCallFromThread(reactor, Settings.reloadDispatchers)
+		blockingCallFromThread(reactor, _reallyReload)
+		# may never get sent if bot is disconnecting from this server after reload
 		bot.say("Done.")
 	else:
 		bot.say("No, you.")
@@ -48,10 +52,10 @@ def help(event, bot):
 	else:
 		cmds = bot._settings.dispatcher.getCommands()
 		try: cmds.remove("eval")
-		except: pass
+		except ValueError: pass
 		cmds.sort()
 		bot.say(" ".join(cmds))
 	
-mappings = (Mapping(command="reload", function=reloadmods),
+mappings = (Mapping(command="reload", function=reloadbot),
 	Mapping(command="help", function=help))
 

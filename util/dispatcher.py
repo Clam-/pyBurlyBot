@@ -12,9 +12,11 @@ from container import SetupContainer
 from helpers import isIterable, commandSplit, coerceToUnicode
 from event import Event
 
+from util import ADDONS
+
 class Dispatcher:
 	MODULEDICT = {}
-	NOTLOADED = []
+	NOTLOADED = {}
 	
 	def __init__(self, settings):
 		self.moddir = join(settings.botdir, "modules")
@@ -23,6 +25,12 @@ class Dispatcher:
 		self.reload()
 
 	def reload(self):
+		#temporary set to keep track of what we have loaded
+		self.loadedModules = set()
+		
+		#restore ADDONS
+		ADDONS.clear()
+		
 		self.eventmap = {}
 		# don't clear waitmap on reload to allow for still waiting functions to pass
 		# it's also self managed (hopefully)
@@ -36,78 +44,92 @@ class Dispatcher:
 		if settings.denymodules:
 			self.allowedmodules = allowedmodules.difference(settings.denymodules)
 
-		# load modules if they haven't been loaded before
+		# load modules
 		for modulename in self.allowedmodules:
-			if modulename not in self.MODULEDICT:
-				self.loadModule(modulename)
+			self.loadModule(modulename)
 	
-	def checkAndLoadReqs(self, module, resolvedmodules):
+	def checkAndLoadReqs(self, module, resolvedModules):
 		reqs = module.REQUIRES
 		if not isIterable(reqs):
 			reqs = (reqs,) #assume string?
 		for req in reqs:
-			if req in self.MODULEDICT: continue
+			if req in self.loadedModules: continue
 			else:
 				#attempt to load
 				if req not in self.allowedmodules:
 					return False
-				if not self.loadModule(req, resolvedmodules):
+				if not self.loadModule(req, resolvedModules):
 					return None
 		return True
-				
-	def loadModule(self, modulename, resolvedmodules=None):
+	
+	def loadModule(self, modulename, resolvedModules=None):
+		if modulename in self.loadedModules: return True
 		print "Loading %s..." % modulename
-		if resolvedmodules and modulename in resolvedmodules:
-			self.NOTLOADED.append((modulename, "Circular module dependency. Parents: %s" % (resolvedmodules)))
+		if resolvedModules and modulename in resolvedModules:
+			self.NOTLOADED[modulename] = "Circular module dependency. Parents: %s" % (resolvedModules)
 			return None
-		module = None
-		try:
-			(f, pathname, description) = find_module(modulename, [self.moddir])
+		module = self.MODULEDICT.get(modulename, None)
+		if module is None:
+			if modulename in self.NOTLOADED: return None
 			try:
-				module = load_module(modulename, f, pathname, description)
+				(f, pathname, description) = find_module(modulename, [self.moddir])
+				try:
+					# prefix module name to make sure no sys.modules clashes
+					module = load_module("pyBurlyBot_%s" % modulename, f, pathname, description)
+				except Exception as e:
+					self.NOTLOADED[modulename] = format_exc()
+					return None
+				finally:
+					f.close()
 			except Exception as e:
-				self.NOTLOADED.append((modulename, format_exc()))
+				self.NOTLOADED[modulename] = format_exc()
 				return None
-			finally:
-				f.close()
-		except Exception as e:
-			self.NOTLOADED.append((modulename, format_exc()))
-			return None
-		# if haven't loaded before, run init()
-		# Catch errors that might be thrown on running module.init()
-		if not hasattr(module, "mappings"):
-			self.NOTLOADED.append((modulename, "Missing 'mappings'"))
-			return None
 		# process module requirements before calling init:
 		if hasattr(module, "REQUIRES"):
-			reqsloaded = self.checkAndLoadReqs(module, resolvedmodules if resolvedmodules else [modulename])
+			if not resolvedModules: resolvedModules = set([modulename])
+			else: resolvedModules.add(modulename)
+			reqsloaded = self.checkAndLoadReqs(module, resolvedModules)
+			# TODO: consider telling the user what requirement was failed.
 			if reqsloaded is False:
-				self.NOTLOADED.append((modulename, "Requirement cannot be loaded because it's not allowed. (add to allowmodules)"))
+				self.NOTLOADED[modulename] = "Requirement cannot be loaded because they are not allowed. (add to modules/allowmodules)"
 				return None
 			elif reqsloaded is None:
-				self.NOTLOADED.append((modulename, "Requirements cannot be loaded."))
+				self.NOTLOADED[modulename] = "Requirements cannot be loaded."
 				return None
+		
+		# check provides and add them to ADDONS
+		if hasattr(module, "PROVIDES"):
+			for item in module.PROVIDES:
+				try:
+					ADDONS._add(item, getattr(module, item))
+				except AttributeError:
+					self.NOTLOADED[modulename] = "Error in PROVIDES for server (%s):\n%s" % (self.settings.serverlabel, format_exc())
+					return None
+		
 		# process module default settings
 		if hasattr(module, "OPTIONS"):
 			for opt, params in module.OPTIONS.iteritems():
 				if len(params) != 3:
-					self.NOTLOADED.append((modulename, "Invalid number of parameters for OPTIONS. Require: type, desc, default."))
+					self.NOTLOADED[modulename] = "Invalid number of parameters for OPTIONS. Require: type, desc, default."
 					return None
 				#using getOption because it already has all the functionality coded in to do this default option setting.
 				self.settings.getOption(opt, server=False, module=modulename, default=params[2], setDefault=True)
-				
-		# process module init if it has one
+		# load init() per dispatcher/server
+		# Catch errors that might be thrown on running module.init()
 		if hasattr(module, "init"):
 			try:
 				if not module.init(SetupContainer(self.settings.container)):
-					self.NOTLOADED.append((modulename, "Error in init()"))
+					self.NOTLOADED[modulename] = "Error in init() for server (%s)" % self.settings.serverlabel
 					return None
 			except Exception as e:
-				self.NOTLOADED.append((modulename, "Error in init():\n\n" + format_exc()))
+				self.NOTLOADED[modulename] = "Error in init() for server (%s):\n%s" % (self.settings.serverlabel, format_exc())
 				return None
+		
 		self.MODULEDICT[modulename] = module
-		self.processMappings(module)
+		if hasattr(module, "mappings"):
+			self.processMappings(module)
 		print "Loaded %s." % modulename
+		self.loadedModules.add(modulename)
 		return True
 		
 	def processMappings(self, module):
@@ -161,8 +183,8 @@ class Dispatcher:
 	
 	@classmethod
 	def reset(cls):
-		cls.MODULEDICT = {}
-		cls.NOTLOADED = []
+		cls.MODULEDICT.clear()
+		cls.NOTLOADED.clear()
 	
 	def dispatch(self, botinst, eventtype, **eventkwargs):
 		settings = self.settings
@@ -260,7 +282,7 @@ class Dispatcher:
 	@classmethod
 	def showLoadErrors(cls):
 		if cls.NOTLOADED:
-			print "WARNING: MODULE(S) NOT LOADED: %s" % ', '.join((x[0] for x in cls.NOTLOADED))
-			for module, traceback in cls.NOTLOADED:
+			print "WARNING: MODULE(S) NOT LOADED: %s" % ', '.join(cls.NOTLOADED.iterkeys())
+			for module, reason in cls.NOTLOADED.iteritems():
 				print >> stderr, module + ':'
-				print >> stderr, traceback
+				print >> stderr, reason

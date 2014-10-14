@@ -3,8 +3,137 @@ from datetime import timedelta
 from time import time
 from codecs import lookup
 from operator import itemgetter
-
+from shlex import shlex
+from StringIO import StringIO
 from inspect import getdoc
+
+# extend shlex to implement slightly modified parser to treat all "nonhandled" characters
+# as "wordchars". Should mean it parses unicode and symbols as words.
+class newshlex(shlex):
+	def __init__(self, *args, **kwargs):
+		shlex.__init__(self, *args, **kwargs)
+		#self.debug = 5
+		
+	def read_token(self):
+		quoted = False
+		escapedstate = ' '
+		while True:
+			nextchar = self.instream.read(1)
+			if nextchar == '\n':
+				self.lineno = self.lineno + 1
+			if self.debug >= 3:
+				print "shlex: in state", repr(self.state), \
+					"I see character:", repr(nextchar)
+			if self.state is None:
+				self.token = ''        # past end of file
+				break
+			elif self.state == ' ':
+				if not nextchar:
+					self.state = None  # end of file
+					break
+				elif nextchar.isspace():
+					if self.debug >= 2:
+						print "shlex: I see whitespace in whitespace state"
+					if self.token or (self.posix and quoted):
+						break   # emit current token
+					else:
+						continue
+				elif nextchar in self.commenters:
+					self.instream.readline()
+					self.lineno = self.lineno + 1
+				elif self.posix and nextchar in self.escape:
+					escapedstate = 'a'
+					self.state = nextchar
+				elif nextchar in self.quotes:
+					if not self.posix:
+						self.token = nextchar
+					self.state = nextchar
+				elif self.whitespace_split:
+					self.token = nextchar
+					self.state = 'a'
+				else:
+					self.token = nextchar
+					if (self.posix and quoted):
+						break   # emit current token
+					else:
+						self.state = 'a' # treat all characters like wordchars
+						continue
+			elif self.state in self.quotes:
+				quoted = True
+				if not nextchar:      # end of file
+					if self.debug >= 2:
+						print "shlex: I see EOF in quotes state"
+					# XXX what error should be raised here?
+					raise ValueError, "No closing quotation"
+				if nextchar == self.state:
+					if not self.posix:
+						self.token = self.token + nextchar
+						self.state = ' '
+						break
+					else:
+						self.state = 'a'
+				elif self.posix and nextchar in self.escape and \
+						self.state in self.escapedquotes:
+					escapedstate = self.state
+					self.state = nextchar
+				else:
+					self.token = self.token + nextchar
+			elif self.state in self.escape:
+				if not nextchar:      # end of file
+					if self.debug >= 2:
+						print "shlex: I see EOF in escape state"
+					# XXX what error should be raised here?
+					raise ValueError, "No escaped character"
+				# In posix shells, only the quote itself or the escape
+				# character may be escaped within quotes.
+				if escapedstate in self.quotes and \
+						nextchar != self.state and nextchar != escapedstate:
+					self.token = self.token + self.state
+				self.token = self.token + nextchar
+				self.state = escapedstate
+			elif self.state == 'a':
+				if not nextchar:
+					self.state = None   # end of file
+					break
+				elif nextchar.isspace():
+					if self.debug >= 2:
+						print "shlex: I see whitespace in word state"
+					self.state = ' '
+					if self.token or (self.posix and quoted):
+						break   # emit current token
+					else:
+						continue
+				elif nextchar in self.commenters:
+					self.instream.readline()
+					self.lineno = self.lineno + 1
+					if self.posix:
+						self.state = ' '
+						if self.token or (self.posix and quoted):
+							break   # emit current token
+						else:
+							continue
+				elif self.posix and nextchar in self.quotes:
+					self.state = nextchar
+				elif self.posix and nextchar in self.escape:
+					escapedstate = 'a'
+					self.state = nextchar
+				elif nextchar in self.wordchars or nextchar in self.quotes \
+						or self.whitespace_split:
+					self.token = self.token + nextchar
+				else: # treat all characters like wordchars
+					self.token = self.token + nextchar
+		result = self.token
+		self.token = ''
+		if self.posix and not quoted and result == '':
+			result = None
+		if self.debug > 1:
+			if result:
+				print "shlex: raw token=" + repr(result)
+			else:
+				print "shlex: raw token=EOF"
+		if quoted:
+			return result[1:-1]
+		return result
 
 # adapted http://stackoverflow.com/a/2119512
 def days_hours_minutes(td):
@@ -155,14 +284,23 @@ def commandSplit(s, nargs=1, pad=True):
 # except will return empty tuple in the case of nargs < len(arguments) if pad is false
 def argumentSplit(s, nargs, pad=True):
 	if s:
-		a = s.split(None, nargs-1)
-		la = len(a)
-		if la < nargs:
-			if pad:
-				return a+[None]*(nargs-la)
-			return ()
-		else:
-			return a
+		s = newshlex(StringIO(s)) # use non-C StringIO for (somewhat) unicode support?
+		i = 0
+		args = []
+		while i < nargs -1 :
+			tok = s.get_token()
+			if not tok: break
+			args.append(tok)
+			i += 1
+		rest = s.instream.read().strip() 	#TODO: should this really be stripping here? Without strip:
+		if rest:							# >>> argumentSplit('one "two three" four', 3)
+			args.append(rest)				# ['one', 'two three', ' four']
+			i += 1
+		if pad:
+			while i < nargs:
+				args.append(None)
+				i += 1
+		return args
 	else:
 		if pad: return [None]*nargs
 		else: return ()
@@ -222,6 +360,7 @@ def splitEncodedUnicode(s, length, encoding="utf-8", n=1):
 				ib = ie
 		return splits
 
+# retrieve help for function f. sub will provide help for that sub command
 def functionHelp(f, sub=None):
 	doc = getdoc(f)
 	if doc:

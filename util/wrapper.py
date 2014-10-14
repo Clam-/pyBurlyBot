@@ -1,6 +1,5 @@
 # This seems like a bit of a waste, but it's difficult to implement this in Container
 #  because of the reliance on event data.
-# I don't really like creating one of these every dispatch.
 from twisted.internet import reactor
 from twisted.internet.threads import blockingCallFromThread
 
@@ -16,16 +15,20 @@ class BotWrapper:
 	
 	# I think say should act as like a "reply" sending message back to whatever
 	#  send it, be it channel or user
+	# TODO: should this prepend event.nick so like "Nick, msg" "Nick: msg"?
+	#		saves modules doing it every line. Maybe add a bypass?
 	def say(self, msg, **kwargs):
 		if self.event.isPM():
 			self.sendmsg(self.event.nick, msg, **kwargs)
 		else:
 			self.sendmsg(self.event.target, msg, **kwargs)
 	
-	#alias for say		
-	def reply(self, msg, **kwargs):
-		self.say(msg, **kwargs)
-			
+	def checkSay(self, msg):
+		if self.event.isPM():
+			self.checkSendMsg(self.event.nick, msg)
+		else:
+			self.checkSendMsg(self.event.target, msg)
+	
 	def isadmin(self, module=None):
 		return blockingCallFromThread(reactor, self._isadmin, module)
 	

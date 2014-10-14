@@ -8,6 +8,7 @@ data/
 
 #testing
 modules/test.py
+modules/dispatchtest.py
 
 #archives
 *.7z

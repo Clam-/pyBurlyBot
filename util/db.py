@@ -32,6 +32,10 @@ class DBManager(object):
 	def query(self, serverlabel, q, params=(), func=None):
 		db = self.managerThread.call(self._getDB, serverlabel)
 		return db.query(q, params, func)
+	
+	def batch(self, serverlabel, qs):
+		db = self.managerThread.call(self._getDB, serverlabel)
+		db.batch(qs)
 		
 	def _addServer(self, serverlabel, datafile):
 		if not datafile == self.datafile:
@@ -156,14 +160,22 @@ class DBaccess(Thread):
 				elif query == "COMMIT":
 					dbcon.commit()
 					continue
-				#func should be something that can work with a cursor object
-				# e.g. sqlite3.Cursor.fetchall
-				query, params, func, resultq  = query
-				if func:
-					resultq.put(func(dbcon.execute(query, params)))
+				# special batch mode
+				if len(query) == 2:
+					qs, resultq = query
+					for q, params in qs:
+						try: resultq.put(dbcon.execute(q, params).fetchall())
+						except Exception as e: resultq.put(e)
 				else:
-					resultq.put(dbcon.execute(query, params).fetchall())
+					#func should be something that can work with a cursor object
+					# e.g. sqlite3.Cursor.fetchall
+					query, params, func, resultq = query
+					if func:
+						resultq.put(func(dbcon.execute(query, params)))
+					else:
+						resultq.put(dbcon.execute(query, params).fetchall())
 			except Exception as e:
+				# this is maximum cheating since variables have function scope even if defined in subblock
 				if resultq: resultq.put(e)
 				else: print_exc()
 		dbcon.commit()
@@ -178,6 +190,19 @@ class DBaccess(Thread):
 		if isinstance(result, Exception):
 			raise result
 		return result
+	
+	def batch(self, qs):
+		if not self.isAlive():
+			raise RuntimeError("Attempted query on non running (%s)" % self.name)
+		resultq = Queue()
+		self.qq.put((qs, resultq))
+		# get all results. probably not needed.
+		for i in xrange(len(qs)):
+			result = resultq.get()
+			if isinstance(result, Exception):
+				print "Exception with: %s" % str(qs[i])
+				raise result
+				# TODO: how to handle multiple exceptions?
 		
 	def stop(self):
 		self.qq.put("STOP")

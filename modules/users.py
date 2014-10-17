@@ -1,10 +1,16 @@
 #users
 from util import Mapping, distance_of_time_in_words, fetchone, pastehelper, ADDONS
+# Modules should not import Settings unless you have a very good reason to do so.
+from util.settings import Settings
 
 ALIAS_MODULE = None
 
 OPTIONS = {
 	"hidden" : (list, "Channels in this list will not be shown in seen requests.", []),
+}
+
+# [network] = [statement]
+TABLEUPDATES = {
 }
 
 SEENMSGWSOURCE = 'I last saw %s %s on %s. "%s"'
@@ -20,16 +26,35 @@ def user_update(event, bot):
 	#check is alias is loaded and available
 	# this method gets called on the reactor so it may cause many context switches :(
 	if bot.isModuleAvailable("alias"):
-		_user_update(bot.dbQuery, event, ALIAS_MODULE.get_nick(bot.dbQuery, event.nick))
+		_user_update(bot.dbQuery, event, ALIAS_MODULE.lookup_alias(bot.dbQuery, event.nick))
 	else:
 		#alias not loaded
 		_user_update(bot.dbQuery, event)
 	return
 
-def get_user(qfunc, nick):
-	user = qfunc('''SELECT user FROM user WHERE user = ?;''', (nick,), func=fetchone)
+#returns user row, i.e. all user properties in the result
+def get_user(bot, nick):
+	qfunc = bot.dbQuery
+	if bot.isModuleAvailable("alias"):
+		anick = ALIAS_MODULE.lookup_alias(qfunc, nick)
+		if anick: return qfunc('''SELECT * FROM user WHERE user=?;''', (anick,), func=fetchone)
+	return qfunc('''SELECT * FROM user WHERE user=?;''', (nick,), func=fetchone)
+
+#returns username only, or None if no user exists.
+def get_username(bot, nick):
+	qfunc = bot.dbQuery
+	if bot.isModuleAvailable("alias"):
+		alias = ALIAS_MODULE.lookup_alias(qfunc, nick)
+		if alias: 
+			user = qfunc('''SELECT user FROM user WHERE user=?;''', (alias,), func=fetchone)
+			if user: return user['user']
+	user = qfunc('''SELECT user FROM user WHERE user=?;''', (nick,), func=fetchone)
 	if user: return user['user']
-	return user
+
+# like the above, but is used by alias module so shortcuts taken
+def _get_username(qfunc, nick):
+	user = qfunc('''SELECT user FROM user WHERE user=?;''', (nick,), func=fetchone)
+	if user: return user['user']
 
 def _user_seen(qfunc, nick):
 	return qfunc('''SELECT lastseen, seenwhere, lastmsg FROM user WHERE user = ?;''', (nick, ), fetchone)
@@ -67,7 +92,7 @@ def user_seen(event, bot):
 				return
 		
 		# not group, look for alias:
-		nick = ALIAS_MODULE.get_nick(bot.dbQuery, target)
+		nick = ALIAS_MODULE.lookup_alias(bot.dbQuery, target)
 		seen = _user_seen(bot.dbQuery, nick if nick else target)
 	else:
 		seen = _user_seen(target)
@@ -81,13 +106,24 @@ def user_seen(event, bot):
 			bot.say("%s, %s" % (event.nick, SEENMSGWSOURCE % (target, distance_of_time_in_words(seen['lastseen']),
 				seen['seenwhere'], seen['lastmsg'])))
 	return
+
+def _rename_user(network, old, new):
+	qs = []
+	for f in TABLEUPDATES.get(network, []):
+		qs.append(f(old, new))
+	qs.append(('''DELETE FROM user WHERE user=?;''', (old,)))
+	Settings.databasemanager.batch(network, qs)
 	
+
+def REGISTER_UPDATE(network, func):
+	TABLEUPDATES.setdefault(network, []).append(func)
+
 #init should always be here to setup needed DB tables or objects or whatever
 def init(bot):
 	"""Do startup module things. This just checks if table exists. If not, creates it."""
 	bot.dbCheckCreateTable('user',
 		'''CREATE TABLE user(
-			user TEXT PRIMARY KEY,
+			user TEXT PRIMARY KEY COLLATE NOCASE,
 			host TEXT,
 			lastseen INTEGER,
 			seenwhere TEXT,

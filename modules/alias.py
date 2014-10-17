@@ -5,7 +5,7 @@ from sys import modules
 REQUIRES = ("users",)
 USERS_MODULE = None
 
-def get_nick(qfunc, alias):
+def lookup_alias(qfunc, alias):
 	result = qfunc('''SELECT user FROM alias WHERE alias = ?;''', (alias,), fetchone)
 	#check rows...
 	if not result:
@@ -16,15 +16,13 @@ def get_nick(qfunc, alias):
 		print "This shouldn't happen, invalid alias?"
 
 def get_user(qfunc, nick):
-	nick = get_nick(qfunc, nick)
-	if not nick:
-		nick =  USERS_MODULE.get_user(qfunc, arg3)
-		if nick: nick = nick['user'] # bit convoluted but just grabbing the nick from the resulting row
-	return nick
+	user = lookup_alias(qfunc, nick)
+	if not user:
+		user = USERS_MODULE.get_user(qfunc, nick)
+	return user
 
 def add_alias(qfunc, source, alias):
-	print repr(source), repr(alias)
-	qfunc('''INSERT INTO alias (alias, user) VALUES (?,?);''', (alias, source))
+	qfunc('''INSERT OR REPLACE INTO alias (alias, user) VALUES (?,?);''', (alias, source))
 
 def alias_list(qfunc, nick):
 	result = qfunc('''SELECT alias FROM alias WHERE user = ?;''', (nick,))
@@ -99,7 +97,7 @@ def alias(event, bot):
 					return bot.say("Group (%s) not found." % arg2)
 		elif arg2:
 			# single alias delete
-			origin = get_nick(bot.dbQuery, arg1)
+			origin = lookup_alias(bot.dbQuery, arg1)
 			if origin:
 				bot.dbQuery('''DELETE FROM alias WHERE alias = ?;''', (arg2,))
 				return bot.say("Alias (%s) for (%s) removed." % (arg1, origin))
@@ -110,15 +108,20 @@ def alias(event, bot):
 			return bot.say(functionHelp(alias, "~del"))
 	elif arg1 and arg2:
 		#binding a new alias
-		target = get_nick(bot.dbQuery, arg2) # check target
+		target = lookup_alias(bot.dbQuery, arg2) # check target
 		if target:
 			#alias already in use by nnick
 			return bot.say("Alias already in use by (%s)" % target)
-		source = get_nick(bot.dbQuery, arg1)
+		# check if target is an existing/seen user.
+		# in this case we are going to remove target user and execute all observers to user's rename plans.
+		target = USERS_MODULE._get_username(bot.dbQuery, arg2)
+		
+		source = lookup_alias(bot.dbQuery, arg1)
 		if not source:
 			#look for user
-			source = USERS_MODULE.get_user(bot.dbQuery, arg1)
+			source = USERS_MODULE._get_username(bot.dbQuery, arg1)
 			if source:
+				if target: USERS_MODULE._rename_user(bot.network, target, source)
 				add_alias(bot.dbQuery, source, source) # add origin mapping so that origins can't get aliased
 				add_alias(bot.dbQuery, arg1, arg2)
 				# find all groups that alias is a part of, and change membership to use "user" (source)
@@ -127,12 +130,13 @@ def alias(event, bot):
 			else:
 				return bot.say("(%s) not seen before." % arg1)
 		else:
+			if target: USERS_MODULE._rename_user(bot.network, target, source)
 			add_alias(bot.dbQuery, source, arg2)
 			return bot.say("Added (%s) to (%s)" % (arg2, source))
 		
 	elif arg1:
 		#querying an alias
-		nick = get_nick(bot.dbQuery, arg1)
+		nick = lookup_alias(bot.dbQuery, arg1)
 		if nick:
 			aliases = alias_list(bot.dbQuery, nick)
 			msg = "Aliases for (%s): %%s" % arg1

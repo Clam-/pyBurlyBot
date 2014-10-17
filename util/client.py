@@ -245,7 +245,7 @@ class BurlyBot(IRCClient):
 			self.nickChanged(params[0])
 			self.dispatch(self, "nickChanged", prefix=prefix, params=params, hostmask=prefix, newname=params[0])
 		else:
-			if self.state: self.state._userrename(nick, params[0], ident, host)
+			if self.state: self.state._userrename(nick, params[0], ident, host, prefix)
 			self.dispatch(self, "userRenamed", prefix=prefix, params=params, hostmask=prefix, newname=params[0], 
 				nick=nick, ident=ident, host=host)
 
@@ -570,10 +570,10 @@ class BurlyBot(IRCClient):
 			return s % splitEncodedUnicode(strins, self.calcAvailableMsgLength(s)-2, encoding=self.settings.encoding)[0]
 		if fcfs:
 			if isIterable(strins):
-				l = len(strins)
+				l = len(strins)-1
 				for i, rep in enumerate(strins):
 					# TODO: this is a little ghetto but I'm unsure of a better way at this point in time
-					s = s % ((splitEncodedUnicode(rep, self.calcAvailableMsgLength(s)-((l-i)*2), encoding=self.settings.encoding)[0],) + ("%s",)*l-i)
+					s = s % ((splitEncodedUnicode(rep, self.calcAvailableMsgLength(s)-(l-i), encoding=self.settings.encoding)[0],) + ("%s",)*(l-i))
 				return s
 			elif isinstance(strins, dict):
 				# TODO: defaultdict makes this surprisingly straightforward. Maybe should make a custom list object that
@@ -597,12 +597,14 @@ class BurlyBot(IRCClient):
 					strins[i] = splitEncodedUnicode(sr, segmentlength, encoding=self.settings.encoding)[0]
 				return s % strins
 				
-			if isinstance(strins, dict):
+			elif isinstance(strins, dict):
 				db = defaultdict(lambda: "")
 				segmentlength = int(floor((self.calcAvailableMsgLength(s % db) / l)))
 				for key, value in strins.iteritems():
 					strins[key] = splitEncodedUnicode(value, segmentlength, encoding=self.settings.encoding)[0]
 				return s % strins
+			else:
+				raise ValueError("Require list/tuple, dict, or string for strins.")
 	
 	def calcAvailableMsgLength(self, command):
 		if self.prefixlen:

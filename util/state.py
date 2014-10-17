@@ -175,8 +175,9 @@ class Network:
 	def _addbans(self, channel, banlist):
 		self._channels[channel]._banlist = self._processlist(banlist)
 
-	def _userrename(self, oldnick, newnick):
+	def _userrename(self, oldnick, newnick, ident, host, hostmask):
 		user = self._users[oldnick]
+		user._refresh(ident, host, hostmask)
 		del self._users[oldnick]
 		self._users[newnick] = user
 		#go through channels user is on

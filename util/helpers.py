@@ -9,6 +9,7 @@ from inspect import getdoc
 
 # extend shlex to implement slightly modified parser to treat all "nonhandled" characters
 # as "wordchars". Should mean it parses unicode and symbols as words.
+# read_token is taken almost verbatim from origin and only modified slightly.
 class newshlex(shlex):
 	def __init__(self, *args, **kwargs):
 		shlex.__init__(self, *args, **kwargs)
@@ -153,8 +154,8 @@ def distance_of_time_in_words(fromtime, totime=None):
 		past = False
 		diff = abs(diff)
 	if diff < 10:
-		if past: return "Just a moment ago."
-		else: return "In just a moment."
+		if past: return "Just a moment ago"
+		else: return "In just a moment"
 	
 	td = timedelta(seconds=diff)
 	days, hours, minutes, seconds = days_hours_minutes(td)
@@ -172,7 +173,7 @@ def distance_of_time_in_words(fromtime, totime=None):
 		elif len(chunks) == 1:
 			s += " and "
 		else:
-			if past: s += " ago."
+			if past: s += " ago"
 			else: 
 				s += "."
 				s = "in " + s

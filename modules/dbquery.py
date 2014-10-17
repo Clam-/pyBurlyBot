@@ -3,9 +3,12 @@ from util import Mapping
 
 def dbquery(event, bot):
 	if bot.isadmin():
-		query = event.input
+		query = event.argument
 		bot.say("Running: %s" % query)
-		result = bot.query(query)
+		try:
+			result = bot.dbQuery(query)
+		except Exception as e:
+			return bot.say("Error with query: %s" % e)
 		
 		if not result:
 			return bot.say("No error, but nothing to display.")

@@ -19,6 +19,7 @@ def deliver_tell(event, bot):
 	if bot.isModuleAvailable("alias"):
 		# pretty convoluted but faster than fetching both modules every time
 		# may return none if this event gets captured for a first time user before user module
+		# also faster this way than making 2 db calls for USER_MODULE.get_username
 		user = USERS_MODULE.ALIAS_MODULE.lookup_alias(bot.dbQuery, event.nick)
 	if not user: user = event.nick
 	

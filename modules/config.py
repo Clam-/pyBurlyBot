@@ -1,6 +1,6 @@
 #config module
 
-from util import Mapping, argumentSplit
+from util import Mapping, argumentSplit, functionHelp
 from util.settings import Settings
 
 from twisted.internet import reactor
@@ -31,14 +31,11 @@ def servchanParse(servchan):
 			channel = False
 	return server, channel
 
-def showhelp(bot):
-	#show help? We should make some really nice framework for handling input
-	# and help and stuff
-	bot.say('%sconfig serverchannel module opt [value]. serverchannel = servername:#channel (channel on server) or '
-	'servername (default for server) or :#channel (channel globally) or #channel (channel on this server) or "-" (default) '
-	' or "this" (current channel (unless PM) current server.) module = "-" for non-module options. value should be JSON' % bot.getOption("commandprefix"))
-
 def config(event, bot):
+	""" config serverchannel module opt [value]. serverchannel = servername:#channel (channel on server) or
+	servername (default for server) or :#channel (channel globally) or #channel (channel on this server) or "-" (default)
+	or "this" (current channel (unless PM) current server.) module = "-" for non-module options. value should be JSON
+	"""
 	#do some things
 	command = ""
 	if not bot.isadmin():
@@ -51,7 +48,7 @@ def config(event, bot):
 		return
 	elif event.argument:
 		servchan, module, opt, value = argumentSplit(event.argument, 4)
-	else: return showhelp(bot)
+	else: return bot.say(functionHelp(config))
 	
 	# set or get value
 	if servchan and module and opt:
@@ -119,7 +116,7 @@ def config(event, bot):
 			else:
 				bot.say("Setting for %s(%s) is %s" % (opt, servchan, value))
 	else:
-		return showhelp(bot)
+		return bot.say(functionHelp(config))
 	
 #mappings to methods
 mappings = (Mapping(command="config", function=config),)

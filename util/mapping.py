@@ -5,9 +5,10 @@ def dummyfunc(event, botwrap):
 #	"hooks" seems kind of "low level" though...
 class Mapping:
 	def __init__(self, types=None, command=None, regex=None, function = dummyfunc, priority=10):
-		# type = [list of strings], command=string, regex=compiledRegExobject, 
+		# type = [list of strings], command=string|[listofcommands], regex=compiledRegExobject, 
 		#		function=a defined function should be expecting the following arguments:
 		# def dummyfunc(event, botwrap):
+		# for not command can be a list of commands
 		if not types: self.types = []
 		else: self.types = types
 		if command:

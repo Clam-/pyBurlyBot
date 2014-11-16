@@ -57,6 +57,7 @@ def google(event, bot):
 		raise
 
 def google_image(event, bot):
+	""" gis searchterm. Will search Google images using the provided searchterm."""
 	if not event.argument: return bot.say(functionHelp(google))
 	d = { "q" : event.argument, "key" : API_KEY, "cx" : CSE_ID, "num" : NUM_IMGS, "searchType" : "image",
 		"fields" : "spelling/correctedQuery,items(title,link)"}
@@ -93,4 +94,4 @@ def init(bot):
 	return True
 
 #mappings to methods
-mappings = (Mapping(command="g", function=google),Mapping(command="gis", function=google_image),)
+mappings = (Mapping(command=("google", "g"), function=google),Mapping(command="gis", function=google_image),)

@@ -104,10 +104,16 @@ class Container:
 
 	# Option getter/setters	
 	def getOption(self, opt, **kwargs):
-		return blockingCallFromThread(reactor, self._settings.getOption, opt, **kwargs)
-		
+		return blockingCallFromThread(reactor, self._getOption, opt, **kwargs)
+	
+	def _getOption(self, opt, **kwargs):
+		return self._settings.getOption(opt, **kwargs)
+	
 	def setOption(self, opt, value, **kwargs):
-		blockingCallFromThread(reactor, self._settings.setOption, opt, value, **kwargs)
+		blockingCallFromThread(reactor, self._setOption, opt, value, **kwargs)
+		
+	def _setOption(self, opt, value, **kwargs):
+		self._settings.setOption(opt, value, **kwargs)
 		
 	# Some module helpers
 	def _getModule(self, modname):
@@ -186,16 +192,28 @@ class Container:
 class SetupContainer(object):
 	def __init__(self, realcontainer):
 		self.container = realcontainer
+		self.network = realcontainer.network
 		
 	# Some module helpers
 	def getModule(self, modname):
-		return self._getModule(modname)
+		return self.container._getModule(modname)
 	
 	def isModuleAvailable(self, modname):
-		return self._isModuleAvailable(modname)
+		return self.container._isModuleAvailable(modname)
 		
-	def __getattr__(self, name):
-		if name in self.__dict__: 
-			return getattr(self, name)
-		else:
-			return getattr(self.container, name)
+	def getOption(self, opt, **kwargs):
+		return self.container._getOption(opt, **kwargs)
+	
+	def setOption(self, opt, value, **kwargs):
+		return self.container._setOption(opt, value, **kwargs)
+	
+	def dbCheckCreateTable(self, tablename, createstmt):
+		return self.container.dbCheckCreateTable(tablename, createstmt)
+	
+	# do not do the following so we don't risk freezing in reload
+	# means need to duplicate needed items from Container in this...
+	#~ def __getattr__(self, name):
+		#~ if name in self.__dict__: 
+			#~ return getattr(self, name)
+		#~ else:
+			#~ return getattr(self.container, name)

@@ -87,7 +87,7 @@ class BurlyBot(IRCClient):
 
 	# sticking to specification
 	def _reallySendLine(self, line):
-		return LineReceiver.sendLine(self, lowQuote(line) + '\r\n')
+		return LineReceiver.sendLine(self, lowQuote(line) + self.delimiter)
 	def dataReceived(self, data):
 		LineReceiver.dataReceived(self, data)
 	

@@ -8,7 +8,7 @@ from twisted.internet.threads import blockingCallFromThread
 
 from json import dumps, loads
 
-PRIVATE_OPTIONS = set(("nickservpass",))
+PRIVATE_OPTIONS = set(("nickservpass", "APIkey"))
 
 def servchanParse(servchan):
 	# parse servchan
@@ -56,16 +56,14 @@ def config(event, bot):
 		
 		if opt in PRIVATE_OPTIONS and not event.isPM():
 			if value:
-				bot.say("Use PM to set this option. If this is a password you probably want to change it now.")
-				return
+				return bot.say("Use PM to set this option. If this is a password you probably want to change it now.")
 			else:
-				bot.say("Use PM to get this option.")
-				return
+				return bot.say("Use PM to get this option.")
 		if module == "-":
 			module = None
 		else:
 			if not bot.isModuleAvailable(module):
-				bot.say("module %s not available" % module)
+				return bot.say("module %s not available" % module)
 			modopts = bot.getModule(module)
 			if hasattr(modopts, "OPTIONS"):
 				modopts = modopts.OPTIONS
@@ -102,6 +100,7 @@ def config(event, bot):
 				bot.setOption(opt, value, server=server, channel=channel, module=module)
 			except Exception as e:
 				return bot.say("Error: %s" % e)
+			blockingCallFromThread(reactor, Settings.saveOptions)
 			bot.say(msg % (opt, servchan, dumps(value)))
 		
 		#get value

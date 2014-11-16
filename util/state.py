@@ -230,7 +230,7 @@ class Network:
 			elif mode in self.prefixmap.voicecmds:
 				c._voices.add(arg)
 				
-		for change in removed:
+		for mode, arg in removed:
 			if mode in self.prefixmap.opcmds:
 				try: c._ops.remove(arg)
 				except KeyError: pass

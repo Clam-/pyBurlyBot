@@ -145,7 +145,7 @@ def pluralize(term, num):
 	else: return term
 	
 #distance_of_time_in_words
-def distance_of_time_in_words(fromtime, totime=None):
+def distance_of_time_in_words(fromtime, totime=None, suffix="ago"):
 	if not totime:
 		totime = time()
 	past = True
@@ -154,7 +154,7 @@ def distance_of_time_in_words(fromtime, totime=None):
 		past = False
 		diff = abs(diff)
 	if diff < 10:
-		if past: return "Just a moment ago"
+		if past: return "Just a moment %s" % suffix
 		else: return "In just a moment"
 	
 	td = timedelta(seconds=diff)
@@ -173,9 +173,8 @@ def distance_of_time_in_words(fromtime, totime=None):
 		elif len(chunks) == 1:
 			s += " and "
 		else:
-			if past: s += " ago"
-			else: 
-				s += "."
+			if past: s += " %s" % suffix
+			else:
 				s = "in " + s
 	return s
 			

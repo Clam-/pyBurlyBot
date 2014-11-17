@@ -35,7 +35,7 @@ NUM_IMGS = 4
 def google(event, bot):
 	""" google searchterm. Will search Google using the provided searchterm."""
 	if not event.argument: return bot.say(functionHelp(google))
-	d = { "q" : event.argument, "key" : API_KEY, "cx" : CSE_ID, "num" : 1,
+	d = { "q" : event.argument.encode("utf-8"), "key" : API_KEY, "cx" : CSE_ID, "num" : 1,
 		"fields" : "spelling/correctedQuery,items(title,link,snippet)" }
 	try:
 		f = urlopen(URL % (urlencode(d)))

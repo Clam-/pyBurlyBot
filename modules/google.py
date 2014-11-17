@@ -5,9 +5,9 @@
 # https://developers.google.com/custom-search/json-api/v1/reference/cse/list#request
 
 from util import Mapping, commandSplit, functionHelp
-from urllib2 import Request, urlopen
+from urllib2 import Request, urlopen, HTTPError
 from urllib import urlencode
-from json import load, dumps
+from json import load
 
 from traceback import format_exc
 		
@@ -40,18 +40,26 @@ def google(event, bot):
 	try:
 		f = urlopen(URL % (urlencode(d)))
 		gdata = load(f)
-		print gdata
 		if f.getcode() == 200:
-			item = gdata["items"][0]
-			snippet = item["snippet"].replace(" \n", " ")
-			snippet = snippet
-			if "spelling" in gdata:
-				rpl = RESULT_SPELL_TEXT % (gdata["spelling"]["correctedQuery"], item["link"])
+			if "items" in gdata:
+				item = gdata["items"][0]
+				snippet = item["snippet"].replace(" \n", " ")
+				snippet = snippet
+				if "spelling" in gdata:
+					rpl = RESULT_SPELL_TEXT % (gdata["spelling"]["correctedQuery"], item["link"])
+				else:
+					rpl = RESULT_TEXT % item["link"]
+				bot.say(rpl, fcfs=True, strins=(item["title"],snippet))
 			else:
-				rpl = RESULT_TEXT % item["link"]
-			bot.say(rpl, fcfs=True, strins=(item["title"],snippet))
+				if "spelling" in gdata:
+					bot.say("(SP: %s) No results found." % gdata["spelling"]["correctedQuery"])
+				else:
+					bot.say("No results found.")
 		else:
 			bot.say("Error: %s" % (gdata))
+	except HTTPError, e:
+		bot.say("Request error: %s" % e)
+		raise
 	except Exception, e: 
 		bot.say("Error: %s" % (format_exc(2).replace("\n", ". ")))
 		raise
@@ -65,22 +73,30 @@ def google_image(event, bot):
 	try:
 		f = urlopen(URL % (urlencode(d)))
 		gdata = load(f)
-		print gdata
 		if f.getcode() == 200:
-			entries = []
-			for item in gdata["items"]:
-				if entries:
-					entries.append(RESULT_IMG2 % (item['title'], item['link']))
+			if "items" in gdata:		
+				entries = []
+				for item in gdata["items"]:
+					if entries:
+						entries.append(RESULT_IMG2 % (item['title'], item['link']))
+					else:
+						entries.append(RESULT_IMG % (item['title'], item['link']))
+				if len(entries) < NUM_IMGS: entries = entries+[""]*(NUM_IMGS-len(l))
+				
+				if "spelling" in gdata:
+					bot.say(RESULTS_SPELL_IMG % gdata["spelling"]["correctedQuery"], fcfs=True, strins=entries)
 				else:
-					entries.append(RESULT_IMG % (item['title'], item['link']))
-			if len(entries) < NUM_IMGS: entries = entries+[""]*(NUM_IMGS-len(l))
-			
-			if "spelling" in gdata:
-				bot.say(RESULTS_SPELL_IMG % gdata["spelling"]["correctedQuery"], fcfs=True, strins=entries)
+					bot.say(RESULTS_IMG, fcfs=True, strins=entries)
 			else:
-				bot.say(RESULTS_IMG, fcfs=True, strins=entries)
+				if "spelling" in gdata:
+					bot.say("(SP: %s) No results found." % gdata["spelling"]["correctedQuery"])
+				else:
+					bot.say("No results found.")
 		else:
 			bot.say("Error: %s" % (gdata))
+	except HTTPError, e:
+		bot.say("Request error: %s" % e)
+		raise
 	except Exception, e: 
 		bot.say("Error: %s" % (format_exc(2).replace("\n", ". ")))
 		raise
@@ -90,7 +106,6 @@ def init(bot):
 	global CSE_ID # oh nooooooooooooooooo
 	API_KEY = bot.getOption("API_KEY", module="google")
 	CSE_ID = bot.getOption("CSE_ID", module="google")
-	
 	return True
 
 #mappings to methods

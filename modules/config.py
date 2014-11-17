@@ -8,7 +8,7 @@ from twisted.internet.threads import blockingCallFromThread
 
 from json import dumps, loads
 
-PRIVATE_OPTIONS = set(("nickservpass", "APIkey"))
+PRIVATE_OPTIONS = set(("nickservpass", "API_KEY"))
 
 def servchanParse(servchan):
 	# parse servchan

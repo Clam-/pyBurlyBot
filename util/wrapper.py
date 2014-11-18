@@ -2,6 +2,9 @@
 #  because of the reliance on event data.
 from twisted.internet import reactor
 from twisted.internet.threads import blockingCallFromThread
+from twisted.python.failure import Failure
+
+from traceback import format_tb
 
 class BotWrapper:
 
@@ -57,3 +60,21 @@ class BotWrapper:
 			blockingCallFromThread(reactor, self._botcont._settings.setOption, opt, value, channel=self.event.target, **kwargs)
 		else:
 			blockingCallFromThread(reactor, self._botcont._settings.setOption, opt, value, channel=channel, **kwargs)
+
+	#callback to handle module errors
+	def _moduleerr(self, e):
+		if isinstance(e, Failure):
+			e.cleanFailure()
+			e.printTraceback()
+			tb = e.getTracebackObject()
+			ex = e.value
+			if tb:
+				# The (hopefully) most 2 important stacks from the traceback.
+				# The first 2 are from twisted, the next one is the module stack, probably, and then the next one is whatever the
+				# module called.
+				self.say("%s: %s. %s" % (type(ex).__name__, ex, "| ".join(format_tb(tb, 5)[-2:]).replace("\n", ". ")))
+			else:
+				self.say("%s: %s. Don't know where, check log." % (type(ex).__name__, ex))
+		else:
+			self.say("Error: %s" % str(e))
+			print "error:", e

@@ -130,6 +130,7 @@ class Container:
 	#TODO: maybe provide modules a way to hook these?
 	#	like if we let a module provide a function, we can pass the Failure object to it.
 	def _moduleerr(self, e):
+		# docs seem to suggest this is always a Failure instance...
 		if isinstance(e, Failure):
 			e.cleanFailure()
 			e.printTraceback()

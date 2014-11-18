@@ -575,12 +575,16 @@ class BurlyBot(IRCClient):
 		if isinstance(strins, basestring):
 			return s.format(splitEncodedUnicode(strins, self.calcAvailableMsgLength(s)-2, encoding=self.settings.encoding)[0][0])
 		if fcfs:
+			# total space available for message
 			avail = self.calcAvailableMsgLength(s)
 			if isIterable(strins):
 				l = len(strins)-1
 				for i, rep in enumerate(strins):
+					# get trimmed replacement and the length of that trimmed replacement
 					rep, lrep = splitEncodedUnicode(rep, avail, encoding=self.settings.encoding)[0]
+					# replace the replacement with the trimmed version
 					strins[i] = rep
+					# track remaining message space left
 					avail -= lrep
 				return s.format(*strins)
 			elif isinstance(strins, dict):

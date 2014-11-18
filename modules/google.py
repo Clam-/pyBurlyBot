@@ -37,32 +37,26 @@ def google(event, bot):
 	if not event.argument: return bot.say(functionHelp(google))
 	d = { "q" : event.argument.encode("utf-8"), "key" : API_KEY, "cx" : CSE_ID, "num" : 1,
 		"fields" : "spelling/correctedQuery,items(title,link,snippet)" }
-	try:
-		f = urlopen(URL % (urlencode(d)))
-		gdata = load(f)
-		if f.getcode() == 200:
-			if "items" in gdata:
-				item = gdata["items"][0]
-				snippet = item["snippet"].replace(" \n", " ")
-				snippet = snippet
-				if "spelling" in gdata:
-					rpl = RESULT_SPELL_TEXT % (gdata["spelling"]["correctedQuery"], item["link"])
-				else:
-					rpl = RESULT_TEXT % item["link"]
-				bot.say(rpl, fcfs=True, strins=[item["title"],snippet])
+		
+	f = urlopen(URL % (urlencode(d)))
+	gdata = load(f)
+	if f.getcode() == 200:
+		if "items" in gdata:
+			item = gdata["items"][0]
+			snippet = item["snippet"].replace(" \n", " ")
+			snippet = snippet
+			if "spelling" in gdata:
+				rpl = RESULT_SPELL_TEXT % (gdata["spelling"]["correctedQuery"], item["link"])
 			else:
-				if "spelling" in gdata:
-					bot.say("(SP: %s) No results found." % gdata["spelling"]["correctedQuery"])
-				else:
-					bot.say("No results found.")
+				rpl = RESULT_TEXT % item["link"]
+			bot.say(rpl, fcfs=True, strins=[item["title"],snippet])
 		else:
-			bot.say("Error: %s" % (gdata))
-	except HTTPError, e:
-		bot.say("Request error: %s" % e)
-		raise
-	except Exception, e: 
-		bot.say("Error: %s" % (format_exc(2).replace("\n", ". ")))
-		raise
+			if "spelling" in gdata:
+				bot.say("(SP: %s) No results found." % gdata["spelling"]["correctedQuery"])
+			else:
+				bot.say("No results found.")
+	else:
+		bot.say("Error: %s" % (gdata))
 
 def google_image(event, bot):
 	""" gis searchterm. Will search Google images using the provided searchterm."""

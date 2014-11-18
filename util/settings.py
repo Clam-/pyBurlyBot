@@ -84,7 +84,8 @@ class BaseServer(object):
 				raise ConfigException("%s must have a host" % self.serverlabel)
 			
 			if key == "altnicks":
-				self.altnicks = opt if isinstance(opt, list) else (opt,)
+				if opt:
+					self.altnicks = opt if isinstance(opt, list) else (opt,)
 			elif key == "port":
 				#process port number with SSL prefix
 				#TODO: should we have a server config attribute called "ssl" instead?
@@ -119,7 +120,7 @@ class BaseServer(object):
 		d = OrderedDict()
 		for key in KEYS_SERVER:
 			if key in self.__dict__:
-				value = getattr(self, key)
+				value = self.__dict__[key] #bypass __getattr__ override
 				if value: 
 					#preprocess channels
 					if key == "channels":
@@ -131,7 +132,7 @@ class BaseServer(object):
 								channels.append(channel)
 						d[key] = channels
 					elif key == "port":
-						d[key] = value if not getattr(self, "ssl") else "+"+str(value)
+						d[key] = value if not self.__dict__["ssl"] else "+"+str(value)
 					else:
 						d[key] = value
 		return d
@@ -402,6 +403,9 @@ class SettingsBase:
 			# May cause race condition when connecting to new server that uses same name but different DBfile
 			# Hope someone doesn't do that...
 			reactor.callLater(1.0, self.databasemanager.delServer, server.serverlabel)
+			#remove oldservers from servers dict
+			try: del self.servers[server.serverlabel]
+			except KeyError: print "Warning: tried to remove server that didn't exist"
 		
 	def load(self):
 		self.reloadStage1()

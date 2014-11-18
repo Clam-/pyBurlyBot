@@ -548,42 +548,47 @@ class BurlyBot(IRCClient):
 	# NOTE: USAGE OF THIS MESSAGE MUST TEST FOR TRUE AND FALSE EXPLICITLY. None will be returned if bot isn't connected
 	#		at the time of call.
 	def checkSendMsg(self, target, msg):
-		return len(self._buildmsg(target, msg).encode(self.settings.encoding)) <= self.calcAvailableMsgLength("")
+		return len(self._buildmsg(target, msg, check=True).encode(self.settings.encoding)) <= self.calcAvailableMsgLength("")
 		
-	def _buildmsg(self, target, message, split=False, strins=None, fcfs=False):
+	def _buildmsg(self, target, message, split=False, strins=None, fcfs=False, check=False):
 		if strins:
 			message = self.assembleMsgWLen('PRIVMSG %s :%s' % (target, message), strins, fcfs)
 			return message
 		else:
 			fmt = 'PRIVMSG %s :%%s' % (target,)
 			if split:
-				return (fmt % msg for msg in 
+				return (fmt % msg[0] for msg in 
 					splitEncodedUnicode(message, self.calcAvailableMsgLength(fmt % ""), encoding=self.settings.encoding, n=4))
 			else:
-				# blindly truncate message at sendLine level, also useful for checkSendMsg
-				return fmt % message
+				if check:
+					# blindly truncate message useful for checkSendMsg
+					return fmt % message
+				else:
+					# auto trim message so we don't look bad when sending non interpolated message (check=false)
+					return fmt % splitEncodedUnicode(message, self.calcAvailableMsgLength(fmt % ""), encoding=self.settings.encoding)[0][0]
 	
 	# helper method to automatically truncate string to be replaced
 	# TODO: need decide on string format method, either "%s" % x or "{0}".format(x)
+	#	For now we are using {0} to make sure no bads with URLencoded URLs
+	# TODO: this must accept either string or LIST for strins so that strins can be modified.
 	def assembleMsgWLen(self, s, strins, fcfs):
 		if isinstance(strins, basestring):
-			return s % splitEncodedUnicode(strins, self.calcAvailableMsgLength(s)-2, encoding=self.settings.encoding)[0]
+			return s.format(splitEncodedUnicode(strins, self.calcAvailableMsgLength(s)-2, encoding=self.settings.encoding)[0][0])
 		if fcfs:
+			avail = self.calcAvailableMsgLength(s)
 			if isIterable(strins):
 				l = len(strins)-1
 				for i, rep in enumerate(strins):
-					# TODO: this is a little ghetto but I'm unsure of a better way at this point in time
-					s = s % ((splitEncodedUnicode(rep, self.calcAvailableMsgLength(s)-(l-i), encoding=self.settings.encoding)[0],) + ("%s",)*(l-i))
-				return s
+					rep, lrep = splitEncodedUnicode(rep, avail, encoding=self.settings.encoding)[0]
+					strins[i] = rep
+					avail -= lrep
+				return s.format(*strins)
 			elif isinstance(strins, dict):
-				# TODO: defaultdict makes this surprisingly straightforward. Maybe should make a custom list object that
-				# returns "%s" for invalid indexes
-				d = defaultdict(lambda: "%s")
-				db = defaultdict(lambda: "")
-				for key, value in strins.iteritems():
-					d[key] = splitEncodedUnicode(value, self.calcAvailableMsgLength(s % db), encoding=self.settings.encoding)[0]
-					s = s % d
-				return s
+				for key, rep in strins.iteritems():
+					rep, lrep = splitEncodedUnicode(rep, avail, encoding=self.settings.encoding)[0]
+					d[key] = rep
+					avail -= lrep
+				return s.format(**strins)
 			else:
 				raise ValueError("Require list/tuple, dict, or string for strins.")
 		else:
@@ -594,23 +599,23 @@ class BurlyBot(IRCClient):
 				if isinstance(strins, tuple):
 					strins = list(strins)
 				for i, sr in enumerate(strins):
-					strins[i] = splitEncodedUnicode(sr, segmentlength, encoding=self.settings.encoding)[0]
-				return s % strins
+					strins[i] = splitEncodedUnicode(sr, segmentlength, encoding=self.settings.encoding)[0][0]
+				return s.format(*strins)
 				
 			elif isinstance(strins, dict):
 				db = defaultdict(lambda: "")
 				segmentlength = int(floor((self.calcAvailableMsgLength(s % db) / l)))
 				for key, value in strins.iteritems():
-					strins[key] = splitEncodedUnicode(value, segmentlength, encoding=self.settings.encoding)[0]
-				return s % strins
+					strins[key] = splitEncodedUnicode(value, segmentlength, encoding=self.settings.encoding)[0][0]
+				return s.format(*strins)
 			else:
 				raise ValueError("Require list/tuple, dict, or string for strins.")
 	
 	def calcAvailableMsgLength(self, command):
 		if self.prefixlen:
-			return 510 - self.prefixlen - len(command) # 510 = line terminator
+			return 508 - self.prefixlen - len(command.encode(self.settings.encoding)) # 510 = line terminator 508 = some breathing room
 		else:
-			return self._safeMaximumLineLength(command) - 2 #line terminator
+			return self._safeMaximumLineLength(command.encode(self.settings.encoding)) - 2 #line terminator
 
 	###
 	### Connection management methods

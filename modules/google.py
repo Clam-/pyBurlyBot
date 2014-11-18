@@ -21,11 +21,11 @@ API_KEY = None
 CSE_ID = None
 
 # title: snippet (url)
-RESULT_SPELL_TEXT = "(SP: %s?) %%s: %%s (%s)"
-RESULT_TEXT = "%%s: %%s (%s)"
+RESULT_SPELL_TEXT = "(SP: %s?) {0}: {1} (%s)"
+RESULT_TEXT = "{0}: {1} (%s)"
 
-RESULTS_SPELL_IMG = "(SP: %s?) %%s%%s%%s%%s"
-RESULTS_IMG = "%s%s%s%s"
+RESULTS_SPELL_IMG = "(SP: %s?) {0}{1}{2}{3}"
+RESULTS_IMG = "{0}{1}{2}{3}"
 # title (url)
 RESULT_IMG = "%s (%s)"
 RESULT_IMG2 = ", %s (%s)"
@@ -49,7 +49,7 @@ def google(event, bot):
 					rpl = RESULT_SPELL_TEXT % (gdata["spelling"]["correctedQuery"], item["link"])
 				else:
 					rpl = RESULT_TEXT % item["link"]
-				bot.say(rpl, fcfs=True, strins=(item["title"],snippet))
+				bot.say(rpl, fcfs=True, strins=[item["title"],snippet])
 			else:
 				if "spelling" in gdata:
 					bot.say("(SP: %s) No results found." % gdata["spelling"]["correctedQuery"])
@@ -76,6 +76,8 @@ def google_image(event, bot):
 		if f.getcode() == 200:
 			if "items" in gdata:		
 				entries = []
+				# TODO: the following should probably be handled in the smart unicode cropping thing
+				#	or in a smarter generic result splitter thing.
 				for item in gdata["items"]:
 					if entries:
 						entries.append(RESULT_IMG2 % (item['title'], item['link']))

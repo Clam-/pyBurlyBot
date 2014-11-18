@@ -1,7 +1,7 @@
 #tell module
 from time import time, mktime
 
-from util import Mapping, argumentSplit, functionHelp, distance_of_time_in_words
+from util import Mapping, argumentSplit, functionHelp, distance_of_time_in_words, fetchone, pastehelper
 # added dependency on user module only for speed. Means can keep reference to user module without having
 # to dive in to the reactor twice? per message
 # because of this I should do foreign key things but don't want to lock myself in to that just yet (bad@db)
@@ -9,13 +9,13 @@ REQUIRES = ("users",)
 USERS_MODULE = None
 
 #nick: <source> msg - time
-TELLFORMAT = "%s: <%s> %s - %s"
+TELLFORMAT = "{0}: <{1}> {2} - {3}"
 #nick: I'll pass that on when target is around.
 RPLFORMAT = "%s: I'll pass that on when %s is around."
 #nick: I will remind target about that in timespec.
-RPLREMINDFORMAT = "%s: I will remind %s about that in %s."
+RPLREMINDFORMAT = "%s: I will remind %s about that %s."
 #TARGET, reminder from SOURCE: MSG - set TELLTIME, arrived TOLDTIME.
-REMINDFORMAT = "%s, reminder from %s: %s - set %s, arrived %s."
+REMINDFORMAT = "{0}, reminder from {1}: {2} - set {3}, arrived {4}."
 
 #parsedatetime stuff
 from parsedatetime import Constants, Calendar
@@ -46,13 +46,13 @@ def deliver_tell(event, bot):
 			lines = []
 		for tell in tells:
 			if tell['remind']:
-				data = (event.nick, tell['source'], tell['msg'], distance_of_time_in_words(tell['telltime'], toldtime), 
-				distance_of_time_in_words(tell['telltime'], suffix="late"))
-				if collate: lines.append(REMINDFORMAT % data)
+				data = [event.nick, tell['source'], tell['msg'], distance_of_time_in_words(tell['telltime'], toldtime), 
+				distance_of_time_in_words(tell['telltime'], suffix="late")]
+				if collate: lines.append(REMINDFORMAT.format(*data))
 				else: bot.say(REMINDFORMAT, strins=data, fcfs=True)
 			else:
-				data = (event.nick, tell['source'], tell['msg'], distance_of_time_in_words(tell['telltime'], toldtime))
-				if collate: lines.append(TELLFORMAT % data)
+				data = [event.nick, tell['source'], tell['msg'], distance_of_time_in_words(tell['telltime'], toldtime)]
+				if collate: lines.append(TELLFORMAT.format(*data))
 				else: bot.say(TELLFORMAT, strins=data, fcfs=True)
 			#TODO: change this to do a bulk update somehow?
 			bot.dbQuery('''UPDATE tell SET delivered=1,toldtime=? WHERE id=?;''', (toldtime, tell['id']))
@@ -67,8 +67,9 @@ def tell(event, bot):
 	if not target: return bot.say(bot.say(functionHelp(tell)))
 	if not msg:
 		return bot.say("Need something to tell (%s)" % target)
-	# TODO: check if tell self
 	user = USERS_MODULE.get_username(bot, target)
+	if user == USERS_MODULE.get_username(bot, event.nick):
+		return bot.say("Use notepad.")
 	if not user:
 		return bot.say("Sorry, don't know (%s)." % target)
 	
@@ -77,6 +78,12 @@ def tell(event, bot):
 	# TODO: do we do an alias lookup on event.nick also?
 	bot.dbQuery('''INSERT INTO tell(user, telltime, source, msg) VALUES (?,?,?,?);''',
 		(user, int(time()), event.nick, msg))
+	
+	# check if we need to warn about too many tell pastebin
+	# https://github.com/Clam-/pyBurlyBot/issues/29 
+	#~ n = bot.dbQuery('''SELECT COUNT(id) AS C FROM tell WHERE user = ? AND delivered = ? AND telltime < ?;''', (user, 0, time()), fetchone)['C']
+	#~ if n > 3:
+		#~ print "GUNNA WARNING"
 	bot.say(RPLFORMAT % (event.nick, target))
 	
 def remind(event, bot):
@@ -86,8 +93,10 @@ def remind(event, bot):
 	if not (dtime1 and dtime2): return bot.say("Need time to remind.")
 	if not msg:
 		return bot.say("Need something to remind (%s)" % target)
-	# TODO: check if tell self
-	user = USERS_MODULE.get_username(bot, target)
+	if target.lower() == "me":
+		user = USERS_MODULE.get_username(bot, event.nick)
+	else:
+		user = USERS_MODULE.get_username(bot, target)
 	if not user:
 		return bot.say("Sorry, don't know (%s)." % target)
 	
@@ -104,6 +113,8 @@ def remind(event, bot):
 	# TODO: do we do an alias lookup on event.nick also?
 	bot.dbQuery('''INSERT INTO tell(user, telltime, remind, source, msg) VALUES (?,?,?,?,?);''',
 		(user, int(ntime), 1, event.nick, msg))
+	if user == USERS_MODULE.get_username(bot, event.nick):
+		target = "you"
 	bot.say(RPLREMINDFORMAT % (event.nick, target, distance_of_time_in_words(ntime)))
 		
 

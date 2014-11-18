@@ -16,7 +16,7 @@ API_KEY = None
 URL = "http://api.wolframalpha.com/v2/query?%s"
 
 def calc(event, bot):
-	""" google searchterm. Will search Google using the provided searchterm."""
+	""" calc calcquery. Will use WolframAlpha to calc calcquery."""
 	if not event.argument: return bot.say(functionHelp(google))
 	s = (("input", event.argument.encode("utf-8")), ("appid", API_KEY), ("reinterpret", "true"),
 		("includepodid", "Input"), ("includepodid", "Result"), ("format", "plaintext"))
@@ -38,19 +38,19 @@ def calc(event, bot):
 			for ievent, elem in context:
 				if ievent == "start" and elem.tag == "pod":
 					pod = elem.attrib["id"]
-				elif ievent == "end" and elem.tag == "error":
-					error += elem["msg"]
-					#elem.clear()
+				elif ievent == "end" and elem.tag == "msg": #assuming msg is only used for error, pls
+					error += elem.text
+					elem.clear()
 				elif ievent == "end" and elem.tag == "plaintext":
 					if pod == "Result":
 						result = elem.text
 					elif pod == "Input":
 						input = elem.text
-					#elem.clear()
+					elem.clear()
 				elif ievent == "end":
 					pass
-					#elem.clear()
-			#root.clear()
+					elem.clear()
+			root.clear()
 			
 			msg = "%s: " % event.nick
 			if input:

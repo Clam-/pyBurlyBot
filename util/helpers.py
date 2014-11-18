@@ -144,7 +144,7 @@ def pluralize(term, num):
 	if num > 1: return term + "s"
 	else: return term
 	
-#distance_of_time_in_words
+#distance_of_time_in_words hardcoded granularity
 def distance_of_time_in_words(fromtime, totime=None, suffix="ago"):
 	if not totime:
 		totime = time()
@@ -153,7 +153,7 @@ def distance_of_time_in_words(fromtime, totime=None, suffix="ago"):
 	if diff < 0:
 		past = False
 		diff = abs(diff)
-	if diff < 10:
+	if diff < 20:
 		if past: return "Just a moment %s" % suffix
 		else: return "In just a moment"
 	
@@ -161,7 +161,11 @@ def distance_of_time_in_words(fromtime, totime=None, suffix="ago"):
 	days, hours, minutes, seconds = days_hours_minutes(td)
 	
 	chunks = []
-	for term, value in (("day", days), ("hour", hours), ("minute", minutes), ("second", seconds)):
+	if hours or days or minutes > 10:
+		terms = (("day", days), ("hour", hours), ("minute", minutes))
+	else:
+		terms = (("day", days), ("hour", hours), ("minute", minutes), ("second", seconds))
+	for term, value in terms:
 		if value:
 			chunks.append((value, pluralize(term, value)))
 	
@@ -311,11 +315,14 @@ commandlength = {
 }
 
 
+# Complicated method. Will split a unicode string to desires length without returning
+# malformed unicode strings.
+# Will return a list of (stringsegment, length of encoding) tuples.
 def splitEncodedUnicode(s, length, encoding="utf-8", n=1):
-	if length < 1: return [""]
+	if length < 1: return [("", 0)]
 	le = len(s.encode(encoding))
 	if le <= length:
-		return [s]
+		return [(s, le)]
 	else:
 		splits = []
 		ib = 0 # start of segment
@@ -341,7 +348,7 @@ def splitEncodedUnicode(s, length, encoding="utf-8", n=1):
 						ie += 1
 						c = es[ie]
 				ib = ie
-			splits = [s.decode("utf-8") for s in splits] #TODO: this double conversion seems kind of wasteful
+			splits = [(s.decode("utf-8"), len(s)) for s in splits] #TODO: this double conversion seems kind of wasteful
 			# it might be faster to calc all the endchar points first and then translate back.
 		else:
 			# not as bad as I thought it would be, but pretty bad
@@ -356,7 +363,7 @@ def splitEncodedUnicode(s, length, encoding="utf-8", n=1):
 					ss = s[ib:ie]
 					sse = ss.encode(encoding)
 					le = len(sse)
-				splits.append(ss)
+				splits.append((ss, le))
 				ib = ie
 		return splits
 

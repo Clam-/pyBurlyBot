@@ -7,7 +7,7 @@ from traceback import print_exc
 
 PROVIDES = ("paste",)
 
-APIURL = "http://dpaste.com/api/v2"
+APIURL = "http://dpaste.com/api/v2/"
 
 def paste(s, syntax="text", title="BurlyBot paste", poster="BurlyBot", expiry_days=1):
 	data = {

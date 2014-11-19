@@ -19,7 +19,7 @@ def timers(event, bot):
 		if not args:
 			bot.say("Not enough arguments. Need: timername delay reps message (reps <= 0 means forever)")
 			return
-		msg = Timers.addtimer(args[0], float(args[1]), timercallback, reps=int(args[2]), msg=args[3], bot=bot, channel=event.channel)[1]
+		msg = Timers.addtimer(args[0], float(args[1]), timercallback, reps=int(args[2]), msg=args[3], bot=bot, channel=event.target)[1]
 		bot.say("%s (%s)" % (msg, args[0]))
 
 	elif command == "stop":

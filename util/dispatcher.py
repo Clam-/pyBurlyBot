@@ -248,8 +248,8 @@ class Dispatcher:
 			if remove:
 				for x in remove:
 					self.delWaitData(x)
-	
-	def createEventAndWrap(self, cont_or_wrap, eventtype, eventkwargs):
+	@staticmethod
+	def createEventAndWrap(cont_or_wrap, eventtype, eventkwargs):
 		event = Event(eventtype, **eventkwargs)
 		if event.target or event.nick:
 			return event, BotWrapper(event, cont_or_wrap)

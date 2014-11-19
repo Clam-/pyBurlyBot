@@ -30,7 +30,7 @@ if __name__ == '__main__':
 		default=False, help="Force overwrite of existing config when creating config.")
 	# CONSIDER: this could easily support multiple config files I guess
 	#   but changing Settings to support this would be kind of intense I think.
-	parser.add_argument('config', nargs="?", metavar="CONFIGFILE", default=None)
+	parser.add_argument('config', nargs="?", metavar="CONFIGFILE", default="BurlyBot.json")
 	
 	args = parser.parse_args()
 	

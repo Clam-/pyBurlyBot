@@ -2,6 +2,8 @@
 # things like .reload
 from util import Mapping, functionHelp, argumentSplit
 from util.helpers import isIterable
+
+### Modules should not import this! Unless they have a very good reason to.
 from util.settings import Settings
 
 ### This is only something that modules that know what they are doing should do:

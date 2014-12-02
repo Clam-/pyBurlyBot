@@ -12,7 +12,6 @@ from twisted.internet import reactor
 
 #BurlyBot imports
 from util.settings import Settings, ConfigException
-from util.timer import Timers
 
 if __name__ == '__main__':
 	
@@ -59,12 +58,5 @@ if __name__ == '__main__':
 	
 	Settings.initialize(logger=templog)
 	
-	#start dbcommittimer
-	Timers._addTimer("_dbcommit", 60*60, Settings.dbcommit, reps=-1) #every hour (60*60)
-	
 	# start reactor (which in a sense starts bot proper)
 	reactor.run()
-	
-	#stop timers or just not care...
-	Timers._stopall()
-	Settings.databasemanager.shutdown()

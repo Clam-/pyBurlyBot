@@ -1,10 +1,12 @@
 #settings and stuff
 from os.path import join, exists
+from os import execv
 from copy import deepcopy
 from Queue import Queue
 from json import dump, load, JSONEncoder
 from collections import MutableSet, OrderedDict
-from sys import modules
+from sys import modules, argv, executable
+from atexit import register
 
 from twisted.python import log
 
@@ -21,6 +23,7 @@ from util.container import Container
 from util.dispatcher import Dispatcher
 from util.client import BurlyBotFactory
 from util.db import DBManager
+from util.timer import Timers
 
 KEYS_COMMON = ("admins", "altnicks", "commandprefix", "datafile", "encoding", "moduleopts", "nick", "nickservpass", "nicksuffix")
 KEYS_SERVER = ("serverlabel",) + KEYS_COMMON + ("host", "port", "channels", "allowmodules", "denymodules")
@@ -399,7 +402,7 @@ class SettingsBase:
 			if server.container._botinst:
 				server.container._botinst.quit()
 			server._factory.stopTrying()
-			#callLater delserver so that just incase some modules catch quit or error event
+			#callLater delserver so that just incase some modules catch quit or error event, and use DB for it
 			# May cause race condition when connecting to new server that uses same name but different DBfile
 			# Hope someone doesn't do that...
 			reactor.callLater(1.0, self.databasemanager.delServer, server.serverlabel)
@@ -459,10 +462,9 @@ class SettingsBase:
 		# setup global database and databasemanager
 		self.databasemanager = DBManager(self.datadir, self.datafile)
 		self.reloadStage2()
-		
-	# save database(s)
-	def dbcommit(self):
-		self.databasemanager.dbcommit()
+		#start dbcommittimer
+		# TODO: figure out if actually need this, and what SQLite transaction/journaling mode we should be using
+		Timers._addTimer("_dbcommit", 60*60, self.databasemanager.dbcommit, reps=-1) #every hour (60*60)
 	
 	def saveOptions(self):
 		d = OrderedDict()
@@ -478,8 +480,21 @@ class SettingsBase:
 			EXAMPLE_SERVER2 = DummyServer(EXAMPLE_OPTS2)
 			d["servers"] = [EXAMPLE_SERVER._getDict(), EXAMPLE_SERVER2._getDict()]
 		dump(d, open(self.configfile, "wb"), indent=4, separators=(',', ': '), cls=ConfigEncoder)
-		
-	#should have some set option helper methods I guess
+	
+	def shutdown(self, relaunch=False):
+		#stop timers or just not care...
+		self._disconnect(self.servers.keys())
+		Timers._stopall()
+		reactor.callLater(2.0, self.databasemanager.shutdown) # to give time for individual shutdown
+		reactor.callLater(2.5, reactor.stop) # to give time for individual shutdown
+		# TODO: make sure this works properly
+		# 	it may act odd on Windows due to execv not replacing current process.
+		if relaunch:
+			register(relaunchfunc, executable, argv)
+
+def relaunchfunc(pythonbin, args):
+	args.insert(0, "pyBurlyBot")
+	execv(pythonbin, args)
 
 class ConfigEncoder(JSONEncoder):
 	def default(self, obj):

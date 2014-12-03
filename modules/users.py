@@ -41,8 +41,9 @@ def get_user(bot, nick):
 	return qfunc('''SELECT * FROM user WHERE user=?;''', (nick,), func=fetchone)
 
 #returns username only, or None if no user exists.
-def get_username(bot, nick):
+def get_username(bot, nick, source=None):
 	qfunc = bot.dbQuery
+	if source and nick == "me": nick = source
 	if bot.isModuleAvailable("alias"):
 		alias = ALIAS_MODULE.lookup_alias(qfunc, nick)
 		if alias: 
@@ -110,11 +111,11 @@ def user_seen(event, bot):
 def _rename_user(network, old, new):
 	qs = []
 	for f in TABLEUPDATES.get(network, []):
-		qs.append(f(old, new))
+		qs.extend(f(old, new))
 	qs.append(('''DELETE FROM user WHERE user=?;''', (old,)))
 	Settings.databasemanager.batch(network, qs)
 	
-
+# passed function MUST return a list of queries to be executed. See tell.py and location.py for examples.
 def REGISTER_UPDATE(network, func):
 	TABLEUPDATES.setdefault(network, []).append(func)
 

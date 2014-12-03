@@ -60,3 +60,4 @@ if __name__ == '__main__':
 	
 	# start reactor (which in a sense starts bot proper)
 	reactor.run()
+	Settings.hardshutdown()

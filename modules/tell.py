@@ -67,7 +67,7 @@ def tell(event, bot):
 	if not target: return bot.say(bot.say(functionHelp(tell)))
 	if not msg:
 		return bot.say("Need something to tell (%s)" % target)
-	user = USERS_MODULE.get_username(bot, target)
+	user = USERS_MODULE.get_username(bot, target, event.nick)
 	if user == USERS_MODULE.get_username(bot, event.nick):
 		return bot.say("Use notepad.")
 	if not user:
@@ -93,10 +93,7 @@ def remind(event, bot):
 	if not (dtime1 and dtime2): return bot.say("Need time to remind.")
 	if not msg:
 		return bot.say("Need something to remind (%s)" % target)
-	if target.lower() == "me":
-		user = USERS_MODULE.get_username(bot, event.nick)
-	else:
-		user = USERS_MODULE.get_username(bot, target)
+	user = USERS_MODULE.get_username(bot, target, event.nick)
 	if not user:
 		return bot.say("Sorry, don't know (%s)." % target)
 	
@@ -119,7 +116,7 @@ def remind(event, bot):
 		
 
 def _user_rename(old, new):
-	return ('''UPDATE tell SET user=? WHERE user=?;''', (new, old))
+	return (('''UPDATE tell SET user=? WHERE user=?;''', (new, old)),)
 	
 def init(bot):
 	global USERS_MODULE # oh nooooooooooooooooo

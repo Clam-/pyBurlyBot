@@ -491,6 +491,10 @@ class SettingsBase:
 		# 	it may act odd on Windows due to execv not replacing current process.
 		if relaunch:
 			register(relaunchfunc, executable, argv)
+			
+	def hardshutdown(self):
+		Timers._stopall()
+		self.databasemanager.shutdown()
 
 def relaunchfunc(pythonbin, args):
 	args.insert(0, "pyBurlyBot")

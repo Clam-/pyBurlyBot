@@ -1,5 +1,5 @@
 #tell module
-from time import gmtime, localtime, mktime, timezone, altzone, daylight, strftime
+from time import gmtime, localtime, mktime
 from calendar import timegm # silly python... I just want UTC seconds
 from collections import deque
 
@@ -66,7 +66,7 @@ def deliver_tell(event, bot):
 		# also faster this way than making 2 db calls for USER_MODULE.get_username
 		user = USERS_MODULE.ALIAS_MODULE.lookup_alias(bot.dbQuery, event.nick)
 	if not user: user = event.nick
-	toldtime = int(time())
+	toldtime = int(timegm(gmtime()))
 	tells = bot.dbQuery('''SELECT id,source,telltime,remind,msg FROM tell WHERE user=? AND delivered=0 AND telltime<? ORDER BY telltime;''', 
 		(user,toldtime))
 	if tells:
@@ -110,7 +110,7 @@ def tell(event, bot):
 		msg = "%s %s %s" % (event.command, target, msg)
 		# TODO: do we do an alias lookup on event.nick also?
 		bot.dbQuery('''INSERT INTO tell(user, telltime, source, msg) VALUES (?,?,?,?);''',
-			(user, int(time()), event.nick, msg))
+			(user, int(timegm(gmtime())), event.nick, msg))
 		targets.append(target)
 	# check if we need to warn about too many tell pastebin
 	# https://github.com/Clam-/pyBurlyBot/issues/29 
@@ -166,19 +166,24 @@ def remind(event, bot):
 				t = localtime()
 				timelocale = False
 			else:
-				t = gmtime(t + tz[2] + tz[3])
+				t = gmtime(t + tz[2] + tz[3]) #[2] dst [3] timezone offset
 	else:
 		t = localtime()
 	ntime, code = PARSER.parse(dtime, t)
+
 	if code == 0:
 		return bot.say("Don't know what time and/or day and/or date (%s) is." % dtime)
 	if code == 1: # nuke hours minutes seconds if this is a date reminder so that we don't remind on some crazy hour
 		ntime = list(ntime)
 		ntime[3:6] = (0,0,0)
 		ntime = tuple(ntime)
-
-	t = timegm(t)
-	ntime = timegm(ntime)
+	# go on, change it. I dare you.
+	if timelocale:
+		t = timegm(t) - tz[2] - tz[3]
+		ntime = timegm(ntime) - tz[2] - tz[3]
+	else:
+		t = mktime(t)
+		ntime = mktime(ntime)
 
 	if ntime < t or ntime > t+MAX_REMIND_TIME:
 		return bot.say("Don't sass me with your back to the future reminds.")

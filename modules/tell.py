@@ -1,7 +1,9 @@
 #tell module
-from time import time, mktime
+from time import gmtime, localtime, mktime, timezone, altzone, daylight, strftime
+from calendar import timegm # silly python... I just want UTC seconds
+from collections import deque
 
-from util import Mapping, argumentSplit, functionHelp, distance_of_time_in_words, fetchone, pastehelper
+from util import Mapping, argumentSplit, functionHelp, distance_of_time_in_words, fetchone, pastehelper, stringlist
 # added dependency on user module only for speed. Means can keep reference to user module without having
 # to dive in to the reactor twice? per message
 # because of this I should do foreign key things but don't want to lock myself in to that just yet (bad@db)
@@ -11,9 +13,11 @@ USERS_MODULE = None
 #nick: <source> msg - time
 TELLFORMAT = "{0}: <{1}> {2} - {3}"
 #nick: I'll pass that on when target is around.
-RPLFORMAT = "%s: I'll pass that on when %s is around."
+RPLFORMAT = "%s: I'll pass that on when %s %s around.%s%s"
+UNKNOWN = " Don't know (%s)."
+URSELF = " Use notepad for yourself."
 #nick: I will remind target about that in timespec.
-RPLREMINDFORMAT = "%s: I will remind %s about that %s."
+RPLREMINDFORMAT = "%s: I will remind %s about that %s.%s"
 #TARGET, reminder from SOURCE: MSG - set TELLTIME, arrived TOLDTIME.
 REMINDFORMAT = "{0}, reminder from {1}: {2} - set {3}, arrived {4}."
 
@@ -24,7 +28,34 @@ c.BirthdayEpoch = 80
 
 PARSER = Calendar(c)
 
-YEARLIMIT = 31540000
+MAX_REMIND_TIME = 31540000 # 1 year
+
+def _generate_users(bot, s, nick, skipself=True):
+	users = [] # user,called
+	unknown = []
+	targets = deque(s.split(","))
+	hasself = False
+	while targets:
+		t = targets.popleft()
+		u = USERS_MODULE.get_username(bot, t, nick)
+		if u: 
+			if skipself and u == nick: hasself = True
+			else: users.append((u, t))
+		else:
+			l = [t]
+			while not u and targets:
+				l.append(targets.popleft())
+				u = USERS_MODULE.get_username(bot, ",".join(l), nick)
+			# at this point we either have u or ran out of deque, if latter, throw l[1:] back on queue
+			if u: 
+				if skipself and u == nick: hasself = True
+				else: users.append((u,",".join(l)))
+			else: 
+				unknown.append(l[0])
+				l = l[1:]
+				l.reverse()
+				targets.extendleft(l)
+	return users, unknown, hasself
 
 def deliver_tell(event, bot):
 	# if alias module available use it
@@ -67,52 +98,99 @@ def tell(event, bot):
 	if not target: return bot.say(bot.say(functionHelp(tell)))
 	if not msg:
 		return bot.say("Need something to tell (%s)" % target)
-	user = USERS_MODULE.get_username(bot, target, event.nick)
-	if user == USERS_MODULE.get_username(bot, event.nick):
-		return bot.say("Use notepad.")
-	if not user:
-		return bot.say("Sorry, don't know (%s)." % target)
+	users, unknown, hasself = _generate_users(bot, target, USERS_MODULE.get_username(bot, event.nick))
+
+	if not users:
+		if hasself: return bot.say("Use notepad.")
+		else: return bot.say("Sorry, don't know (%s)." % target)
 	
-	#cmd user msg
-	msg = "%s %s %s" % (event.command, target, msg)
-	# TODO: do we do an alias lookup on event.nick also?
-	bot.dbQuery('''INSERT INTO tell(user, telltime, source, msg) VALUES (?,?,?,?);''',
-		(user, int(time()), event.nick, msg))
-	
+	targets = []
+	for user, target in users:
+		#cmd user msg
+		msg = "%s %s %s" % (event.command, target, msg)
+		# TODO: do we do an alias lookup on event.nick also?
+		bot.dbQuery('''INSERT INTO tell(user, telltime, source, msg) VALUES (?,?,?,?);''',
+			(user, int(time()), event.nick, msg))
+		targets.append(target)
 	# check if we need to warn about too many tell pastebin
 	# https://github.com/Clam-/pyBurlyBot/issues/29 
 	#~ n = bot.dbQuery('''SELECT COUNT(id) AS C FROM tell WHERE user = ? AND delivered = ? AND telltime < ?;''', (user, 0, time()), fetchone)['C']
 	#~ if n > 3:
 		#~ print "GUNNA WARNING"
-	bot.say(RPLFORMAT % (event.nick, target))
+	if len(users) > 1:
+		bot.say(RPLFORMAT % (event.nick, stringlist(targets), "are", 
+			UNKNOWN % stringlist(unknown) if unknown else "", URSELF if hasself else ""))
+	else:
+		bot.say(RPLFORMAT % (event.nick, stringlist(targets), "is",  
+			UNKNOWN % stringlist(unknown) if unknown else "", URSELF if hasself else ""))
 	
 def remind(event, bot):
 	""" remind target datespec msg. Will remind a user <target> about a message <msg> at datespec time. datespec can be relative (in) or calendar/day based (on), e.g. 'in 5 minutes"""
 	target, dtime1, dtime2, msg = argumentSplit(event.argument, 4)
 	if not target: return bot.say(bot.say(functionHelp(tell)))
-	if not (dtime1 and dtime2): return bot.say("Need time to remind.")
+	if dtime1 == "tomorrow":
+		target, dtime1, msg = argumentSplit(event.argument, 3) # reparse is easiest way I guess... resolves #30 if need to readdress
+		dtime2 == ""
+	else:
+		if not (dtime1 and dtime2): return bot.say("Need time to remind.")
 	if not msg:
 		return bot.say("Need something to remind (%s)" % target)
-	user = USERS_MODULE.get_username(bot, target, event.nick)
-	if not user:
+	
+	origuser = USERS_MODULE.get_username(bot, event.nick)
+	users, unknown, _ = _generate_users(bot, target, origuser, False)
+
+	if not users:
 		return bot.say("Sorry, don't know (%s)." % target)
 	
-	#TODO: can optimize this probably by getting current time once, using it as a sourcetime to parse
-	#	and then using it later for the time comparisons...
 	dtime = "%s %s" % (dtime1, dtime2)
-	tspec, code = PARSER.parse(dtime)
-	if code == 0:
-		return bot.say("Don't know what time/day/date (%s) is." % dtime)
-	ntime = mktime(tspec)
-	if ntime < time() or ntime > time()+YEARLIMIT:
-		return bot.say("Don't sass me with your back to the future reminds.")
+	# user location aware destination times
+	locmod = None
+	goomod = None
+	timelocale = False
+	try:
+		locmod = bot.getModule("location")
+		goomod = bot.getModule("googleapi")
+		timelocale = True
+	except ConfigException: pass
 		
-	# TODO: do we do an alias lookup on event.nick also?
-	bot.dbQuery('''INSERT INTO tell(user, telltime, remind, source, msg) VALUES (?,?,?,?,?);''',
-		(user, int(ntime), 1, event.nick, msg))
-	if user == USERS_MODULE.get_username(bot, event.nick):
-		target = "you"
-	bot.say(RPLREMINDFORMAT % (event.nick, target, distance_of_time_in_words(ntime)))
+	if locmod and goomod:
+		t = timegm(gmtime())
+		#borrowed from time.py
+		loc = locmod.getlocation(bot.dbQuery, origuser)
+		if not loc:
+			t = localtime()
+			timelocale = False
+		else:
+			tz = goomod.google_timezone(loc[1], loc[2], t)
+			if not tz:
+				t = localtime()
+				timelocale = False
+			else:
+				t = gmtime(t + tz[2] + tz[3])
+	else:
+		t = localtime()
+	ntime, code = PARSER.parse(dtime, t)
+	if code == 0:
+		return bot.say("Don't know what time and/or day and/or date (%s) is." % dtime)
+	if code == 1: # nuke hours minutes seconds if this is a date reminder so that we don't remind on some crazy hour
+		ntime = list(ntime)
+		ntime[3:6] = (0,0,0)
+		ntime = tuple(ntime)
+
+	t = timegm(t)
+	ntime = timegm(ntime)
+
+	if ntime < t or ntime > t+MAX_REMIND_TIME:
+		return bot.say("Don't sass me with your back to the future reminds.")
+	
+	targets = []
+	for user, target in users:
+		bot.dbQuery('''INSERT INTO tell(user, telltime, remind, source, msg) VALUES (?,?,?,?,?);''',
+			(user, int(ntime), 1, event.nick, msg))
+		if user == USERS_MODULE.get_username(bot, event.nick): targets.append("you")
+		else: targets.append(target)
+	
+	bot.say(RPLREMINDFORMAT % (event.nick, stringlist(targets), distance_of_time_in_words(ntime, t), UNKNOWN % stringlist(unknown) if unknown else ""))
 		
 
 def _user_rename(old, new):

@@ -53,3 +53,7 @@ def pastehelper(bot, basemsg, items=None, sep=(", ","\n"), **kwargs):
 				bot.say(basemsg % "Error: too many entries to list and no paste addon.")
 			else:
 				bot.say(basemsg % "Error: too much data and no paste addon.")
+				
+def stringlist(l):
+	if len(l) > 1: return "%s and %s" % (", ".join(l[:-1]), l[-1])
+	else: return l[0]

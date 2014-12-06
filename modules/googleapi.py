@@ -5,8 +5,8 @@
 # TODO: maybe implement some of these neat filters:
 # https://developers.google.com/custom-search/json-api/v1/reference/cse/list#request
 
-from urllib2 import Request, urlopen
-from urllib import urlencode
+from urllib2 import Request, urlopen, HTTPError
+from urllib import urlencode, quote
 from json import load
 		
 OPTIONS = {
@@ -14,9 +14,12 @@ OPTIONS = {
 	"CSE_ID" : (unicode, "ID of Custom Search Engine to use with Google search.", u"not_an_ID"),
 }
 
-URL = "https://www.googleapis.com/customsearch/v1?%s"
+SEARCH_URL = "https://www.googleapis.com/customsearch/v1?%s"
 LOC_URL = "https://maps.googleapis.com/maps/api/geocode/json?%s"
 TIMEZONE_URL = "https://maps.googleapis.com/maps/api/timezone/json?%s"
+YOUTUBE_URL = "https://www.googleapis.com/youtube/v3/search?%s"
+YOUTUBE_CHECK_URL = "http://gdata.youtube.com/feeds/api/videos/%s"
+YOUTUBE_INFO_URL = "https://www.googleapis.com/youtube/v3/videos?%s"
 API_KEY = None
 CSE_ID = None
 
@@ -25,7 +28,7 @@ def google(query, num_results=1):
 	d = { "q" : query.encode("utf-8"), "key" : API_KEY, "cx" : CSE_ID, "num" : num_results,
 		"fields" : "spelling/correctedQuery,items(title,link,snippet)" }
 		
-	f = urlopen(URL % (urlencode(d)))
+	f = urlopen(SEARCH_URL % (urlencode(d)))
 	gdata = load(f)
 	if f.getcode() == 200:
 		results = []
@@ -44,7 +47,7 @@ def google_image(query, num_results):
 	d = { "q" : query.encode("utf-8"), "key" : API_KEY, "cx" : CSE_ID, "num" : num_results, "searchType" : "image",
 		"fields" : "spelling/correctedQuery,items(title,link)"}
 		#TODO: consider displaying img stats like file size and resolution?
-	f = urlopen(URL % (urlencode(d)))
+	f = urlopen(SEARCH_URL % (urlencode(d)))
 	gdata = load(f)
 	if f.getcode() == 200:
 		results = []
@@ -81,7 +84,7 @@ def google_geocode(query):
 			item = locdata["results"]
 			if len(item) == 0:
 				return None
-			item = locdata["results"][0]
+			item = item[0]
 			ll = item.get("geometry", {}).get("location") # lol tricky
 			if not ll: return None
 			return item["formatted_address"], ll["lat"], ll["lng"]
@@ -89,6 +92,51 @@ def google_geocode(query):
 			return None
 	else:
 		raise RuntimeError("Error (%s): %s" % (f.getcode(), locdata.replace("\n", " ")))
+		
+def google_youtube_search(query, relatedTo=None):
+	""" helper to ask google for youtube search. returns numresults, results[(title, url)]"""
+	# TODO: make module option for safesearch
+	d = {"q" : query.encode("utf-8"), "part" : "snippet", "key" : API_KEY, "safeSearch" : "none",
+		"type" : "video,channel"}
+	if relatedTo:
+		d["relatedToVideoId"] = relatedTo
+	f = urlopen(YOUTUBE_URL % (urlencode(d)))
+	ytdata = load(f)
+	# TODO: handle "badRequest (400)  invalidVideoId"  for relatedTo
+	if f.getcode() == 200:
+		numresults = ytdata.get("pageInfo", {}).get("totalResults")
+		if "items" in ytdata:
+			results = ytdata["items"]
+			if len(results) == 0:
+				return numresults, []
+			return numresults, results
+		return numresults, []
+	else:
+		raise RuntimeError("Error (%s): %s" % (f.getcode(), ytdata.replace("\n", " ")))
+
+def google_youtube_check(id):
+	""" helper to ask google if youtube ID is valid."""
+	try:
+		f = urlopen(YOUTUBE_CHECK_URL % (quote(id)))
+		return f.getcode() == 200
+	except HTTPError:
+		return False
+		
+def google_youtube_details(vidid):
+	""" helper to ask google for youtube video details."""
+	# TODO: make module option for safesearch
+	d = {"id" : quote(vidid), "part" : "contentDetails,id,snippet,statistics,status", "key" : API_KEY}
+	
+	f = urlopen(YOUTUBE_INFO_URL % (urlencode(d)))
+	ytdata = load(f)
+	if f.getcode() == 200:
+		if "items" in ytdata:
+			results = ytdata["items"]
+			if len(results) == 0:
+				return None
+			return results[0]
+	else:
+		raise RuntimeError("Error (%s): %s" % (f.getcode(), ytdata.replace("\n", " ")))
 
 def init(bot):
 	global API_KEY # oh nooooooooooooooooo

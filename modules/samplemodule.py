@@ -14,6 +14,8 @@ def repeater(event, bot):
 	if bot.getOption("repeat", module="samplemodule"):
 		bot.say("%s : %s" % (event.nick, event.msg))
 
+def printer(event, bot):
+	print repr(event.msg)
 
 def samplecommand(event, bot):
 	""" samplecommand [option] [argument]. samplecommand will do things depending on what option is used. 
@@ -44,4 +46,5 @@ def init(bot):
 
 #mappings to methods
 mappings = (Mapping(types=["privmsged"], regex=recompile(r"\|.*"), function=repeater),
-	Mapping(command="samplecommand", function=samplecommand),)
+	Mapping(command="samplecommand", function=samplecommand),
+	Mapping(command="print", function=printer),)

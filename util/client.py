@@ -11,6 +11,7 @@ from twisted.protocols.basic import LineReceiver
 # system imports
 from time import asctime, time
 from collections import deque
+from math import floor
 
 #BurlyBot imports
 from helpers import processHostmask, processListReply, PrefixMap, isIterable, commandlength, splitEncodedUnicode

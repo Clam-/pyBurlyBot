@@ -17,7 +17,7 @@ URL = "http://api.wolframalpha.com/v2/query?%s"
 
 def calc(event, bot):
 	""" calc calcquery. Will use WolframAlpha to calc calcquery."""
-	if not event.argument: return bot.say(functionHelp(google))
+	if not event.argument: return bot.say(functionHelp(calc))
 	s = (("input", event.argument.encode("utf-8")), ("appid", API_KEY), ("reinterpret", "true"),
 		("includepodid", "Input"), ("includepodid", "Result"), ("format", "plaintext"))
 	# TODO: use "units" param in conjunction with calling user's location.

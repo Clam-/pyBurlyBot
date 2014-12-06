@@ -36,7 +36,7 @@ def google(event, bot):
 
 def google_image(event, bot):
 	""" gis searchterm. Will search Google images using the provided searchterm."""
-	if not event.argument: return bot.say(functionHelp(google))
+	if not event.argument: return bot.say(functionHelp(google_image))
 	spelling, results = GAPI_MODULE.google_image(event.argument, NUM_IMGS)
 	#TODO: consider displaying img stats like file size and resolution?
 	if results:

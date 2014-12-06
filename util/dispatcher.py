@@ -211,7 +211,7 @@ class Dispatcher:
 		
 		eventmap = self.eventmap
 		if eventtype in eventmap:
-			#delayed event creation as late as possible:
+			# TODO: Event and wrapper creation could possible be delayed even further maybe
 			if event is None: 
 				eventkwargs["encoding"] = settings.encoding
 				event, cont_or_wrap = self.createEventAndWrap(cont_or_wrap, eventtype, eventkwargs)
@@ -226,7 +226,9 @@ class Dispatcher:
 			# TODO: Consider this:
 			# super priority==0 override doesn't really make much sense on a regex, but whatever
 			for mapping in eventmap[eventtype]["regex"]:
-				if mapping.regex.match(msg):
+				result = mapping.regex.search(msg)
+				if result:
+					event.regex_match = result
 					self._dispatchreally(mapping.function, event, cont_or_wrap)
 					if mapping.priority == 0: break
 		

@@ -109,7 +109,7 @@ def deliver_tell(event, bot):
 		if collate:
 			msg = "Tells/reminds for (%s): %%s" % event.nick
 			title = "Tells/reminds for (%s)" % event.nick
-			pastehelper(bot, msg, items=lines, altmsg="%s", title=title)
+			pastehelper(bot, msg, items=lines, altmsg="%s", force=True, title=title)
 			
 
 def tell(event, bot):

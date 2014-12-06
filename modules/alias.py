@@ -140,7 +140,8 @@ def alias(event, bot):
 		if nick:
 			aliases = alias_list(bot.dbQuery, nick)
 			msg = "Aliases for (%s): %%s" % arg1
-			return pastehelper(bot, msg, items=aliases, title=msg)
+			title = "Aliases for (%s)" % arg1
+			return pastehelper(bot, msg, items=aliases, altmsg="%s", title=title)
 		else:
 			# unknown alias
 			return bot.say("No aliases for (%s)" % arg1)

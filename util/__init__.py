@@ -32,29 +32,29 @@ class _ADDONS(object):
 		
 ADDONS = _ADDONS()
 
-def pastehelper(bot, basemsg, items=None, altmsg=None, sep=(", ","\n"), **kwargs):
+def pastehelper(bot, basemsg, items=None, altmsg=None, sep=(", ","\n"), force=False, **kwargs):
 	""" If using items, altmsg is an alternate basestring to use for interpolation with the items list."""
 	tmsg = basemsg
-	if items:
-		tmsg = basemsg % sep[0].join(items)
-	if bot.checkSay(tmsg):
-		bot.say(tmsg)
-	else:
-		try:
-			if items:
-				if altmsg: url = ADDONS.paste(altmsg % sep[1].join(items), **kwargs)
-				else: url = ADDONS.paste(basemsg % sep[1].join(items), **kwargs)
-			else:
-				url = ADDONS.paste(basemsg, **kwargs)
-			if url:
-				bot.say(basemsg % url)
-			else:
-				bot.say(basemsg % "Error: paste addon failure.")
-		except AttributeError:
-			if items:
-				bot.say(basemsg % "Error: too many entries to list and no paste addon.")
-			else:
-				bot.say(basemsg % "Error: too much data and no paste addon.")
+	if not force:
+		if items:
+			tmsg = basemsg % sep[0].join(items)
+		if bot.checkSay(tmsg):
+			return bot.say(tmsg)
+	try:
+		if items:
+			if altmsg: url = ADDONS.paste(altmsg % sep[1].join(items), **kwargs)
+			else: url = ADDONS.paste(basemsg % sep[1].join(items), **kwargs)
+		else:
+			url = ADDONS.paste(basemsg, **kwargs)
+		if url:
+			bot.say(basemsg % url)
+		else:
+			bot.say(basemsg % "Error: paste addon failure.")
+	except AttributeError:
+		if items:
+			bot.say(basemsg % "Error: too many entries to list and no paste addon.")
+		else:
+			bot.say(basemsg % "Error: too much data and no paste addon.")
 				
 def englishlist(l):
 	if len(l) > 1: return "%s and %s" % (", ".join(l[:-1]), l[-1])

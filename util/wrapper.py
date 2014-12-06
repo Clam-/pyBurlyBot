@@ -28,9 +28,9 @@ class BotWrapper:
 	
 	def checkSay(self, msg):
 		if self.event.isPM():
-			self.checkSendMsg(self.event.nick, msg)
+			return self.checkSendMsg(self.event.nick, msg)
 		else:
-			self.checkSendMsg(self.event.target, msg)
+			return self.checkSendMsg(self.event.target, msg)
 	
 	def isadmin(self, module=None):
 		return blockingCallFromThread(reactor, self._isadmin, module)

@@ -60,7 +60,11 @@ def google_image(query, num_results):
 def google_timezone(lat, lon, t):
 	""" helper to ask google for timezone information about a location."""
 	d = { "location" : "%s,%s" % (lat, lon), "key" : API_KEY, "timestamp" : int(t) }
-	f = urlopen(TIMEZONE_URL % (urlencode(d)))
+	# I've seen this request fail quite often, so we'll add a retry
+	try:
+		f = urlopen(TIMEZONE_URL % (urlencode(d)), timeout=1)
+	except URLError:
+		f = urlopen(TIMEZONE_URL % (urlencode(d)), timeout=2)
 	gdata = load(f)
 	if f.getcode() == 200:
 		return gdata["timeZoneId"], gdata["timeZoneName"], gdata["dstOffset"], gdata["rawOffset"]

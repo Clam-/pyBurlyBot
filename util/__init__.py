@@ -32,7 +32,8 @@ class _ADDONS(object):
 		
 ADDONS = _ADDONS()
 
-def pastehelper(bot, basemsg, items=None, sep=(", ","\n"), **kwargs):
+def pastehelper(bot, basemsg, items=None, altmsg=None, sep=(", ","\n"), **kwargs):
+	""" If using items, altmsg is an alternate basestring to use for interpolation with the items list."""
 	tmsg = basemsg
 	if items:
 		tmsg = basemsg % sep[0].join(items)
@@ -41,7 +42,8 @@ def pastehelper(bot, basemsg, items=None, sep=(", ","\n"), **kwargs):
 	else:
 		try:
 			if items:
-				url = ADDONS.paste(basemsg % sep[1].join(items), **kwargs)
+				if altmsg: url = ADDONS.paste(altmsg % sep[1].join(items), **kwargs)
+				else: url = ADDONS.paste(basemsg % sep[1].join(items), **kwargs)
 			else:
 				url = ADDONS.paste(basemsg, **kwargs)
 			if url:
@@ -54,6 +56,6 @@ def pastehelper(bot, basemsg, items=None, sep=(", ","\n"), **kwargs):
 			else:
 				bot.say(basemsg % "Error: too much data and no paste addon.")
 				
-def stringlist(l):
+def englishlist(l):
 	if len(l) > 1: return "%s and %s" % (", ".join(l[:-1]), l[-1])
 	else: return l[0]

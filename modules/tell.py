@@ -3,7 +3,7 @@ from time import gmtime, localtime, mktime
 from calendar import timegm # silly python... I just want UTC seconds
 from collections import deque
 
-from util import Mapping, argumentSplit, functionHelp, distance_of_time_in_words, fetchone, pastehelper, stringlist
+from util import Mapping, argumentSplit, functionHelp, distance_of_time_in_words, fetchone, pastehelper, englishlist
 # added dependency on user module only for speed. Means can keep reference to user module without having
 # to dive in to the reactor twice? per message
 # because of this I should do foreign key things but don't want to lock myself in to that just yet (bad@db)
@@ -13,13 +13,15 @@ USERS_MODULE = None
 #nick: <source> msg - time
 TELLFORMAT = "{0}: <{1}> {2} - {3}"
 #nick: I'll pass that on when target is around.
-RPLFORMAT = "%s: I'll pass that on when %s %s around.%s%s"
+RPLFORMAT = "%s: I'll pass that on when %s %s around.%s%s%s"
 UNKNOWN = " Don't know (%s)."
 URSELF = " Use notepad for yourself."
+MULTIUSER = " %s someone once is enough."
 #nick: I will remind target about that in timespec.
-RPLREMINDFORMAT = "%s: I will remind %s about that %s.%s"
+RPLREMINDFORMAT = "%s: I will remind %s about that %s.%s%s"
 #TARGET, reminder from SOURCE: MSG - set TELLTIME, arrived TOLDTIME.
 REMINDFORMAT = "{0}, reminder from {1}: {2} - set {3}, arrived {4}."
+SELFREMINDFORMAT = "{0}, reminder: {1} - set {2}, arrived {3}."
 
 #parsedatetime stuff
 from parsedatetime import Constants, Calendar
@@ -31,6 +33,8 @@ PARSER = Calendar(c)
 MAX_REMIND_TIME = 31540000 # 1 year
 
 def _generate_users(bot, s, nick, skipself=True):
+	uset = set()
+	dupes = False
 	users = [] # user,called
 	unknown = []
 	targets = deque(s.split(","))
@@ -40,7 +44,11 @@ def _generate_users(bot, s, nick, skipself=True):
 		u = USERS_MODULE.get_username(bot, t, nick)
 		if u: 
 			if skipself and u == nick: hasself = True
-			else: users.append((u, t))
+			else: 
+				if u in uset: dupes = True
+				else: 
+					users.append((u, t))
+					uset.add(u)
 		else:
 			l = [t]
 			while not u and targets:
@@ -49,13 +57,17 @@ def _generate_users(bot, s, nick, skipself=True):
 			# at this point we either have u or ran out of deque, if latter, throw l[1:] back on queue
 			if u: 
 				if skipself and u == nick: hasself = True
-				else: users.append((u,",".join(l)))
+				else: 
+					if u in uset: dupes = True
+					else:
+						users.append((u,",".join(l)))
+						uset.add(u)
 			else: 
 				unknown.append(l[0])
 				l = l[1:]
 				l.reverse()
 				targets.extendleft(l)
-	return users, unknown, hasself
+	return users, unknown, dupes, hasself
 
 def deliver_tell(event, bot):
 	# if alias module available use it
@@ -77,10 +89,17 @@ def deliver_tell(event, bot):
 			lines = []
 		for tell in tells:
 			if tell['remind']:
-				data = [event.nick, tell['source'], tell['msg'], distance_of_time_in_words(tell['telltime'], toldtime), 
-				distance_of_time_in_words(tell['telltime'], suffix="late")]
-				if collate: lines.append(REMINDFORMAT.format(*data))
-				else: bot.say(REMINDFORMAT, strins=data, fcfs=True)
+				source = tell['source']
+				if source:
+					data = [event.nick, source, tell['msg'], distance_of_time_in_words(tell['telltime'], toldtime), 
+						distance_of_time_in_words(tell['telltime'], suffix="late")]
+					fmt = REMINDFORMAT
+				else:
+					data = [event.nick, tell['msg'], distance_of_time_in_words(tell['telltime'], toldtime), 
+						distance_of_time_in_words(tell['telltime'], suffix="late")]
+					fmt = SELFREMINDFORMAT
+				if collate: lines.append(fmt.format(*data))
+				else: bot.say(fmt, strins=data, fcfs=True)
 			else:
 				data = [event.nick, tell['source'], tell['msg'], distance_of_time_in_words(tell['telltime'], toldtime)]
 				if collate: lines.append(TELLFORMAT.format(*data))
@@ -88,8 +107,9 @@ def deliver_tell(event, bot):
 			#TODO: change this to do a bulk update somehow?
 			bot.dbQuery('''UPDATE tell SET delivered=1,toldtime=? WHERE id=?;''', (toldtime, tell['id']))
 		if collate:
-			msg = "Tells/reminds for (%s)" % event.nick
-			pastehelper(bot, msg, items=lines, title=msg)
+			msg = "Tells/reminds for (%s): %%s" % event.nick
+			title = "Tells/reminds for (%s)" % event.nick
+			pastehelper(bot, msg, items=lines, altmsg="%s", title=title)
 			
 
 def tell(event, bot):
@@ -98,7 +118,7 @@ def tell(event, bot):
 	if not target: return bot.say(bot.say(functionHelp(tell)))
 	if not msg:
 		return bot.say("Need something to tell (%s)" % target)
-	users, unknown, hasself = _generate_users(bot, target, USERS_MODULE.get_username(bot, event.nick))
+	users, unknown, dupes, hasself = _generate_users(bot, target, USERS_MODULE.get_username(bot, event.nick))
 
 	if not users:
 		if hasself: return bot.say("Use notepad.")
@@ -118,11 +138,11 @@ def tell(event, bot):
 	#~ if n > 3:
 		#~ print "GUNNA WARNING"
 	if len(users) > 1:
-		bot.say(RPLFORMAT % (event.nick, stringlist(targets), "are", 
-			UNKNOWN % stringlist(unknown) if unknown else "", URSELF if hasself else ""))
+		bot.say(RPLFORMAT % (event.nick, englishlist(targets), "are", UNKNOWN % englishlist(unknown) if unknown else "", 
+			URSELF if hasself else "", MULTIUSER % "Telling" if dupes else ""))
 	else:
-		bot.say(RPLFORMAT % (event.nick, stringlist(targets), "is",  
-			UNKNOWN % stringlist(unknown) if unknown else "", URSELF if hasself else ""))
+		bot.say(RPLFORMAT % (event.nick, englishlist(targets), "is", UNKNOWN % englishlist(unknown) if unknown else "", 
+			URSELF if hasself else "", MULTIUSER % "Telling" if dupes else ""))
 	
 def remind(event, bot):
 	""" remind target datespec msg. Will remind a user <target> about a message <msg> at datespec time. datespec can be relative (in) or calendar/day based (on), e.g. 'in 5 minutes"""
@@ -137,7 +157,7 @@ def remind(event, bot):
 		return bot.say("Need something to remind (%s)" % target)
 	
 	origuser = USERS_MODULE.get_username(bot, event.nick)
-	users, unknown, _ = _generate_users(bot, target, origuser, False)
+	users, unknown, dupes, _ = _generate_users(bot, target, origuser, False)
 
 	if not users:
 		return bot.say("Sorry, don't know (%s)." % target)
@@ -190,12 +210,14 @@ def remind(event, bot):
 	
 	targets = []
 	for user, target in users:
+		if user == origuser: source = None
+		else: source = event.nick
 		bot.dbQuery('''INSERT INTO tell(user, telltime, remind, source, msg) VALUES (?,?,?,?,?);''',
-			(user, int(ntime), 1, event.nick, msg))
-		if user == USERS_MODULE.get_username(bot, event.nick): targets.append("you")
+			(user, int(ntime), 1, source, msg))
+		if not source: targets.append("you")
 		else: targets.append(target)
-	
-	bot.say(RPLREMINDFORMAT % (event.nick, stringlist(targets), distance_of_time_in_words(ntime, t), UNKNOWN % stringlist(unknown) if unknown else ""))
+	bot.say(RPLREMINDFORMAT % (event.nick, englishlist(targets), distance_of_time_in_words(ntime, t), 
+		UNKNOWN % englishlist(unknown) if unknown else "", MULTIUSER % "Reminding" if dupes else ""))
 		
 
 def _user_rename(old, new):

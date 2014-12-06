@@ -155,8 +155,8 @@ def distance_of_time_in_words(fromtime, totime=None, suffix="ago"):
 		past = False
 		diff = abs(diff)
 	if diff < 20:
-		if past: return "Just a moment %s" % suffix
-		else: return "In just a moment"
+		if past: return "just a moment %s" % suffix
+		else: return "in just a moment"
 	
 	td = timedelta(seconds=diff)
 	days, hours, minutes, seconds = days_hours_minutes(td)

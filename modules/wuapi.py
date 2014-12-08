@@ -8,7 +8,9 @@ from urllib import urlencode
 from json import load
 
 from traceback import format_exc
-		
+
+from util.settings import ConfigException
+
 OPTIONS = {
 	"API_KEY" : (unicode, "API key for use with Weather Underground services.", u"not_a_key"),
 }
@@ -38,6 +40,8 @@ def lookup_location(query):
 
 def get_weather(lat, lon):
 	""" helper to ask WU for current weather."""
+	if not API_KEY:
+		raise ConfigException("Require API_KEY for wuapi. Reload after setting.")
 	f = urlopen(URL % (API_KEY, "conditions", lat, lon))
 	weather_data = load(f)
 	if f.getcode() == 200:
@@ -51,6 +55,8 @@ def get_weather(lat, lon):
 	
 def get_forecast(stuff):
 	""" helper to ask WU for forecasted weather."""
+	if not API_KEY:
+		raise ConfigException("Require API_KEY for wuapi. Reload after setting.")
 	f = urlopen(URL % (API_KEY, "forecast", lat, lon))
 	weather_data = load(f)
 	if f.getcode() == 200:

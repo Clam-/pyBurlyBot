@@ -8,10 +8,12 @@
 from urllib2 import Request, urlopen, HTTPError
 from urllib import urlencode, quote
 from json import load
-		
+
+from util.settings import ConfigException	
+
 OPTIONS = {
-	"API_KEY" : (unicode, "API key for use with Google services.", u"not_a_key"),
-	"CSE_ID" : (unicode, "ID of Custom Search Engine to use with Google search.", u"not_an_ID"),
+	"API_KEY" : (unicode, "API key for use with Google services.", u""),
+	"CSE_ID" : (unicode, "ID of Custom Search Engine to use with Google search.", u""),
 }
 
 SEARCH_URL = "https://www.googleapis.com/customsearch/v1?%s"
@@ -25,9 +27,11 @@ CSE_ID = None
 
 def google(query, num_results=1):
 	""" google helper. Will return Google search results using the provided query up to num_results results."""
+	if not API_KEY:
+		raise ConfigException("Require API_KEY for googleapi. Reload after setting.")
 	d = { "q" : query.encode("utf-8"), "key" : API_KEY, "cx" : CSE_ID, "num" : num_results,
 		"fields" : "spelling/correctedQuery,items(title,link,snippet)" }
-		
+	
 	f = urlopen(SEARCH_URL % (urlencode(d)))
 	gdata = load(f)
 	if f.getcode() == 200:
@@ -44,6 +48,8 @@ def google(query, num_results=1):
 
 def google_image(query, num_results):
 	""" google image search helper. Will return Google images using the provided query up to num_results results."""
+	if not API_KEY:
+		raise ConfigException("Require API_KEY for googleapi. Reload after setting.")
 	d = { "q" : query.encode("utf-8"), "key" : API_KEY, "cx" : CSE_ID, "num" : num_results, "searchType" : "image",
 		"fields" : "spelling/correctedQuery,items(title,link)"}
 		#TODO: consider displaying img stats like file size and resolution?
@@ -62,6 +68,8 @@ def google_image(query, num_results):
 		
 def google_timezone(lat, lon, t):
 	""" helper to ask google for timezone information about a location."""
+	if not API_KEY:
+		raise ConfigException("Require API_KEY for googleapi. Reload after setting.")
 	d = { "location" : "%s,%s" % (lat, lon), "key" : API_KEY, "timestamp" : int(t) }
 	# I've seen this request fail quite often, so we'll add a retry
 	try:
@@ -76,6 +84,8 @@ def google_timezone(lat, lon, t):
 		
 def google_geocode(query):
 	""" helper to ask google for location data. Returns name, lat, lon"""
+	if not API_KEY:
+		raise ConfigException("Require API_KEY for googleapi. Reload after setting.")
 	d = {"address" : query.encode("utf-8"), "key" : API_KEY }
 	f = urlopen(LOC_URL % (urlencode(d)))
 	locdata = load(f)
@@ -96,6 +106,8 @@ def google_geocode(query):
 def google_youtube_search(query, relatedTo=None):
 	""" helper to ask google for youtube search. returns numresults, results[(title, url)]"""
 	# TODO: make module option for safesearch
+	if not API_KEY:
+		raise ConfigException("Require API_KEY for googleapi. Reload after setting.")
 	d = {"q" : query.encode("utf-8"), "part" : "snippet", "key" : API_KEY, "safeSearch" : "none",
 		"type" : "video,channel"}
 	if relatedTo:
@@ -124,6 +136,8 @@ def google_youtube_check(id):
 		
 def google_youtube_details(vidid):
 	""" helper to ask google for youtube video details."""
+	if not API_KEY:
+		raise ConfigException("Require API_KEY for googleapi. Reload after setting.")
 	# TODO: make module option for safesearch
 	d = {"id" : quote(vidid), "part" : "contentDetails,id,snippet,statistics,status", "key" : API_KEY}
 	
@@ -141,7 +155,7 @@ def google_youtube_details(vidid):
 def init(bot):
 	global API_KEY # oh nooooooooooooooooo
 	global CSE_ID # oh nooooooooooooooooo
-	API_KEY = bot.getOption("API_KEY", module="google")
-	CSE_ID = bot.getOption("CSE_ID", module="google")
+	API_KEY = bot.getOption("API_KEY", module="googleapi")
+	CSE_ID = bot.getOption("CSE_ID", module="googleapi")
 	return True
 

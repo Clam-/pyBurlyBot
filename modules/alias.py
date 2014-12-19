@@ -107,6 +107,7 @@ def alias(event, bot):
 			# show help for del
 			return bot.say(functionHelp(alias, "~del"))
 	elif arg1 and arg2:
+		if arg3: arg2 += arg3
 		#binding a new alias
 		target = lookup_alias(bot.dbQuery, arg2) # check target
 		if target:

@@ -45,28 +45,7 @@ def headers(event, bot):
 def title(event, bot):
 	""" title [URL]. If no argument is provided the title of the last URL will be displayed. 
 	Otherwise the title of the provided URL will be displayed."""
-	if not event.argument: 
-		return show_youtube_info(event, bot)
-	if GAPI_MODULE.google_youtube_check(event.argument):
-		return show_youtube_info(event, bot)
-	numresults, results = GAPI_MODULE.google_youtube_search(event.argument)
-	if results:
-		lr = len(results)
-		rpl = ", ".join([RESULT_TEXT] * lr)
-		links = []
-		titles = []
-		for item in results:
-			id = item['id']
-			if id['kind'] == 'youtube#video':
-				links.append(SHORTURL % item['id']['videoId'])
-			elif id['kind'] == 'youtube#channel':
-				links.append(CHANNELURL % item['id']['channelId'])
-			titles.append(item['snippet']['title'])
-		rpl = (rpl % tuple(xrange(lr))) % tuple(links)
-		
-		bot.say(rpl, fcfs=False, strins=titles)
-	else:
-		bot.say("(%s) No results found." % numresults)
+	bot.say("Todo this.")
 
 def init(bot):
 	global GAPI_MODULE # oh nooooooooooooooooo

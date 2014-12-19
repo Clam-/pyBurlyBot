@@ -33,7 +33,7 @@ class newshlex(shlex):
 				if not nextchar:
 					self.state = None  # end of file
 					break
-				elif nextchar.isspace():
+				elif nextchar in self.whitespace:
 					if self.debug >= 2:
 						print "shlex: I see whitespace in whitespace state"
 					if self.token or (self.posix and quoted):
@@ -97,7 +97,7 @@ class newshlex(shlex):
 				if not nextchar:
 					self.state = None   # end of file
 					break
-				elif nextchar.isspace():
+				elif nextchar in self.whitespace:
 					if self.debug >= 2:
 						print "shlex: I see whitespace in word state"
 					self.state = ' '

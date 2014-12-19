@@ -97,10 +97,10 @@ def alias(event, bot):
 					return bot.say("Group (%s) not found." % arg2)
 		elif arg2:
 			# single alias delete
-			origin = lookup_alias(bot.dbQuery, arg1)
+			origin = lookup_alias(bot.dbQuery, arg2)
 			if origin:
 				bot.dbQuery('''DELETE FROM alias WHERE alias = ?;''', (arg2,))
-				return bot.say("Alias (%s) for (%s) removed." % (arg1, origin))
+				return bot.say("Alias (%s) for (%s) removed." % (arg2, origin))
 			else:
 				return bot.say("Alias (%s) not found." % arg2)
 		else:

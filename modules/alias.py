@@ -15,12 +15,6 @@ def lookup_alias(qfunc, alias):
 	except IndexError:
 		print "This shouldn't happen, invalid alias?"
 
-def get_user(qfunc, nick):
-	user = lookup_alias(qfunc, nick)
-	if not user:
-		user = USERS_MODULE.get_user(qfunc, nick)
-	return user
-
 def add_alias(qfunc, source, alias):
 	qfunc('''INSERT OR REPLACE INTO alias (alias, user) VALUES (?,?);''', (alias, source))
 
@@ -39,7 +33,6 @@ def group_add(qfunc, group, nick):
 def group_check(qfunc, group, nick):
 	return qfunc('''SELECT 1 FROM aliasgrp WHERE grp = ? AND user = ?;''', (group,nick), fetchone)
 	
-
 def alias(event, bot):
 	""" alias [(source, ~group, ~del)] argument. If only argument is supplied, aliases for that argument are retrieved. 
 	Otherwise if source is supplied, argument will become an alias of source. See addtional help for ~group and ~del.
@@ -52,7 +45,7 @@ def alias(event, bot):
 	if arg1 == "~group":
 		if arg2 and arg3:
 			# binding to a group
-			nick = get_user(bot.dbQuery, arg2)
+			nick = USERS_MODULE.get_username(bot, arg2, source=event.nick, _inalias=True)
 			if not nick:
 				return bot.say("User/alias (%s) not found or seen." % arg2)
 			if group_check(bot.dbQuery, arg2, arg3):
@@ -86,7 +79,7 @@ def alias(event, bot):
 				# assume arg2 is a groupname to remove entry from
 				group = bot.dbQuery('''SELECT grp FROM aliasgrp WHERE grp = ?;''', (arg2,), fetchone)
 				if group:
-					nick = get_user(bot.dbQuery, arg3)
+					nick = USERS_MODULE.get_username(bot, arg3, source=event.nick, _inalias=True)
 					if not nick:
 						return bot.say("User/alias (%s) not found." % arg3)
 					if bot.dbQuery('''SELECT 1 FROM aliasgrp WHERE grp = ? AND user = ?;''', (arg2,nick), fetchone):
@@ -110,31 +103,32 @@ def alias(event, bot):
 	elif arg1 and arg2:
 		if arg3: arg2 += arg3
 		#binding a new alias
+		if arg2.lower() == "me": return bot.say("But you are already yourself.")
+		
 		target = lookup_alias(bot.dbQuery, arg2) # check target
 		if target:
 			#alias already in use by nnick
 			return bot.say("Alias already in use by (%s)" % target)
 		# check if target is an existing/seen user.
+		# If it is, it means we are probably applying a user as an alias (remove old user in that case)
 		# in this case we are going to remove target user and execute all observers to user's rename plans.
 		target = USERS_MODULE._get_username(bot.dbQuery, arg2)
 		
-		source = lookup_alias(bot.dbQuery, arg1)
-		if not source:
-			#look for user
-			source = USERS_MODULE._get_username(bot.dbQuery, arg1)
-			if source:
-				if target: USERS_MODULE._rename_user(bot.network, target, source)
-				add_alias(bot.dbQuery, source, source) # add origin mapping so that origins can't get aliased
-				add_alias(bot.dbQuery, arg1, arg2)
-				# find all groups that alias is a part of, and change membership to use "user" (source)
-				bot.dbQuery('''UPDATE aliasgrp SET user=? WHERE user = ?;''', (source, arg2))
-				return bot.say("Added (%s) to (%s)" % (arg2, arg1))
-			else:
-				return bot.say("(%s) not seen before." % arg1)
-		else:
-			if target: USERS_MODULE._rename_user(bot.network, target, source)
-			add_alias(bot.dbQuery, source, arg2)
-			return bot.say("Added (%s) to (%s)" % (arg2, source))
+		source = USERS_MODULE.get_username(bot, arg1, source=event.nick, _inalias=True)
+		if not source: return bot.say("(%s) not seen before." % arg1)
+		if source == target: return bot.say("But %s is already %s." % (arg1, arg2))
+		
+		# see comments just above
+		if target: 
+			USERS_MODULE._rename_user(bot.network, target, source)
+			# find all groups that alias is a part of, and change membership to use "user" (source)
+			bot.dbQuery('''UPDATE aliasgrp SET user=? WHERE user = ?;''', (source, arg2))
+		# add origin mapping so that origins can't get aliased
+		# this will get called everytime but it's more messy if you check alias independently of alias, no big deal if
+		add_alias(bot.dbQuery, source, source) # REPLACEing everytime.
+		add_alias(bot.dbQuery, source, arg2)
+		
+		return bot.say("Added (%s) to (%s)" % (arg2, source))
 		
 	elif arg1:
 		#querying an alias

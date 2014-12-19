@@ -41,18 +41,17 @@ def get_user(bot, nick):
 	return qfunc('''SELECT * FROM user WHERE user=?;''', (nick,), func=fetchone)
 
 #returns username only, or None if no user exists.
-def get_username(bot, nick, source=None):
+def get_username(bot, nick, source=None, _inalias=False):
 	qfunc = bot.dbQuery
 	if source and nick == "me": nick = source
-	if bot.isModuleAvailable("alias"):
+	if _inalias or bot.isModuleAvailable("alias"):
 		alias = ALIAS_MODULE.lookup_alias(qfunc, nick)
 		if alias: 
 			user = qfunc('''SELECT user FROM user WHERE user=?;''', (alias,), func=fetchone)
 			if user: return user['user']
-	user = qfunc('''SELECT user FROM user WHERE user=?;''', (nick,), func=fetchone)
-	if user: return user['user']
+	return _get_username(qfunc, nick)
 
-# like the above, but is used by alias module so shortcuts taken
+# get username only. do not look for aliases.
 def _get_username(qfunc, nick):
 	user = qfunc('''SELECT user FROM user WHERE user=?;''', (nick,), func=fetchone)
 	if user: return user['user']

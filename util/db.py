@@ -28,6 +28,7 @@ class DBManager(object):
 		self.managerThread = ManagerThread()
 		self.managerThread.start()
 		self.mainDB.start()
+		self.running = True
 		
 	def query(self, serverlabel, q, params=(), func=None):
 		db = self.managerThread.call(self._getDB, serverlabel)
@@ -82,8 +83,12 @@ class DBManager(object):
 		self.mainDB.stop()
 	
 	def shutdown(self):
-		self.managerThread.call(self._shutdown)
-		self.managerThread.stop()
+		# TODO: probably lock on this so that if you CTRL+C while updaterelaunching 
+		# 	you won't run in to race condition if CTRL+C while shutting down threads
+		if self.running:
+			self.managerThread.call(self._shutdown)
+			self.managerThread.stop()
+			self.running = False # to make it easier to shutdown from multiple pathways
 		
 	#DB helper for easy module use:
 	def dbCheckCreateTable(self, serverlabel, tablename, createstmt):

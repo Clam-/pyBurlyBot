@@ -57,6 +57,8 @@ def update(event, bot):
 			bot.getModule("core").reloadbot(event, bot)
 		else:
 			bot.say("Module(s) updated but can't reload. core module not available.")
+	else:
+		bot.say("Already up-to date.")
 
 
 

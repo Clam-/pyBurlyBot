@@ -122,5 +122,5 @@ def init(bot):
 
 #mappings to methods
 mappings = (Mapping(command=("youtube", "yt"), function=youtube), 
-	Mapping(types=["privmsged"], regex=recompile(r"\bhttp(s)?\://(www\.)?youtu\.be\/[a-zA-Z0-9_-]{11}.*\b"), function=seen_video),
-	Mapping(types=["privmsged"], regex=recompile(r"\bhttp(s)?\://(www\.)?youtube\.com\/.*v\=[a-zA-Z0-9_-]{11}.*\b"), function=seen_video),)
+	Mapping(types=["privmsged"], regex=recompile(r"\bhttps?\://(?:www\.)?youtu\.be\/[a-zA-Z0-9_-]{11}.*\b"), function=seen_video),
+	Mapping(types=["privmsged"], regex=recompile(r"\bhttps?\://(?:www\.)?youtube\.com\/.*v\=[a-zA-Z0-9_-]{11}.*\b"), function=seen_video),)

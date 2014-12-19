@@ -3,32 +3,38 @@
 # Using Requests because easier
 
 from util import Mapping, commandSplit, functionHelp, fetchone
-from re import compile as recompile
+from re import compile as recompile, IGNORECASE, DOTALL, UNICODE
 
-from requests import head
+from requests import head, get
 
 from time import strftime, strptime
 
 # (code - reason) content-type, encoding, size, serversoftware, redirect
 HEAD_RPL = "(%s - %s) %s, %s%s bytes, %s%s"
+TITLE_REGEX = recompile('<title>(.*?)</title>', IGNORECASE|DOTALL)
 
 def seen_link(event, bot):
 	match = event.regex_match
 	pos = match.regs[0]
 	url = match.string[pos[0]:pos[1]]
-	print url, match
+	#print repr(url), match, repr(match.group(0))
 	bot.dbQuery("""INSERT OR REPLACE INTO urlinfo (source, url) 
 		VALUES (?,?);""", (event.target, url))
+
+def _getURL(event, dbQuery):
+	row = dbQuery("""SELECT url FROM urlinfo 
+							WHERE source=?;""", (event.target,), fetchone)
+	if not row:
+		return None
+	return row['url']
 
 def headers(event, bot):
 	""" head [URL]. If no argument is provided the headers of the last URL will be displayed. 
 	Otherwise the title of the provided URL will be displayed."""
 	if not event.argument:
-		row = bot.dbQuery("""SELECT url FROM urlinfo 
-								WHERE source=?;""", (event.target,), fetchone)
-		if not row:
+		url = _getURL(event)
+		if not url:
 			return bot.say("Haven't seen any URLs in here.")
-		url = row['url']
 	else:
 		url = event.argument
 	
@@ -45,7 +51,29 @@ def headers(event, bot):
 def title(event, bot):
 	""" title [URL]. If no argument is provided the title of the last URL will be displayed. 
 	Otherwise the title of the provided URL will be displayed."""
-	bot.say("Todo this.")
+	if not event.argument:
+		url = _getURL(event, bot.dbQuery)
+		if not url:
+			return bot.say("Haven't seen any URLs in here.")
+	else:
+		url = event.argument
+	
+	# do fancy stream and iter with requests
+	resp = get(url, stream=True)
+	# only if content-type is html though
+	ctype = resp.headers.get("content-type", "?;").split(";")[0]
+	if ctype == "text/html":
+		m = None
+		try: chunk = resp.iter_content(chunk_size=1024*5).next() # only get one chunk to look in (5KB)
+		except StopIteration: bot.say("Couldn't find a title in (%s)." % url)
+		else:
+			m = TITLE_REGEX.search(chunk)
+			if m: bot.say("Title: %s" % m.group(1))
+			else: bot.say("Couldn't find a title in (%s)." % url)
+	else:
+		# TODO: Maybe display last portion of pathname using something like os.path.basename
+		bot.say("No title for (%s) type in (%s)." % (ctype, url))
+	resp.close()
 
 def init(bot):
 	global GAPI_MODULE # oh nooooooooooooooooo
@@ -60,4 +88,4 @@ def init(bot):
 
 #mappings to methods
 mappings = (Mapping(command=("head"), function=headers), Mapping(command=("title"), function=title),
-	Mapping(types=["privmsged"], regex=recompile(r"\bhttp(s)?\://.+(/)?\b"), function=seen_link),)
+	Mapping(types=["privmsged"], regex=recompile(r"\bhttps?\://[\w./-]+\.[\w./-]+(?:\?[\w./=%-]+(?:#[\w./=%-]+)?)?", UNICODE), function=seen_link),)

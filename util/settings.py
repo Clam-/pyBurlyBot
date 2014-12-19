@@ -497,7 +497,7 @@ class SettingsBase:
 		self.databasemanager.shutdown()
 
 def relaunchfunc(pythonbin, args):
-	args.insert(0, "pyBurlyBot")
+	args.insert(0, pythonbin)
 	execv(pythonbin, args)
 
 class ConfigEncoder(JSONEncoder):

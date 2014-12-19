@@ -36,12 +36,12 @@ def pastehelper(bot, basemsg, items=None, altmsg=None, sep=(", ","\n"), force=Fa
 	""" If using items, altmsg is an alternate basestring to use for interpolation with the items list."""
 	tmsg = basemsg
 	if not force:
-		if items:
+		if items is not None:
 			tmsg = basemsg % sep[0].join(items)
 		if bot.checkSay(tmsg):
 			return bot.say(tmsg)
 	try:
-		if items:
+		if items is not None:
 			if altmsg: url = ADDONS.paste(altmsg % sep[1].join(items), **kwargs)
 			else: url = ADDONS.paste(basemsg % sep[1].join(items), **kwargs)
 		else:
@@ -51,7 +51,7 @@ def pastehelper(bot, basemsg, items=None, altmsg=None, sep=(", ","\n"), force=Fa
 		else:
 			bot.say(basemsg % "Error: paste addon failure.")
 	except AttributeError:
-		if items:
+		if items is not None:
 			bot.say(basemsg % "Error: too many entries to list and no paste addon.")
 		else:
 			bot.say(basemsg % "Error: too much data and no paste addon.")

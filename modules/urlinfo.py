@@ -2,7 +2,7 @@
 
 # Using Requests because easier
 
-from util import Mapping, commandSplit, functionHelp, fetchone
+from util import Mapping, commandSplit, functionHelp, fetchone, coerceToUnicode
 from re import compile as recompile, IGNORECASE, DOTALL, UNICODE
 
 from requests import head, get
@@ -68,7 +68,10 @@ def title(event, bot):
 		except StopIteration: bot.say("Couldn't find a title in (%s)." % url)
 		else:
 			m = TITLE_REGEX.search(chunk)
-			if m: bot.say("Title: %s" % m.group(1))
+			if m: 
+				title = m.group(1)
+				if not isinstance(title, unicode): title = coerceToUnicode(title)
+				bot.say("Title: %s" % title)
 			else: bot.say("Couldn't find a title in (%s)." % url)
 	else:
 		# TODO: Maybe display last portion of pathname using something like os.path.basename

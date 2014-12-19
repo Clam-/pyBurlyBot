@@ -105,6 +105,13 @@ def alias(event, bot):
 		#binding a new alias
 		if arg2.lower() == "me": return bot.say("But you are already yourself.")
 		
+		source = USERS_MODULE.get_username(bot, arg1, source=event.nick, _inalias=True)
+		if not source: return bot.say("(%s) not seen before." % arg1)
+		
+		# Query target_user first so we can display error messages in sane order.
+		target_user = USERS_MODULE._get_username(bot.dbQuery, arg2)
+		if source == target_user: return bot.say("But %s is already %s." % (arg1, arg2))
+		
 		target = lookup_alias(bot.dbQuery, arg2) # check target
 		if target:
 			#alias already in use by nnick
@@ -112,10 +119,8 @@ def alias(event, bot):
 		# check if target is an existing/seen user.
 		# If it is, it means we are probably applying a user as an alias (remove old user in that case)
 		# in this case we are going to remove target user and execute all observers to user's rename plans.
-		target = USERS_MODULE._get_username(bot.dbQuery, arg2)
+		target = target_user
 		
-		source = USERS_MODULE.get_username(bot, arg1, source=event.nick, _inalias=True)
-		if not source: return bot.say("(%s) not seen before." % arg1)
 		if source == target: return bot.say("But %s is already %s." % (arg1, arg2))
 		
 		# see comments just above

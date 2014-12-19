@@ -37,6 +37,7 @@ def headers(event, bot):
 			return bot.say("Haven't seen any URLs in here.")
 	else:
 		url = event.argument
+		if not url.startswith("http"): url = "http://" + url
 	
 	resp = head(url)
 	h = resp.headers
@@ -57,6 +58,7 @@ def title(event, bot):
 			return bot.say("Haven't seen any URLs in here.")
 	else:
 		url = event.argument
+		if not url.startswith("http"): url = "http://" + url
 	
 	# do fancy stream and iter with requests
 	resp = get(url, stream=True)

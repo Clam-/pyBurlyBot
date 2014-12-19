@@ -37,7 +37,7 @@ def weather(event, bot):
 		if not loc: return bot.say("I don't know where (%s) is." % target)
 	name, lat, lon = loc
 	weather = WUAPI_MODULE.get_weather(lat, lon)
-	return bot.say("Weather: %s" % weather)
+	return bot.say("Tell Griff to fix me. Weather: %s" % weather)
 	
 def forecast(event, bot):
 	""" forecast [user/location]. If user/location is not provided, weather forecast information is displayed for the requesting nick.
@@ -61,7 +61,7 @@ def forecast(event, bot):
 	name, lat, lon = loc
 	
 	forecast = WUAPI_MODULE.get_forecast(lat, lon)
-	return bot.say("Forecast: %s" % forecast)
+	return bot.say("Tell Griff to fix me. Forecast: %s" % forecast)
 
 def init(bot):
 	global WUAPI_MODULE # oh nooooooooooooooooo

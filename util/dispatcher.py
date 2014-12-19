@@ -42,7 +42,7 @@ class Dispatcher:
 		self.allowedmodules = settings.allowmodules if settings.allowmodules else settings.modules
 		# remove denied modules
 		if settings.denymodules:
-			self.allowedmodules = self.allowedmodules.difference(settings.denymodules)
+			self.allowedmodules = self.allowedmodules - settings.denymodules
 
 		# load modules
 		for modulename in self.allowedmodules:

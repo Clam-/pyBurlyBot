@@ -127,10 +127,10 @@ def tell(event, bot):
 	targets = []
 	for user, target in users:
 		#cmd user msg
-		msg = "%s %s %s" % (event.command, target, msg)
+		imsg = "%s %s %s" % (event.command, target, msg)
 		# TODO: do we do an alias lookup on event.nick also?
 		bot.dbQuery('''INSERT INTO tell(user, telltime, source, msg) VALUES (?,?,?,?);''',
-			(user, int(timegm(gmtime())), event.nick, msg))
+			(user, int(timegm(gmtime())), event.nick, imsg))
 		targets.append(target)
 	# check if we need to warn about too many tell pastebin
 	# https://github.com/Clam-/pyBurlyBot/issues/29 

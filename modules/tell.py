@@ -13,7 +13,9 @@ USERS_MODULE = None
 #nick: <source> msg - time
 TELLFORMAT = "{0}: <{1}> {2} - {3}"
 #nick: I'll pass that on when target is around.
-RPLFORMAT = "%s: I'll pass that on when %s %s around.%s%s%s"
+RPLFORMAT = "%s: I'll %s when %s %s around.%s%s%s"
+PASSON = "pass that on"
+ASKTHAT = "ask that"
 UNKNOWN = " Don't know (%s)."
 URSELF = " Use notepad for yourself."
 MULTIUSER = " %s someone once is enough."
@@ -119,10 +121,12 @@ def tell(event, bot):
 	if not msg:
 		return bot.say("Need something to tell (%s)" % target)
 	users, unknown, dupes, hasself = _generate_users(bot, target, USERS_MODULE.get_username(bot, event.nick))
-
+	
 	if not users:
 		if hasself: return bot.say("Use notepad.")
 		else: return bot.say("Sorry, don't know (%s)." % target)
+	
+	cmd = event.command.lower()
 	
 	targets = []
 	for user, target in users:
@@ -138,10 +142,12 @@ def tell(event, bot):
 	#~ if n > 3:
 		#~ print "GUNNA WARNING"
 	if len(users) > 1:
-		bot.say(RPLFORMAT % (event.nick, englishlist(targets), "are", UNKNOWN % englishlist(unknown) if unknown else "", 
+		bot.say(RPLFORMAT % (event.nick, PASSON if cmd == "tell" else ASKTHAT,
+			englishlist(targets), "are", UNKNOWN % englishlist(unknown) if unknown else "", 
 			URSELF if hasself else "", MULTIUSER % "Telling" if dupes else ""))
 	else:
-		bot.say(RPLFORMAT % (event.nick, englishlist(targets), "is", UNKNOWN % englishlist(unknown) if unknown else "", 
+		bot.say(RPLFORMAT % (event.nick, PASSON if cmd == "tell" else ASKTHAT,
+			englishlist(targets), "is", UNKNOWN % englishlist(unknown) if unknown else "", 
 			URSELF if hasself else "", MULTIUSER % "Telling" if dupes else ""))
 	
 def remind(event, bot):

@@ -71,7 +71,7 @@ class Timers:
 	#run the desired function in a thread but manage the timer in the reactor
 	@classmethod
 	def runTimer(cls, timerobj):
-		print "Calling f: %s" % timerobj.f
+		#print "Calling f: %s" % timerobj.f
 		reactor.callInThread(timerobj.f, **timerobj.kwargs)
 		if timerobj.reps > 0:
 			timerobj.reps -= 1

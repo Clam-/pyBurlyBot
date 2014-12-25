@@ -247,4 +247,4 @@ def init(bot):
 	return True
 
 mappings = (Mapping(types=["privmsged"], function=deliver_tell),
-	Mapping(command="tell", function=tell), Mapping(command="remind", function=remind),)
+	Mapping(command=("tell", "ask"), function=tell), Mapping(command="remind", function=remind),)

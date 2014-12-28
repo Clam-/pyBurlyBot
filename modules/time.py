@@ -52,4 +52,4 @@ def init(bot):
 	USERS_MODULE = bot.getModule("users")
 	return True
 	
-mappings = (Mapping(command="time", function=ttime),)
+mappings = (Mapping(command=("time","t"), function=ttime),)

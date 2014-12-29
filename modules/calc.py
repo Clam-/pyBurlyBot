@@ -22,52 +22,45 @@ def calc(event, bot):
 		("includepodid", "Input"), ("includepodid", "Result"), ("format", "plaintext"))
 	# TODO: use "units" param in conjunction with calling user's location.
 	
-	try:
-		f = urlopen(URL % (urlencode(s)))
-		if f.getcode() == 200:
-			# http://effbot.org/zone/element-iterparse.htm
-			# get an iterable
-			context = iterparse(f, events=("start", "end"))
-			# get the root element
-			ievent, root = context.next()
-			
-			input = None
-			result = None
-			error = ""
-			pod = None
-			for ievent, elem in context:
-				if ievent == "start" and elem.tag == "pod":
-					pod = elem.attrib["id"]
-				elif ievent == "end" and elem.tag == "msg": #assuming msg is only used for error, pls
-					error += elem.text
-					elem.clear()
-				elif ievent == "end" and elem.tag == "plaintext":
-					if pod == "Result":
-						result = elem.text
-					elif pod == "Input":
-						input = elem.text
-					elem.clear()
-				elif ievent == "end":
-					pass
-					elem.clear()
-			root.clear()
-			
-			msg = "%s: " % event.nick
-			if input:
-				msg += "(%s) " % input
-			if result:
-				msg += "\x02%s\x02" % result
-			if error:
-				msg += " (Error: %s)" % error
-			bot.say(msg)
-		else:
-			bot.say("Dunno.")
-	except HTTPError, e:
-		bot.say("Request error: %s" % e)
-		raise
-	except Exception, e: 
-		bot.say("Error: %s" % (format_exc(2).replace("\n", ". ")))
-		raise
+	f = urlopen(URL % (urlencode(s)))
+	if f.getcode() == 200:
+		# http://effbot.org/zone/element-iterparse.htm
+		# get an iterable
+		context = iterparse(f, events=("start", "end"))
+		# get the root element
+		ievent, root = context.next()
+		
+		input = None
+		result = None
+		error = ""
+		pod = None
+		for ievent, elem in context:
+			if ievent == "start" and elem.tag == "pod":
+				pod = elem.attrib["id"]
+			elif ievent == "end" and elem.tag == "msg": #assuming msg is only used for error, pls
+				error += elem.text
+				elem.clear()
+			elif ievent == "end" and elem.tag == "plaintext":
+				if pod == "Result":
+					result = elem.text
+				elif pod == "Input":
+					input = elem.text
+				elem.clear()
+			elif ievent == "end":
+				pass
+				elem.clear()
+		root.clear()
+		
+		msg = "%s: " % event.nick
+		if input:
+			msg += "(%s) " % input
+		if result:
+			msg += "\x02%s\x02" % result
+		if error:
+			msg += " (Error: %s)" % error
+		bot.say(msg)
+	else:
+		bot.say("Dunno.")
 
 def init(bot):
 	global API_KEY # oh nooooooooooooooooo

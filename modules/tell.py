@@ -81,7 +81,7 @@ def deliver_tell(event, bot):
 		user = USERS_MODULE.ALIAS_MODULE.lookup_alias(bot.dbQuery, event.nick)
 	if not user: user = event.nick
 	toldtime = int(timegm(gmtime()))
-	tells = bot.dbQuery('''SELECT id,source,telltime,remind,msg FROM tell WHERE user=? AND delivered=0 AND telltime<? ORDER BY telltime;''', 
+	tells = bot.dbQuery('''SELECT id,source,telltime,origintime,remind,msg FROM tell WHERE user=? AND delivered=0 AND telltime<? ORDER BY telltime;''', 
 		(user,toldtime))
 	if tells:
 		collate = False
@@ -93,12 +93,12 @@ def deliver_tell(event, bot):
 			if tell['remind']:
 				source = tell['source']
 				if source:
-					data = [event.nick, source, tell['msg'], distance_of_time_in_words(tell['telltime'], toldtime), 
-						distance_of_time_in_words(tell['telltime'], suffix="late")]
+					data = [event.nick, source, tell['msg'], distance_of_time_in_words(tell['origintime'], toldtime), 
+						distance_of_time_in_words(tell['telltime'], toldtime, suffix="late")]
 					fmt = REMINDFORMAT
 				else:
-					data = [event.nick, tell['msg'], distance_of_time_in_words(tell['telltime'], toldtime), 
-						distance_of_time_in_words(tell['telltime'], suffix="late")]
+					data = [event.nick, tell['msg'], distance_of_time_in_words(tell['origintime'], toldtime), 
+						distance_of_time_in_words(tell['telltime'], toldtime, suffix="late")]
 					fmt = SELFREMINDFORMAT
 				if collate: lines.append(fmt.format(*data))
 				else: bot.say(fmt, strins=data, fcfs=True)
@@ -178,9 +178,10 @@ def remind(event, bot):
 		goomod = bot.getModule("googleapi")
 		timelocale = True
 	except ConfigException: pass
-		
+	
+	origintime = timegm(gmtime())
 	if locmod and goomod:
-		t = timegm(gmtime())
+		t = origintime
 		#borrowed from time.py
 		loc = locmod.getlocation(bot.dbQuery, origuser)
 		if not loc:
@@ -218,8 +219,8 @@ def remind(event, bot):
 	for user, target in users:
 		if user == origuser: source = None
 		else: source = event.nick
-		bot.dbQuery('''INSERT INTO tell(user, telltime, remind, source, msg) VALUES (?,?,?,?,?);''',
-			(user, int(ntime), 1, source, msg))
+		bot.dbQuery('''INSERT INTO tell(user, telltime, origintime, remind, source, msg) VALUES (?,?,?,?,?,?);''',
+			(user, int(ntime), int(origintime), 1, source, msg))
 		if not source: targets.append("you")
 		else: targets.append(target)
 	bot.say(RPLREMINDFORMAT % (event.nick, englishlist(targets), distance_of_time_in_words(ntime, t), 
@@ -237,6 +238,7 @@ def init(bot):
 			delivered INTEGER DEFAULT 0,
 			user TEXT COLLATE NOCASE,
 			telltime INTEGER,
+			origintime INTEGER,
 			toldtime INTEGER,
 			remind INTEGER DEFAULT 0,
 			source TEXT,

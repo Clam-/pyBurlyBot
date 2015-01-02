@@ -74,7 +74,7 @@ def weather(event, bot):
 	if obs['wind_kph'] == 0:
 		wind = "Calm wind."
 	else:
-		wind = "Wind from the %s at %s/%s (Gusts of %s/%s.)" % (obs['wind_dir'], obs['wind_mph'], obs['wind_kph'],
+		wind = "Wind from the %s at %s/%s (Gusts of %s/%s MPH/KPH.)" % (obs['wind_dir'], obs['wind_mph'], obs['wind_kph'],
 			obs['wind_gust_mph'], obs['wind_gust_kph'])
 	
 	if obs['windchill_string'] != "NA":

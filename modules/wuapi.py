@@ -42,12 +42,11 @@ def get_weather(lat, lon):
 	""" helper to ask WU for current weather."""
 	if not API_KEY:
 		raise ConfigException("Require API_KEY for wuapi. Reload after setting.")
-	f = urlopen(URL % (API_KEY, "conditions", lat, lon))
+	f = urlopen(URL % (API_KEY, "conditions/forecast", lat, lon))
 	weather_data = load(f)
 	if f.getcode() == 200:
 		if "current_observation" in weather_data:
-			obs = weather_data["current_observation"]
-			return obs #TODO: Griff to complete
+			return weather_data
 		else:
 			return None
 	else:

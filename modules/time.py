@@ -16,17 +16,22 @@ USERS_MODULE = None
 def ttime(event, bot):
 	# lookup location offset
 	# apply to : timegm(gmtime())
+	# TODO: SHARED CODE between time.py and weather.py
 	target = event.argument
 	user = None
+	isself = False
 	if target: 
 		user = USERS_MODULE.get_username(bot, target, event.nick)
+		if user == USERS_MODULE.get_username(bot, event.nick): isself = True
 	else:
 		user = USERS_MODULE.get_username(bot, event.nick)
 		target = user
 	if user:
 		#get location
 		loc = LOC_MODULE.getlocation(bot.dbQuery, user)
-		if not loc: return bot.say("Location not known for (%s), try using location" % target)
+		if not loc: 
+			if isself: return bot.say("Your location isn't known. Try using location." % target)
+			else: return bot.say("Location not known for (%s). Try getting them to set it." % target)
 	else:
 		# lookup location
 		loc = LOC_MODULE.lookup_location(target)

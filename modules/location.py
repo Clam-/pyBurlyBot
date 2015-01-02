@@ -14,6 +14,28 @@ def getlocation(qfunc, user):
 	if row: return (row['name'], row['lat'], row['lon'])
 	else: return None
 
+def getLocationWithError(bot, arg, nick):
+	target = arg
+	user = None
+	isself = False
+	if target: 
+		user = USERS_MODULE.get_username(bot, target, nick)
+		if user == USERS_MODULE.get_username(bot, nick): isself = True
+	else:
+		user = USERS_MODULE.get_username(bot, nick)
+		target = user
+	if user:
+		#get location
+		loc = getlocation(bot.dbQuery, user)
+		if not loc: 
+			if isself: return bot.say("Your location isn't known. Try using location." % target)
+			else: return bot.say("Location not known for (%s). Try getting them to set it." % target)
+	else:
+		# lookup location
+		loc = lookup_location(target)
+		if not loc: return bot.say("I don't know where (%s) is." % target)
+	return loc
+
 def lookup_location(query):
 	return GAPI_MODULE.google_geocode(query)
 	

@@ -8,20 +8,22 @@ from json import load
 from traceback import format_exc
 from re import compile as recompile
 
-REQUIRES = ("location", "wuapi", "users")
+REQUIRES = ("location", "wuapi")
 WUAPI_MODULE = None
 LOC_MODULE = None
-USERS_MODULE = None
 
 # Weather for Lansing, MI: 32.2F (0.1C), Wind Chill of 25F (-4C), Partly Cloudy, Humidity 67%, Wind from the East at 8.0mph (12.9km/h) 
 #gusting to 14.0mph (22.5km/h), Low/High 38F/41F (3C/5C).  Flurries or snow showers possible early. A mix of clouds and sun. 
 #High 41F. Winds S at 10 to 20 mph.
-
 WEATHER_RPL = "Weather for %s, %s, %s: \x02%sF\x02 (\x02%sC\x02), Low/High \x02%sF\x02/\x02%sF\x02 (\x02%sC\x02/\x02%sC\x02), %s, Humidity %s, %s %s"
 WEATHER_RPL_WC = "Weather for %s, %s, %s: \x02%sF\x02 (\x02%sC\x02), Wind Chill of \x02%sF\x02 (\x02%sC\x02), Low/High \x02%sF\x02/\x02%sF\x02 (\x02%sC\x02/\x02%sC\x02), %s, Humidity %s, %s %s"
 GHETTOWIND_REGEX = recompile(r'Winds [NSEW]{1,3} at (\d+) to (\d+) (km/h)\.')
 GHETTOTEMP_REGEX = recompile(r'\. (?:High|Low) (?:near )?(?:-)?\d+C\.')
 
+# Forecast for Ann Arbor, MI: Today - Chance of Showers 54F/77F (12C/25C), Wed - Clear 55F/81F (13C/27C), Thu - Mostly Sunny 57F/84F (14C/29C), Fri - Mostly Sunny 63F/88F (17C/31C)
+FORECAST_RPL = "Forecast for %s, %s, %s: %s"
+# Today - Chance of Showers 54F/77F (12C/25C) PoP: %s Hum: %s
+FORECAST_DAY = "%s - %s \x02%sF\x02/\x02%sF\x02 (\x02%sC\x02/\x02%sC\x02) PoP: \x02%s%%\x02 Hum: \x02%s%%\x02"
 def _formatWind(matchobj):
 	mpos = matchobj.regs
 	orig = matchobj.string
@@ -40,26 +42,8 @@ def _formatWind(matchobj):
 def weather(event, bot):
 	""" weather [user/location]. If user/location is not provided, weather is displayed for the requesting nick.
 	Otherwise the weather for the requested user/location is displayed."""
-	# TODO: SHARED CODE between time.py and weather.py
-	target = event.argument
-	user = None
-	isself = False
-	if target: 
-		user = USERS_MODULE.get_username(bot, target, event.nick)
-		if user == USERS_MODULE.get_username(bot, event.nick): isself = True
-	else:
-		user = USERS_MODULE.get_username(bot, event.nick)
-		target = user
-	if user:
-		#get location
-		loc = LOC_MODULE.getlocation(bot.dbQuery, user)
-		if not loc: 
-			if isself: return bot.say("Your location isn't known. Try using location." % target)
-			else: return bot.say("Location not known for (%s). Try getting them to set it." % target)
-	else:
-		# lookup location
-		loc = LOC_MODULE.lookup_location(target)
-		if not loc: return bot.say("I don't know where (%s) is." % target)
+	loc = LOC_MODULE.getLocationWithError(bot, event.argument, event.nick)
+	if not loc: return
 	name, lat, lon = loc
 	weather = WUAPI_MODULE.get_weather(lat, lon)
 	obs = weather['current_observation']
@@ -81,43 +65,42 @@ def weather(event, bot):
 			fore['low']['fahrenheit'], fore['high']['fahrenheit'], fore['low']['celsius'], fore['high']['celsius'], 
 			obs['weather'], obs['relative_humidity'], wind, outlook))
 	else:
-		return bot.say(WEATHER_RPL_WC % (loc['city'], loc['state'], loc['country_iso3166'], obs['temp_f'], obs['temp_c'],
+		return bot.say(WEATHER_RPL_WC % (loc['city'], loc['state'], loc['country_iso3166'], obs['temp_f'], obs['temp_c'], obs['windchill_f'], obs['windchill_c'],
 			fore['low']['fahrenheit'], fore['high']['fahrenheit'], fore['low']['celsius'], fore['high']['celsius'],
-			obs['windchill_f'], obs['windchill_c'], obs['weather'], obs['relative_humidity'], wind, outlook))
+			obs['weather'], obs['relative_humidity'], wind, outlook))
 	
 def forecast(event, bot):
 	""" forecast [user/location]. If user/location is not provided, weather forecast information is displayed for the requesting nick.
 	Otherwise the weather forecast for the requested user/location is displayed."""
-	#copy paste from time.py
-	target = event.argument
-	user = None
-	if target: 
-		user = USERS_MODULE.get_username(bot, target, event.nick)
-	else:
-		user = USERS_MODULE.get_username(bot, event.nick)
-		target = user
-	if user:
-		#get location
-		loc = LOC_MODULE.getlocation(bot.dbQuery, user)
-		if not loc: return bot.say("Location not known for (%s), try using location" % target)
-	else:
-		# lookup location
-		loc = LOC_MODULE.lookup_location(target)
-		if not loc: return bot.say("I don't know where (%s) is." % target)
+	loc = LOC_MODULE.getLocationWithError(bot, event.argument, event.nick)
+	if not loc: return
 	name, lat, lon = loc
 	
-	forecast = WUAPI_MODULE.get_forecast(lat, lon)
-	return bot.say("Tell Griff to fix me. Forecast: %s" % forecast)
+	weather = WUAPI_MODULE.get_weather(lat, lon)
+	loc = weather['current_observation']["display_location"]
+	days = []
+	today = True
+	# Today - Chance of Showers 54F/77F (12C/25C) PoP: %s Hum: %s
+	for data in weather['forecast']['simpleforecast']['forecastday']:
+		if today:
+			day = "Today"
+		else:
+			day = data['date']['weekday']
+			
+		days.append(FORECAST_DAY % (day, data['conditions'], data['low']['fahrenheit'], data['high']['fahrenheit'],
+			data['low']['celsius'], data['high']['celsius'], data['pop'], data['avehumidity']))
+		
+		today = False
+	
+	return bot.say(FORECAST_RPL % (loc['city'], loc['state'], loc['country_iso3166'], ", ".join(days)))
 
 def init(bot):
 	global WUAPI_MODULE # oh nooooooooooooooooo
 	global LOC_MODULE # oh nooooooooooooooooo
-	global USERS_MODULE # oh nooooooooooooooooo
 	
 	WUAPI_MODULE = bot.getModule("wuapi")
 	LOC_MODULE = bot.getModule("location")
-	USERS_MODULE = bot.getModule("users")
 	return True
 
 #mappings to methods
-mappings = (Mapping(command=("weather"), function=weather),)
+mappings = (Mapping(command="weather", function=weather), Mapping(command="forecast", function=forecast),)

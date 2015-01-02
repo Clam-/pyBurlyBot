@@ -39,7 +39,7 @@ def lookup_location(query):
 		raise RuntimeError("Error (%s): %s" % (f.getcode(), locdata.replace("\n", " ")))
 
 def get_weather(lat, lon):
-	""" helper to ask WU for current weather."""
+	""" helper to ask WU for current weather. Includes forecast also!"""
 	if not API_KEY:
 		raise ConfigException("Require API_KEY for wuapi. Reload after setting.")
 	f = urlopen(URL % (API_KEY, "conditions/forecast", lat, lon))
@@ -52,7 +52,8 @@ def get_weather(lat, lon):
 	else:
 		raise RuntimeError("Error (%s): %s" % (f.getcode(), weather_data.replace("\n", " ")))
 	
-def get_forecast(stuff):
+# Not used for weather because doesn't contain "display_location"
+def get_forecast(lat, lon):
 	""" helper to ask WU for forecasted weather."""
 	if not API_KEY:
 		raise ConfigException("Require API_KEY for wuapi. Reload after setting.")
@@ -61,7 +62,7 @@ def get_forecast(stuff):
 	if f.getcode() == 200:
 		if "forecast" in weather_data:
 			forecast = weather_data["forecast"]
-			return forecast #TODO: Griff to complete
+			return forecast
 		else:
 			return None
 	else:

@@ -18,9 +18,9 @@ USERS_MODULE = None
 #High 41F. Winds S at 10 to 20 mph.
 
 WEATHER_RPL = "Weather for %s, %s, %s: \x02%sF\x02 (\x02%sC\x02), Low/High \x02%sF\x02/\x02%sF\x02 (\x02%sC\x02/\x02%sC\x02), %s, Humidity %s, %s %s"
-WEATHER_RPL_WC = "Weather for %s, %s, %s: %s Low/High %s, Wind Chill of %s, Humidity %s, %s %s"
-GHETTOWIND_REGEX = recompile(r'Winds [NSEW]{1,3} at (\d+) to (\d+) (mph)\.')
-GHETTOTEMP_REGEX = recompile(r'\. (?:High|Low) (?:near )?(?:-)?\d+\. ')
+WEATHER_RPL_WC = "Weather for %s, %s, %s: \x02%sF\x02 (\x02%sC\x02), Wind Chill of \x02%sF\x02 (\x02%sC\x02), Low/High \x02%sF\x02/\x02%sF\x02 (\x02%sC\x02/\x02%sC\x02), %s, Humidity %s, %s %s"
+GHETTOWIND_REGEX = recompile(r'Winds [NSEW]{1,3} at (\d+) to (\d+) (km/h)\.')
+GHETTOTEMP_REGEX = recompile(r'\. (?:High|Low) (?:near )?(?:-)?\d+C\.')
 
 def _formatWind(matchobj):
 	mpos = matchobj.regs
@@ -64,27 +64,26 @@ def weather(event, bot):
 	weather = WUAPI_MODULE.get_weather(lat, lon)
 	obs = weather['current_observation']
 	fore = weather['forecast']
-
-	outlook = GHETTOWIND_REGEX.sub(_formatWind, fore['txt_forecast']['forecastday'][0]['fcttext'])
+	outlook = GHETTOWIND_REGEX.sub(_formatWind, fore['txt_forecast']['forecastday'][0]['fcttext_metric'])
 	# replace . High 14F. with nothing.
-	outlook = GHETTOTEMP_REGEX.sub("\. ", outlook)
+	outlook = GHETTOTEMP_REGEX.sub(".", outlook)
 	fore = fore['simpleforecast']['forecastday'][0]
 	loc = obs["display_location"]
 	# build wind
 	if obs['wind_kph'] == 0:
 		wind = "Calm wind."
 	else:
-		wind = "Wind from the %s at %s/%s (Gusts of %s/%s MPH/KPH.)" % (obs['wind_dir'], obs['wind_mph'], obs['wind_kph'],
+		wind = "Wind from the %s at %s/%s (Gusts of %s/%s) MPH/KPH." % (obs['wind_dir'], obs['wind_mph'], obs['wind_kph'],
 			obs['wind_gust_mph'], obs['wind_gust_kph'])
 	
-	if obs['windchill_string'] != "NA":
+	if obs['windchill_string'] == "NA":
 		return bot.say(WEATHER_RPL % (loc['city'], loc['state'], loc['country_iso3166'], obs['temp_f'], obs['temp_c'],
 			fore['low']['fahrenheit'], fore['high']['fahrenheit'], fore['low']['celsius'], fore['high']['celsius'], 
 			obs['weather'], obs['relative_humidity'], wind, outlook))
 	else:
-		return bot.say(WEATHER_RPL_WC % (loc['city'], loc['state'], loc['country_iso3166'], obs['temperature_string'], 
+		return bot.say(WEATHER_RPL_WC % (loc['city'], loc['state'], loc['country_iso3166'], obs['temp_f'], obs['temp_c'],
 			fore['low']['fahrenheit'], fore['high']['fahrenheit'], fore['low']['celsius'], fore['high']['celsius'],
-			obs['windchill_string'], obs['weather'], obs['relative_humidity'], wind, outlook))
+			obs['windchill_f'], obs['windchill_c'], obs['weather'], obs['relative_humidity'], wind, outlook))
 	
 def forecast(event, bot):
 	""" forecast [user/location]. If user/location is not provided, weather forecast information is displayed for the requesting nick.

@@ -4,11 +4,13 @@
 # because of this I don't think it can be used for generic mediawikis?
 
 from wikipedia import search, page
+from wikipedia.exceptions import DisambiguationError
 from util import functionHelp, Mapping
 
-# Title - body <URL>
-RESULT_RPL = u"{0} - {1} <%s>"
-RESULT_RPL_SP = u"(SP: %s?) {0} - {1} <%s>"
+from random import choice
+
+# Random disambiguous page: (SP: ?) Title - body <URL>
+RESULT_RPL = u"%s{0} - {1} <%s>"
 
 def wiki(event, bot):
 	""" wiki \x02searchterm\x02. Will search Wikipedia for \x02searchterm\x02. """
@@ -18,12 +20,24 @@ def wiki(event, bot):
 		if result[1]: return bot.say("No results found. Did you mean \x02%s\x02?" % result[1])
 		else: return bot.say("No results found.")
 	
-	p = page(result[0]) # use preload=True  when it's fixed: https://github.com/goldsmith/Wikipedia/issues/78
-	content = p.content[:800].replace("\n", " ").replace("====", "").replace("===", "").replace("==", "")
+	errors = []
+	attempt = 0
+	p = None
+	try:
+		p = page(result[0]) # use preload=True  when it's fixed: https://github.com/goldsmith/Wikipedia/issues/78
+	except DisambiguationError as e:
+		errors.append("Random disambig page: ")
+		while attempt < 3:
+			try: p = page(choice(e.options))
+			except DisambiguationError: pass
+			attempt += 1
+	if not p: return bot.say("Gave up looking for disambiguous entry from disambiguous page.")
+	
 	if result[1]:
-		bot.say(RESULT_RPL_SP % (result[1], p.url), strins=[p.title, content], fcfs=True)
-	else:
-		bot.say(RESULT_RPL % p.url, strins=[p.title, content], fcfs=True)
+		error.append("(SP: %s?) " % result[1])
+	content = p.content[:800].replace("\n", " ").replace("====", "").replace("===", "").replace("==", "")
+	
+	bot.say(RESULT_RPL % ("".join(errors), p.url), strins=[p.title, content], fcfs=True)
 	
 
 mappings = (Mapping(command=("wiki", "w", "wikipedia"), function=wiki),)

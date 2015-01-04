@@ -321,7 +321,8 @@ commandlength = {
 # Will return a list of (stringsegment, length of encoding) tuples.
 def splitEncodedUnicode(s, length, encoding="utf-8", n=1):
 	if length < 1: return [("", 0)]
-	le = len(s.encode(encoding))
+	es = s.encode(encoding)
+	le = len(es)
 	if le <= length:
 		return [(s, le)]
 	else:
@@ -329,7 +330,6 @@ def splitEncodedUnicode(s, length, encoding="utf-8", n=1):
 		ib = 0 # start of segment
 		# UTF-8 makes this somewhat easy
 		if lookup(encoding).name == "utf-8":
-			es = s.encode("utf-8")
 			while ib < le and len(splits) < n:
 				ie = ib+length # end of segment
 				if ie >= le: 
@@ -337,17 +337,20 @@ def splitEncodedUnicode(s, length, encoding="utf-8", n=1):
 					break
 				c = es[ie]
 				#check for unicode character start byte, and backtrack if not found
-				while (0b10000000 & ord(c) != 0) and (0b11000000 & ord(c) != 0b11000000):
+				while (0b10000000 & ord(c) != 0) and (0b11000000 & ord(c) != 0b11000000) and ie > 0:
 					ie -= 1
 					c = es[ie]
 				splits.append(es[ib:ie])
 				if ib == ie: 
 					# in rare case that a character can't fit, skip it.
 					ie += 1
-					c = es[ie]
-					while (0b10000000 & ord(c) != 0) and (0b11000000 & ord(c) != 0b11000000):
-						ie += 1
+					try:
 						c = es[ie]
+						while (0b10000000 & ord(c) != 0) and (0b11000000 & ord(c) != 0b11000000):
+							ie += 1
+							c = es[ie]
+					except IndexError: 
+						break # break if end of encoded string is reached.
 				ib = ie
 			splits = [(s.decode("utf-8"), len(s)) for s in splits] #TODO: this double conversion seems kind of wasteful
 			# it might be faster to calc all the endchar points first and then translate back.

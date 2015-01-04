@@ -541,7 +541,11 @@ class BurlyBot(IRCClient):
 		if self.dispatcher.MSGHOOKS and not direct:
 			self.dispatch(self, "sendmsg", target=target, msg=msg, strins=None, fcfs=fcfs)
 		else:
-			self.sendLine(self._buildmsg(target, msg, split, strins, fcfs))
+			if split:
+				for m in self._buildmsg(target, msg, split, strins, fcfs):
+					self.sendLine(m)
+			else:
+				self.sendLine(self._buildmsg(target, msg, split, strins, fcfs))
 	
 	# will return true if sendmsg can proceed without truncation, false otherwise.
 	# will provide incorrect results if any sendmsg hooks change lengths of messages
@@ -552,14 +556,20 @@ class BurlyBot(IRCClient):
 		return len(self._buildmsg(target, msg, check=True).encode(self.settings.encoding)) <= self.calcAvailableMsgLength("")
 		
 	def _buildmsg(self, target, message, split=False, strins=None, fcfs=False, check=False):
+		if not isinstance(message, basestring): message = str(message)
 		if strins:
-			message = self.assembleMsgWLen('PRIVMSG %s :%s' % (target, message), strins, fcfs)
-			return message
+			if split:
+				return (self.assembleMsgWLen('PRIVMSG %s :%s' % (target, msg), strins, fcfs) for msg in message.split("\n"))
+			else:
+				return self.assembleMsgWLen('PRIVMSG %s :%s' % (target, message), strins, fcfs)
 		else:
 			fmt = 'PRIVMSG %s :%%s' % (target,)
 			if split:
-				return (fmt % msg[0] for msg in 
-					splitEncodedUnicode(message, self.calcAvailableMsgLength(fmt % ""), encoding=self.settings.encoding, n=4))
+				msgs = []
+				for msg in message.split("\n"):
+					for m in splitEncodedUnicode(message, self.calcAvailableMsgLength(fmt % ""), encoding=self.settings.encoding, n=4):
+						msgs.append(fmt % m[0])
+				return msgs[:4]
 			else:
 				if check:
 					# blindly truncate message useful for checkSendMsg
@@ -571,15 +581,26 @@ class BurlyBot(IRCClient):
 	# helper method to automatically truncate string to be replaced
 	# TODO: need decide on string format method, either "%s" % x or "{0}".format(x)
 	#	For now we are using {0} to make sure no bads with URLencoded URLs
-	# TODO: this must accept either string or LIST for strins so that strins can be modified.
+	# TODO: this must accept either string or LIST for strins so that strins can be modified (when doing fcfs.)
+	# NOTE: Calculation will be off if NL/CR or any of the "lowQuote" characters are in s or strins.
+	# 		You should make sure your data doesn't contain any of those characters (NL/CR/020/NUL)
 	def assembleMsgWLen(self, s, strins, fcfs):
 		if isinstance(strins, basestring):
-			return s.format(splitEncodedUnicode(strins, self.calcAvailableMsgLength(s)-2, encoding=self.settings.encoding)[0][0])
-		if fcfs:
-			# total space available for message
-			avail = self.calcAvailableMsgLength(s)
-			if isIterable(strins):
-				l = len(strins)-1
+			sl = self.calcAvailableMsgLength(s.format(""))
+			if sl <= 0: # case where template string is already too big
+				return splitEncodedUnicode(s, len(s)+sl, encoding=self.settings.encoding)[0][0]
+			return s.format(splitEncodedUnicode(strins, sl, encoding=self.settings.encoding)[0][0])
+		
+		ls = len(strins)
+		if isIterable(strins):
+			avail = self.calcAvailableMsgLength(s.format(*[""]*ls)) # format with empty strins to calc max avail
+			if avail < 0: # case where template string is already too big
+				s = s.format(*[""]*ls)
+				return splitEncodedUnicode(s, len(s)+avail, encoding=self.settings.encoding)[0][0]
+			if fcfs:
+				# first come first served
+				if not isinstance(strins, list): 
+					raise ValueError("Require list/tuple, dict, or string for strins.")
 				for i, rep in enumerate(strins):
 					# get trimmed replacement and the length of that trimmed replacement
 					rep, lrep = splitEncodedUnicode(rep, avail, encoding=self.settings.encoding)[0]
@@ -588,39 +609,45 @@ class BurlyBot(IRCClient):
 					# track remaining message space left
 					avail -= lrep
 				return s.format(*strins)
-			elif isinstance(strins, dict):
+			else:
+				# round 2, even divide
+				if isIterable(strins):
+					segmentlength = int(floor((avail-(ls*2)) / ls))
+					if isinstance(strins, tuple):
+						strins = list(strins)
+					for i, sr in enumerate(strins):
+						strins[i] = splitEncodedUnicode(sr, segmentlength, encoding=self.settings.encoding)[0][0]
+					return s.format(*strins)
+			
+		elif isinstance(strins, dict):
+			# total space available for message
+			avail = self.calcAvailableMsgLength(s.format(**dict(((key, "") for key in strins.keys())))) # format with empty strins to calc max avail
+			if avail < 0: # case where template string is already too big
+				s = s.format(**dict(((key, "") for key in strins.keys())))
+				return splitEncodedUnicode(s, len(s)+avail, encoding=self.settings.encoding)[0][0]
+			if fcfs:
+				# first come first served (NOTE: This doesn't make much sense for an unordered thing like a dictionary)
+				# hopefully we are passed an ordered dictionary or something that extends from dict.
 				for key, rep in strins.iteritems():
 					rep, lrep = splitEncodedUnicode(rep, avail, encoding=self.settings.encoding)[0]
-					d[key] = rep
+					strins[key] = rep
 					avail -= lrep
 				return s.format(**strins)
 			else:
-				raise ValueError("Require list/tuple, dict, or string for strins.")
-		else:
-			# round 2, even divide
-			l = len(strins)
-			if isIterable(strins):
-				segmentlength = int(floor((self.calcAvailableMsgLength(s)-(l*2)) / l))
-				if isinstance(strins, tuple):
-					strins = list(strins)
-				for i, sr in enumerate(strins):
-					strins[i] = splitEncodedUnicode(sr, segmentlength, encoding=self.settings.encoding)[0][0]
-				return s.format(*strins)
-				
-			elif isinstance(strins, dict):
-				db = defaultdict(lambda: "")
-				segmentlength = int(floor((self.calcAvailableMsgLength(s % db) / l)))
+				# round 2, even divide
+				segmentlength = int(floor((avail / ls)))
 				for key, value in strins.iteritems():
 					strins[key] = splitEncodedUnicode(value, segmentlength, encoding=self.settings.encoding)[0][0]
-				return s.format(*strins)
-			else:
-				raise ValueError("Require list/tuple, dict, or string for strins.")
+				return s.format(**strins)
+		else:
+			raise ValueError("Require list/tuple, dict, or string for strins.")
 	
 	def calcAvailableMsgLength(self, command):
 		if self.prefixlen:
-			return 508 - self.prefixlen - len(command.encode(self.settings.encoding)) # 510 = line terminator 508 = some breathing room
+			# 510 = line terminator 508 = something else I'm not knowing about
+			return 508 - self.prefixlen - len(lowQuote(command.encode(self.settings.encoding)))
 		else:
-			return self._safeMaximumLineLength(command.encode(self.settings.encoding)) - 2 #line terminator
+			return self._safeMaximumLineLength(lowQuote(command.encode(self.settings.encoding))) - 2 #line terminator
 
 	###
 	### Connection management methods

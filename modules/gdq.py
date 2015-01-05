@@ -29,11 +29,10 @@ def agdq(event, bot):
 		# find current
 		found = False
 		for gdata in data:
-			if gdata[1] == game:
-				found = True
 			if found:
 				upcoming.append("\x02%s\x02 by %s" % (gdata[1], gdata[2]))
-				
+			elif gdata[1] == game:
+				found = True
 	if not upcoming: upcoming = ["Don't know"]
 	bot.say(RPL % (game, "http://www.twitch.tv/gamesdonequick/popout", "https://gamesdonequick.com/schedule"), 
 		strins=", ".join(upcoming))

@@ -38,7 +38,7 @@ def agdq(event, bot):
 			ngame = game.replace(":", "")
 			for gdata in data:
 				if found:
-					upcoming.append("\x02%s\x02 by %s" % (gdata[1], gdata[2]))
+					upcoming.append("\x02%s\x02 by %s (%s)" % (gdata[1], gdata[2], gdata[4].lstrip("0:")[:-3]))
 				elif gdata[1] == ngame:
 					found = True
 	if not upcoming: upcoming = ["Don't know"]

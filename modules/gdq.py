@@ -7,7 +7,7 @@ from json import load
 
 GDQ_URL = "https://gamesdonequick.com/schedule"
 TWITCH_API_URL = "https://api.twitch.tv/kraken/channels/gamesdonequick"
-RPL = "Current: \x02%s\x02 Upcoming: {0} | %s %s"
+RPL = "Current: \x02%s\x02 Upcoming: {0} \x0f| %s %s"
 
 def agdq(event, bot):
 	upcoming = []
@@ -33,6 +33,14 @@ def agdq(event, bot):
 				upcoming.append("\x02%s\x02 by %s" % (gdata[1], gdata[2]))
 			elif gdata[1] == game:
 				found = True
+		# try searching for incorrect name in timetable:
+		if not found:
+			ngame = game.replace(":", "")
+			for gdata in data:
+				if found:
+					upcoming.append("\x02%s\x02 by %s" % (gdata[1], gdata[2]))
+				elif gdata[1] == ngame:
+					found = True
 	if not upcoming: upcoming = ["Don't know"]
 	bot.say(RPL % (game, "http://www.twitch.tv/gamesdonequick/popout", "https://gamesdonequick.com/schedule"), 
 		strins=", ".join(upcoming))

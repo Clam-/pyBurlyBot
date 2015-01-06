@@ -17,6 +17,7 @@ def agdq(event, bot):
 	game = "Don't know"
 	if f.getcode() == 200:
 		game = load(f)['game']
+		ngame = game.lower()
 		o = build_opener()
 		o.addheaders = [('User-agent', 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36')]
 		f = o.open(GDQ_URL)
@@ -31,15 +32,15 @@ def agdq(event, bot):
 		for gdata in data:
 			if found:
 				upcoming.append("\x02%s\x02 by %s (%s)" % (gdata[1], gdata[2], gdata[4].lstrip("0:")[:-3]))
-			elif gdata[1] == game:
+			elif gdata[1].lower() == ngame:
 				found = True
 		# try searching for incorrect name in timetable:
 		if not found:
-			ngame = game.replace(":", "")
+			ngame = ngame.replace(":", "")
 			for gdata in data:
 				if found:
 					upcoming.append("\x02%s\x02 by %s (%s)" % (gdata[1], gdata[2], gdata[4].lstrip("0:")[:-3]))
-				elif gdata[1] == ngame:
+				elif gdata[1].lower() == ngame:
 					found = True
 	if not upcoming: upcoming = ["Don't know"]
 	bot.say(RPL % (game, "http://www.twitch.tv/gamesdonequick/popout", "https://gamesdonequick.com/schedule"), 

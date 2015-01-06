@@ -7,7 +7,7 @@ from json import load
 
 GDQ_URL = "https://gamesdonequick.com/schedule"
 TWITCH_API_URL = "https://api.twitch.tv/kraken/channels/gamesdonequick"
-RPL = "Current: \x02%s\x02 Upcoming: {0} \x0f| %s %s"
+RPL = "Current: \x02%s\x02 (%s) Upcoming: {0} \x0f| %s %s"
 
 def agdq(event, bot):
 	upcoming = []
@@ -15,6 +15,7 @@ def agdq(event, bot):
 	o.addheaders = [('Accept', 'application/vnd.twitchtv.v2+json')]
 	f = o.open(TWITCH_API_URL)
 	game = "Don't know"
+	eta = "?"
 	if f.getcode() == 200:
 		game = load(f)['game']
 		ngame = game.lower()
@@ -34,6 +35,7 @@ def agdq(event, bot):
 				upcoming.append("\x02%s\x02 by %s (%s)" % (gdata[1], gdata[2], gdata[4].lstrip("0:")[:-3]))
 			elif gdata[1].lower() == ngame:
 				found = True
+				eta = gdata[4].lstrip("0:")[:-3]
 		# try searching for incorrect name in timetable:
 		if not found:
 			ngame = ngame.replace(":", "")
@@ -42,8 +44,9 @@ def agdq(event, bot):
 					upcoming.append("\x02%s\x02 by %s (%s)" % (gdata[1], gdata[2], gdata[4].lstrip("0:")[:-3]))
 				elif gdata[1].lower() == ngame:
 					found = True
+					eta = gdata[4].lstrip("0:")[:-3]
 	if not upcoming: upcoming = ["Don't know"]
-	bot.say(RPL % (game, "http://www.twitch.tv/gamesdonequick/popout", "https://gamesdonequick.com/schedule"), 
+	bot.say(RPL % (game, eta, "http://www.twitch.tv/gamesdonequick/popout", "https://gamesdonequick.com/schedule"), 
 		strins=", ".join(upcoming))
 
 mappings = (Mapping(command=("gdq", "agdq"), function=agdq),)

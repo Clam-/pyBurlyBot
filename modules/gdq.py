@@ -42,11 +42,20 @@ def agdq(event, bot):
 				eta = gdata[4]
 		# try searching for incorrect name in timetable:
 		if not found:
-			ngame = ngame.replace(":", "")
+			igame = ngame.replace(":", "")
 			for gdata in data:
 				if found:
 					upcoming.append("\x02%s\x02 by %s (%s)" % (gdata[1], gdata[2], gdata[4].lstrip("0:")[:-3]))
-				elif gdata[1].lower() == ngame:
+				elif gdata[1].lower() == igame:
+					found = True
+					eta = gdata[4]
+		# try searching for incorrect name in timetable take 3:
+		if not found:
+			igame = ngame.split(":")[0]
+			for gdata in data:
+				if found:
+					upcoming.append("\x02%s\x02 by %s (%s)" % (gdata[1], gdata[2], gdata[4].lstrip("0:")[:-3]))
+				elif gdata[1].lower() == igame:
 					found = True
 					eta = gdata[4]
 		if eta:

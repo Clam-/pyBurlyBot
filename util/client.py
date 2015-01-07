@@ -584,7 +584,7 @@ class BurlyBot(IRCClient):
 	# TODO: this must accept either string or LIST for strins so that strins can be modified (when doing fcfs.)
 	# NOTE: Calculation will be off if NL/CR or any of the "lowQuote" characters are in s or strins.
 	# 		You should make sure your data doesn't contain any of those characters (NL/CR/020/NUL)
-	def assembleMsgWLen(self, s, strins, fcfs):
+	def assembleMsgWLen(self, s, strins, fcfs, joinsep=None):
 		if isinstance(strins, basestring):
 			sl = self.calcAvailableMsgLength(s.format(""))
 			if sl <= 0: # case where template string is already too big

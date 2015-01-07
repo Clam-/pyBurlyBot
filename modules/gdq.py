@@ -17,7 +17,7 @@ def agdq(event, bot):
 	o.addheaders = [('Accept', 'application/vnd.twitchtv.v2+json')]
 	f = o.open(TWITCH_API_URL)
 	game = "Don't know"
-	eta = "?"
+	eta = None
 	if f.getcode() == 200:
 		data = load(f)
 		game = data['game']
@@ -54,6 +54,7 @@ def agdq(event, bot):
 			neta = timegm(strptime(eta, "%H:%M:%S")) - timegm(strptime("0:00:00", "%H:%M:%S"))
 			print neta, curr, gstart, curr-gstart
 			eta = "%s/%s" % (eta.lstrip("0:")[:-3], (neta - (curr-gstart))/60)
+		else: eta = "?"
 	if not upcoming: upcoming = ["Don't know"]
 	bot.say(RPL % (game, eta, "http://www.twitch.tv/gamesdonequick/popout", "https://gamesdonequick.com/schedule"), 
 		strins=", ".join(upcoming))

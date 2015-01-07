@@ -11,6 +11,19 @@ GDQ_URL = "https://gamesdonequick.com/schedule"
 TWITCH_API_URL = "https://api.twitch.tv/kraken/channels/gamesdonequick"
 RPL = "Current: \x02%s\x02 (%s) Upcoming: {0} \x0f| %s %s"
 
+def _searchGame(data, title):
+	# try searching for incorrect name in timetable take 3:
+	found = False
+	upcoming = []
+	eta = None
+	for gdata in data:
+		if found:
+			upcoming.append("\x02%s\x02 by %s (%s)" % (gdata[1], gdata[2], gdata[4].lstrip("0:")[:-3]))
+		elif gdata[1].lower() == title:
+			found = True
+			eta = gdata[4]
+	return upcoming, eta
+
 def agdq(event, bot):
 	upcoming = []
 	o = build_opener()
@@ -33,35 +46,19 @@ def agdq(event, bot):
 		for row in rows:
 			data.append([c.text for c in row.getchildren()])
 		# find current
-		found = False
-		for gdata in data:
-			if found:
-				upcoming.append("\x02%s\x02 by %s (%s)" % (gdata[1], gdata[2], gdata[4].lstrip("0:")[:-3]))
-			elif gdata[1].lower() == ngame:
-				found = True
-				eta = gdata[4]
-		# try searching for incorrect name in timetable:
-		if not found:
-			igame = ngame.replace(":", "")
-			for gdata in data:
-				if found:
-					upcoming.append("\x02%s\x02 by %s (%s)" % (gdata[1], gdata[2], gdata[4].lstrip("0:")[:-3]))
-				elif gdata[1].lower() == igame:
-					found = True
-					eta = gdata[4]
-		# try searching for incorrect name in timetable take 3:
-		if not found:
-			igame = ngame.split(":")[0]
-			for gdata in data:
-				if found:
-					upcoming.append("\x02%s\x02 by %s (%s)" % (gdata[1], gdata[2], gdata[4].lstrip("0:")[:-3]))
-				elif gdata[1].lower() == igame:
-					found = True
-					eta = gdata[4]
+		upcoming = None
+		
+		# try searching for incorrect name in timetable because bads...
+		for igametitle in (ngame, ngame.replace(":", ""), ngame.split(":")[0]):
+			upcoming, eta = _searchGame(data, igametitle)
+			if upcoming: break
+		else:
+			if ngame[:4] == "the ":
+				upcoming, eta = _searchGame(data, ngame[4:])
+		
 		if eta:
 			curr = timegm(gmtime())
 			neta = timegm(strptime(eta, "%H:%M:%S")) - timegm(strptime("0:00:00", "%H:%M:%S"))
-			print neta, curr, gstart, curr-gstart
 			eta = "%s/%s" % (eta.lstrip("0:")[:-3], (neta - (curr-gstart))/60)
 		else: eta = "?"
 	if not upcoming: upcoming = ["Don't know"]

@@ -49,7 +49,7 @@ def agdq(event, bot):
 		upcoming = None
 		
 		# try searching for incorrect name in timetable because bads...
-		for igametitle in (ngame, ngame.replace(":", ""), ngame.split(":")[0]):
+		for igametitle in (ngame, ngame.replace(":", ""), ngame.split(":")[0], ngame.split(u"\u2013")[0].strip()):
 			upcoming, eta = _searchGame(data, igametitle)
 			if upcoming: break
 		else:

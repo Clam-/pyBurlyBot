@@ -40,7 +40,7 @@ def update(event, bot):
 	corechange = False
 	modchange = False
 	for line in changes.splitlines():
-		if line.lstrip("M\t").startswith("modules/"):
+		if line.lstrip("M\t").startswith("modules/") or line.lstrip("A\t").startswith("modules/"):
 			modchange = True
 		elif line.endswith(".py"):
 			corechange = True

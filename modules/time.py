@@ -4,9 +4,6 @@ from util import Mapping
 from time import gmtime, strftime
 from calendar import timegm # silly python... I just want UTC seconds
 
-# for google API key, could do without the google requirement if we just
-# .getOption(module="google"), but would seem kind of strange
-
 # You could do this without web based service but whatever, offloading is easier. Cloud7.0
 REQUIRES = ("location", "googleapi", "users")
 LOC_MODULE = None

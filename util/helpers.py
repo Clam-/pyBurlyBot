@@ -292,7 +292,7 @@ def argumentSplit(s, nargs, pad=True):
 		s = newshlex(StringIO(s)) # use non-C StringIO for (somewhat) unicode support?
 		i = 0
 		args = []
-		while i < nargs -1 :
+		while (i < nargs -1) or nargs == -1: # allows to split entire string
 			tok = s.get_token()
 			if not tok: break
 			args.append(tok)

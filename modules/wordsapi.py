@@ -34,7 +34,7 @@ def spell_check(query, skipSearch=False):
 	if not skipSearch and word_search(query):
 		return None
 	else:
-		r = Request(DIDYOUMEAN_URL % (DICT_ORDER[0], urlencode({"q" : query.encode("utf-8")})))
+		r = Request(DIDYOUMEAN_URL % (DICT_ORDER[0], urlencode({"q" : query.lower().encode("utf-8")})))
 		r.add_header("accessKey", API_KEY)
 		return load(urlopen(r))['suggestions']
 
@@ -43,7 +43,7 @@ def word_search(query):
 	if not API_KEY:
 		raise ConfigException("Require API_KEY for wordsapi. Reload after setting.")
 	for d in DICT_ORDER:
-		r = Request(SEARCH_URL % (d, quote(query.encode("utf-8"))))
+		r = Request(SEARCH_URL % (d, quote(query.lower().encode("utf-8"))))
 		r.add_header("accessKey", API_KEY)
 		try:
 			f = urlopen(r)
@@ -51,7 +51,7 @@ def word_search(query):
 			continue
 		data = load(f)
 		if 'entryContent' in data:				
-			print repr(data['entryContent'])
+			#print repr(data['entryContent'])
 			data = StringIO(data['entryContent'].encode("utf-8"))
 			context = iterparse(data, events=("end","start"))
 			# get the root element
@@ -68,10 +68,16 @@ def word_search(query):
 				elif ievent == "end" and elem.tag == "def":
 					t = elem.text
 					if not t:
-						t = elem[-1].tail.strip() # get tail (text) of last nested element if there's no main tag text
+						e = elem[-1]
+						if e.tag == "x":
+							for ie in e.iter("f"):
+								t = ie.text
+						else:
+							t = elem[-1].tail.strip() # get tail (text) of last nested element if there's no main tag text
 					if not t: t = "???"
+					elif t[-2] == ":": t = t[:-2]
 					if usage: 
-						t = "(%s) %s" % (usage, t if t[-2] != ":" else t[:-2])
+						t = "(%s) %s" % (usage, t)
 					definitions[-1][-1].append(t)
 					usage = None
 					defchild = False
@@ -79,10 +85,10 @@ def word_search(query):
 						for cchild in child: cchild.clear()
 						child.clear()
 					elem.clear()
-				elif ievent == "end" and elem.tag == "usage":
+				elif ievent == "end" and defchild and elem.tag == "usage":
 					usage = elem.text
 					elem.clear()
-				elif not defchild:
+				elif ievent == "end" and not defchild:
 					elem.clear()
 			root.clear()
 			return definitions
@@ -95,7 +101,7 @@ def word_synonyms(query):
 	
 	data = None
 	for d in DICT_ORDER:
-		r = Request(SEARCH_URL % (d, quote(query.encode("utf-8"))))
+		r = Request(SEARCH_URL % (d, quote(query.lower().encode("utf-8"))))
 		r.add_header("accessKey", API_KEY)
 		try:
 			f = urlopen(r)

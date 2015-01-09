@@ -65,7 +65,8 @@ def _generate_users(bot, s, nick, skipself=True):
 						users.append((u,",".join(l)))
 						uset.add(u)
 			else: 
-				unknown.append(l[0])
+				if l[0]:
+					unknown.append(l[0])
 				l = l[1:]
 				l.reverse()
 				targets.extendleft(l)

@@ -173,7 +173,7 @@ def distance_of_time_in_words(fromtime, totime=None, suffix="ago"):
 	
 	s = ""
 	while chunks:
-		s += "%s%s" % chunks.pop(0)
+		s += "%s %s" % chunks.pop(0)
 		if len(chunks) >= 2:
 			s += ", "
 		elif len(chunks) == 1:

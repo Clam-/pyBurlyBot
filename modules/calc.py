@@ -15,50 +15,66 @@ OPTIONS = {
 API_KEY = None
 URL = "http://api.wolframalpha.com/v2/query?%s"
 
+EXCLUDE_PODS = ("QuadraticResiduesModuloInteger", 'Property', 'ResiduesModuloSmallIntegers',
+	'BaseConversions', 'NSidedPolygon', 'NumberLine','Continued fraction', 'ConversionFromOtherUnits', 
+	'CorrespondingQuantity', 'ManipulativesIllustration')
+EXCLUDE = tuple(zip(("excludepodid",)*len(EXCLUDE_PODS), EXCLUDE_PODS))
+
+POD_PRIORITY = { 'DecimalApproximation' : 0, 'Result' : 1, 'VisualRepresentation' : 100 }
+
 def calc(event, bot):
 	""" calc calcquery. Will use WolframAlpha to calc calcquery."""
 	if not event.argument: return bot.say(functionHelp(calc))
 	s = (("input", event.argument.encode("utf-8")), ("appid", API_KEY), ("reinterpret", "true"),
-		("includepodid", "Input"), ("includepodid", "Result"), ("format", "plaintext"))
+		("format", "plaintext"), ("podstate", "Rhyme:WordData__More")) + EXCLUDE
+		
 	# TODO: use "units" param in conjunction with calling user's location.
 	
-	f = urlopen(URL % (urlencode(s)))
+	f = urlopen(URL % (urlencode(s)), timeout=10)
 	if f.getcode() == 200:
 		# http://effbot.org/zone/element-iterparse.htm
 		# get an iterable
+		#~ print f.read()
+		#~ return
 		context = iterparse(f, events=("start", "end"))
 		# get the root element
 		ievent, root = context.next()
 		
 		input = None
-		result = None
+		results = []
 		error = ""
 		pod = None
+		podnames = []
+		priority = 50
 		for ievent, elem in context:
 			if ievent == "start" and elem.tag == "pod":
 				pod = elem.attrib["id"]
+				podnames.append((pod, elem.attrib['title'])) # .split(None, 3)[:2]
 			elif ievent == "end" and elem.tag == "msg": #assuming msg is only used for error, pls
-				error += elem.text
+				results.append("(Error: %s)" % elem.text)
 				elem.clear()
 			elif ievent == "end" and elem.tag == "plaintext":
-				if pod == "Result":
-					result = elem.text
-				elif pod == "Input":
+				if pod == "Input":
 					input = elem.text
+				else:
+					if elem.text:
+						results.append([(pod, priority), "%s" % elem.text.replace("\n ", " ").replace("\n", " ").replace("  ", " ")])
+						priority += 1
 				elem.clear()
 			elif ievent == "end":
-				pass
+				if elem.tag == "pod": 
+					pod = None
 				elem.clear()
 		root.clear()
-		
-		msg = "%s: " % event.nick
-		if input:
-			msg += "(%s) " % input
-		if result:
-			msg += "\x02%s\x02" % result
-		if error:
-			msg += " (Error: %s)" % error
-		bot.say(msg)
+		# sort results
+		#~ print podnames, results
+		for entry in results:
+			if isinstance(entry, list):
+				entry[0] = POD_PRIORITY.get(entry[0][0], entry[0][1])
+		results.sort()
+		msg = "[%s] %s" % (input, "\x02,\x02 ".join(("{%s}" % x for x in xrange(len(results)))))
+		#~ print msg, results
+		bot.say(msg, strins=[x[1] for x in results], fcfs=True)
 	else:
 		bot.say("Dunno.")
 

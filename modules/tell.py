@@ -3,7 +3,8 @@ from time import gmtime, localtime, mktime
 from calendar import timegm # silly python... I just want UTC seconds
 from collections import deque
 
-from util import Mapping, argumentSplit, functionHelp, distance_of_time_in_words, fetchone, pastehelper, englishlist
+from util import Mapping, argumentSplit, functionHelp, distance_of_time_in_words, fetchone,\
+	pastehelper, englishlist, parseDateTime
 # added dependency on user module only for speed. Means can keep reference to user module without having
 # to dive in to the reactor twice? per message
 # because of this I should do foreign key things but don't want to lock myself in to that just yet (bad@db)
@@ -24,13 +25,6 @@ RPLREMINDFORMAT = "%s: I will remind %s about that %s.%s%s"
 #TARGET, reminder from SOURCE: MSG - set TELLTIME, arrived TOLDTIME.
 REMINDFORMAT = "{0}, reminder from {1}: {2} - set {3}, arrived {4}."
 SELFREMINDFORMAT = "{0}, reminder: {1} - set {2}, arrived {3}."
-
-#parsedatetime stuff
-from parsedatetime import Constants, Calendar
-c = Constants()
-c.BirthdayEpoch = 80
-
-PARSER = Calendar(c)
 
 MAX_REMIND_TIME = 31540000 # 1 year
 
@@ -155,9 +149,9 @@ def remind(event, bot):
 	""" remind target datespec msg. Will remind a user <target> about a message <msg> at datespec time. datespec can be relative (in) or calendar/day based (on), e.g. 'in 5 minutes"""
 	target, dtime1, dtime2, msg = argumentSplit(event.argument, 4)
 	if not target: return bot.say(bot.say(functionHelp(tell)))
-	if dtime1 == "tomorrow":
+	if dtime1.lower() == "tomorrow":
 		target, dtime1, msg = argumentSplit(event.argument, 3) # reparse is easiest way I guess... resolves #30 if need to readdress
-		dtime2 == ""
+		dtime2 = ""
 	else:
 		if not (dtime1 and dtime2): return bot.say("Need time to remind.")
 	if not msg:
@@ -197,21 +191,16 @@ def remind(event, bot):
 				t = gmtime(t + tz[2] + tz[3]) #[2] dst [3] timezone offset
 	else:
 		t = localtime()
-	ntime, code = PARSER.parse(dtime, t)
-
-	if code == 0:
-		return bot.say("Don't know what time and/or day and/or date (%s) is." % dtime)
-	if code == 1: # nuke hours minutes seconds if this is a date reminder so that we don't remind on some crazy hour
-		ntime = list(ntime)
-		ntime[3:6] = (0,0,0)
-		ntime = tuple(ntime)
+	ntime = parseDateTime(dtime, t)
+	if not ntime: return bot.say("Don't know what time and/or day and/or date (%s) is." % dtime)
+	
 	# go on, change it. I dare you.
 	if timelocale:
 		t = timegm(t) - tz[2] - tz[3]
-		ntime = timegm(ntime) - tz[2] - tz[3]
+		ntime = ntime - tz[2] - tz[3]
 	else:
 		t = mktime(t)
-		ntime = mktime(ntime)
+		ntime = ntime
 
 	if ntime < t or ntime > t+MAX_REMIND_TIME:
 		return bot.say("Don't sass me with your back to the future reminds.")

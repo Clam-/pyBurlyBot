@@ -1,6 +1,7 @@
 #timehelpers.py
-from datetime import timedelta
+from datetime import timedelta, datetime
 from time import time
+from calendar import timegm
 from codecs import lookup
 from operator import itemgetter
 from shlex import shlex
@@ -530,3 +531,112 @@ def escape_control_codes(s):
 def AAA(s):
 	return bold(underline(italicize(color('RED'))))
 
+TIMEREGEX = compile_re(r'''(?:(\d*\.?\d+)d(?:ay(?:s)?)?)?(?:(\d*\.?\d+)h(?:our(?:s)?)?)?(?:(\d*\.?\d+)m(?:in(?:s|utes)?)?)?(?:(\d*\.?\d+)s(?:ec(?:s|onds)?)?)?''')
+
+def _parseDigit(s):
+	try: return float(s)
+	except ValueError: return 0
+
+def parseDateTime(s, t=None):
+	if not t: t = timegm(datetime.now().timetuple())
+	elif not (isinstance(t, float) or isinstance(t, int)): t = timegm(t)
+	s = s.strip().lower()
+	# even though "at 2/2 sounds odd, allow it so that all the 'absolute relative' timecodes are in one place
+	if s.startswith("on") or s.startswith("at"):
+		# absolute relative (lol) date. e.g. 5/3, 2014/06/31, etc also Monday, Tuesday, etc
+		dd = datetime.utcfromtimestamp(t)
+		s = s[2:].strip()
+		pd = None
+		for index, dformat in enumerate(("%Y/%m/%d", "%m/%d", "%dth", "%dst", "%snd", "%drd", "%H:%M", "%I%p")):
+			try:
+				pd = datetime.strptime(s, dformat)
+			except ValueError:
+				continue
+			# add year
+			if index != 0:
+				pd = pd.replace(year=dd.year)
+				if (index == 1):
+					if (dd.month == pd.month) and (dd.day >= pd.day):
+						pd = pd.replace(year=dd.year+1)
+					elif (dd.month > pd.month):
+						pd = pd.replace(year=dd.year+1)
+			# add month
+			if index >= 2:
+				# add month until find month where provided day fits. (Needed for things like "on 30th" if Feb)
+				count = 0
+				month = dd.month
+				while True:
+					if count > 10: return None # Bail in the odd event that we can't find a month another 10 attempts.
+					try:                       # Don't think this will ever happen though. Should only ever attempt 2
+						pd = pd.replace(month=month)
+						break
+					except ValueError:
+						month += 1
+						count += 1
+						continue
+				if (index < 6) and (dd.day >= pd.day):
+					month = month+1
+					if month > 12: pd = pd.replace(month=1, year=dd.year+1)
+					else: pd = pd.replace(month=dd.month+1)
+			# add day
+			if index >= 6:
+				pd = pd.replace(day=dd.day)
+				if (dd.hour == pd.hour) and (dd.minute >= pd.minute):
+					try: pd = pd.replace(day=dd.day+1)
+					except ValueError: pd = pd.replace(day=1, month=dd.month+1)
+				elif (dd.hour > pd.hour):
+					try: pd = pd.replace(day=dd.day+1)
+					except ValueError: pd = pd.replace(day=1, month=dd.month+1)
+			break
+		else:
+			# check Mon(day), Tues(day), etc
+			days = 0
+			for index, check in enumerate((("m", "mon", "monday"), ("t", "tue", "tues", "tuesday"),
+					("w", "wed", "wednesday"),  ("th", "thurs", "thursday"), ("f", "fri", "friday"),
+					("s", "sat", "saturday"), ("su", "sun", "sunday"))):
+				if s in check:
+					wd = dd.weekday()
+					if index <= wd:
+						days = index+(7-wd)
+					else:
+						days = index-wd
+					break
+			else:
+				#finally check for lunch
+				if s == "lunch":
+					if dd.hour >= 12:
+						return timegm(dd.replace(day=dd.day+1, hour=12, minute=0, second=0).timetuple())
+					else:
+						return timegm(dd.replace(hour=12, minute=0, second=0).timetuple())
+				return None
+			pd = dd.replace(day=dd.day+days, hour=0, minute=0, second=0)
+		return timegm(pd.timetuple())
+
+	if s == "tomorrow":
+		#special case similar to above
+		dd = datetime.utcfromtimestamp(t)
+		if dd.hour < 5:
+			return timegm(dd.replace(hour=7, minute=0, second=0).timetuple())
+		else:
+			return timegm(dd.replace(day=dd.day+1, hour=7, minute=0, second=0).timetuple())
+
+	if s.startswith("in"):
+		# relative time. e.g. 5minutes, 10hours, 3days
+		s = s[2:].strip()
+	# if no marker assume relative time
+	m = TIMEREGEX.match(s)
+	if m and (m.group(1) or m.group(2) or m.group(3) or m.group(4)):
+		if m.group(1):
+			#days
+			t += _parseDigit(m.group(1))*60*60*24
+		if m.group(2):
+			#hours
+			t += _parseDigit(m.group(2))*60*60
+		if m.group(3):
+			#mins
+			t += _parseDigit(m.group(3))*60
+		if m.group(4):
+			#secs
+			t += _parseDigit(m.group(4))
+		return t
+	return None

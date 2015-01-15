@@ -2,7 +2,7 @@
 from timer import Timers
 from container import TimeoutException
 from helpers import distance_of_time_in_words, processHostmask, commandSplit, argumentSplit, \
-	commandlength, functionHelp, coerceToUnicode
+	commandlength, functionHelp, coerceToUnicode, parseDateTime
 
 from mapping import Mapping
 

@@ -34,7 +34,7 @@ def wiki(event, bot):
 	if not p: return bot.say("Gave up looking for disambiguous entry from disambiguous page.")
 	
 	if result[1]:
-		error.append("(SP: %s?) " % result[1])
+		errors.append("(SP: %s?) " % result[1])
 	content = p.content[:800].replace("\n", " ").replace("====", "").replace("===", "").replace("==", "")
 	
 	bot.say(RESULT_RPL % ("".join(errors), p.url), strins=[p.title, content], fcfs=True)

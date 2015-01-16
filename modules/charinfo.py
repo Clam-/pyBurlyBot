@@ -12,7 +12,7 @@ for c in xrange(200000): # I think there is like 110000 unicode characters?? I d
 	try: CHARACTER_DESC.append((c, name(unichr(c))))
 	except ValueError: pass
 # U+0430 DESC (CHR)
-RPLFORMAT = "U+%X %s (%s)"
+RPLFORMAT = "U+%04X %s (%s)"
 # hex(ord(u"\u30F5"))
 REGHEX = compile_re("^[0-9A-F]{4}$", IGNORECASE)
 

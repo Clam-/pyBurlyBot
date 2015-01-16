@@ -60,7 +60,38 @@ def fquote(event, bot):
 	if not arg:
 		return bot.say(functionHelp(fquote))
 	bot.say(quote(arg.encode("utf-8")))
-		
+	
+def fencode(event, bot):
+	""" encode encoding content. content will be encoded according to provided encoding. Will be displayed using python's repr. Available encodings: https://docs.python.org/2/library/codecs.html#standard-encodings """
+	method, content = argumentSplit(event.argument, 2)
+	if not (method and content):
+		return bot.say(functionHelp(fencode))
+	try: 
+		try:
+			bot.say(repr(content.encode(method)))
+		except (UnicodeEncodeError, UnicodeDecodeError): 
+			bot.say(repr(content.encode("utf-8").encode(method)))
+	except LookupError: bot.say("Unknown encoding. Available encodings: https://docs.python.org/2/library/codecs.html#standard-encodings")
+	except (UnicodeEncodeError, UnicodeDecodeError): bot.say("Can't encode.")
+
+def fdecode(event, bot):
+	""" decode encoding content. content will be decoded according to provided encoding. Will be displayed using python's repr. Available encodings: https://docs.python.org/2/library/codecs.html#standard-encodings . 
+	Append |repr to the method if you are supplying escaped ascii."""
+	method, content = argumentSplit(event.argument, 2)
+	if not (method and content):
+		return bot.say(functionHelp(fdecode))
+	# some crazy voodoo
+	try: 
+		try:
+			if method.endswith("|repr"): bot.say(repr(content.decode("string_escape").decode(method[:-5])))
+			else: bot.say(repr(content.decode(method)))
+		except (UnicodeEncodeError, UnicodeDecodeError): 
+			if method.endswith("|repr"): bot.say(repr(content.encode("utf-8").decode("string_escape").decode(method[:-5])))
+			else: bot.say(repr(content.encode("utf-8").decode(method)))
+	except LookupError: bot.say("Unknown encoding. Available encodings: https://docs.python.org/2/library/codecs.html#standard-encodings")
+	except (UnicodeEncodeError, UnicodeDecodeError): bot.say("Can't decode.")
+	
 #mappings to methods
 mappings = (Mapping(command="hash", function=hash), Mapping(command="md5", function=md5), Mapping(command="rot13", function=rot13),
-	Mapping(command="crc", function=crc), Mapping(command="unquote", function=funquote), Mapping(command="quote", function=fquote),)
+	Mapping(command="crc", function=crc), Mapping(command="unquote", function=funquote), Mapping(command="quote", function=fquote),
+	Mapping(command="encode", function=fencode), Mapping(command="decode", function=fdecode),)

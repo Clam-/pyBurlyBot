@@ -536,16 +536,16 @@ class BurlyBot(IRCClient):
 	### Custom outgoing methods
 	###
 	# TODO: Need to add more of these for hooking other outbound events maybe, like notice...
-	def sendmsg(self, target, msg, strins=None, split=False, direct=False, fcfs=False):
+	def sendmsg(self, target, msg, direct=False, split=False, **kwargs):
 		#check if there's hooks, if there is, dispatch, if not, send directly
 		if self.dispatcher.MSGHOOKS and not direct:
-			self.dispatch(self, "sendmsg", target=target, msg=msg, strins=None, fcfs=fcfs)
+			self.dispatch(self, "sendmsg", target=target, msg=msg, **kwargs)
 		else:
 			if split:
-				for m in self._buildmsg(target, msg, split, strins, fcfs):
+				for m in self._buildmsg(target, msg, split, **kwargs):
 					self.sendLine(m)
 			else:
-				self.sendLine(self._buildmsg(target, msg, split, strins, fcfs))
+				self.sendLine(self._buildmsg(target, msg, split, **kwargs))
 	
 	# will return true if sendmsg can proceed without truncation, false otherwise.
 	# will provide incorrect results if any sendmsg hooks change lengths of messages
@@ -555,13 +555,13 @@ class BurlyBot(IRCClient):
 	def checkSendMsg(self, target, msg):
 		return len(self._buildmsg(target, msg, check=True).encode(self.settings.encoding)) <= self.calcAvailableMsgLength("")
 		
-	def _buildmsg(self, target, message, split=False, strins=None, fcfs=False, check=False):
+	def _buildmsg(self, target, message, split=False, check=False, strins=None, **kwargs):
 		if not isinstance(message, basestring): message = str(message)
 		if strins:
 			if split:
-				return (self.assembleMsgWLen('PRIVMSG %s :%s' % (target, msg), strins, fcfs) for msg in message.split("\n"))
+				return (self.assembleMsgWLen('PRIVMSG %s :%s' % (target, msg), strins=strins, **kwargs) for msg in message.split("\n"))
 			else:
-				return self.assembleMsgWLen('PRIVMSG %s :%s' % (target, message), strins, fcfs)
+				return self.assembleMsgWLen('PRIVMSG %s :%s' % (target, message), strins=strins, **kwargs)
 		else:
 			fmt = 'PRIVMSG %s :%%s' % (target,)
 			if split:
@@ -584,52 +584,71 @@ class BurlyBot(IRCClient):
 	# TODO: this must accept either string or LIST for strins so that strins can be modified (when doing fcfs.)
 	# NOTE: Calculation will be off if NL/CR or any of the "lowQuote" characters are in s or strins.
 	# 		You should make sure your data doesn't contain any of those characters (NL/CR/020/NUL)
-	def assembleMsgWLen(self, s, strins, fcfs, joinsep=None):
+	def assembleMsgWLen(self, s, strins=None, fcfs=False, joinsep=None):
+		enc = self.settings.encoding
 		if isinstance(strins, basestring):
 			sl = self.calcAvailableMsgLength(s.format(""))
 			if sl <= 0: # case where template string is already too big
-				return splitEncodedUnicode(s, len(s)+sl, encoding=self.settings.encoding)[0][0]
-			return s.format(splitEncodedUnicode(strins, sl, encoding=self.settings.encoding)[0][0])
+				return splitEncodedUnicode(s, len(s)+sl, encoding=enc)[0][0]
+			return s.format(splitEncodedUnicode(strins, sl, encoding=enc)[0][0])
 		
 		ls = len(strins)
+		if joinsep is not None: 
+			# lj is len(joinsep) when comparing to avail in fcfs add 2 to allow some
+			# room for start of next element at least
+			if isinstance(joinsep, unicode): lj = len(joinsep.encode(enc))
+			else: lj = len(joinsep)
 		if isIterable(strins):
-			avail = self.calcAvailableMsgLength(s.format(*[""]*ls)) # format with empty strins to calc max avail
+			if joinsep is not None: avail = self.calcAvailableMsgLength(s.format("")) # must be only one replacement
+			else: avail = self.calcAvailableMsgLength(s.format(*[""]*ls)) # format with empty strins to calc max avail
 			if avail < 0: # case where template string is already too big
 				s = s.format(*[""]*ls)
-				return splitEncodedUnicode(s, len(s)+avail, encoding=self.settings.encoding)[0][0]
+				return splitEncodedUnicode(s, len(s)+avail, encoding=enc)[0][0]
 			if fcfs:
 				# first come first served
 				if not isinstance(strins, list): 
 					raise ValueError("Require list/tuple, dict, or string for strins.")
 				for i, rep in enumerate(strins):
 					# get trimmed replacement and the length of that trimmed replacement
-					rep, lrep = splitEncodedUnicode(rep, avail, encoding=self.settings.encoding)[0]
-					# replace the replacement with the trimmed version
-					strins[i] = rep
+					rep, lrep = splitEncodedUnicode(rep, avail, encoding=enc)[0]
 					# track remaining message space left
 					avail -= lrep
-				return s.format(*strins)
+					#append joinsep if there's room, else make avail 0
+					if (joinsep is not None) and (i != ls-1): 
+						if avail < lj+2: 
+							avail = 0
+						else: 
+							rep = rep+joinsep
+							avail -= lj
+					# replace the replacement with the trimmed version
+					strins[i] = rep
+				if joinsep is not None: return s.format("".join(strins))
+				else: return s.format(*strins)
 			else:
 				# round 2, even divide
-				if isIterable(strins):
-					segmentlength = int(floor((avail-(ls*2)) / ls))
-					if isinstance(strins, tuple):
-						strins = list(strins)
-					for i, sr in enumerate(strins):
-						strins[i] = splitEncodedUnicode(sr, segmentlength, encoding=self.settings.encoding)[0][0]
-					return s.format(*strins)
+				if joinsep is not None: segmentlength = int(floor(avail / ls)) - (ls-1*lj)
+				else: segmentlength = int(floor(avail / ls))
+				if isinstance(strins, tuple):
+					strins = list(strins)
+				for i, sr in enumerate(strins):
+					if (joinsep is not None) and (i != ls-1):
+						strins[i] = splitEncodedUnicode(sr, segmentlength, encoding=enc)[0][0]+joinsep
+					else:
+						strins[i] = splitEncodedUnicode(sr, segmentlength, encoding=enc)[0][0]
+				if joinsep is not None: return s.format("".join(strins))
+				else: return s.format(*strins)
 			
 		elif isinstance(strins, dict):
 			# total space available for message
 			avail = self.calcAvailableMsgLength(s.format(**dict(((key, "") for key in strins.keys())))) # format with empty strins to calc max avail
 			if avail < 0: # case where template string is already too big
 				s = s.format(**dict(((key, "") for key in strins.keys())))
-				return splitEncodedUnicode(s, len(s)+avail, encoding=self.settings.encoding)[0][0]
+				return splitEncodedUnicode(s, len(s)+avail, encoding=enc)[0][0]
 			if fcfs:
 				# first come first served (NOTE: This doesn't make much sense for an unordered thing like a dictionary)
 				# hopefully we are passed an ordered dictionary or something that extends from dict.
 				for key, rep in strins.iteritems():
-					rep, lrep = splitEncodedUnicode(rep, avail, encoding=self.settings.encoding)[0]
+					rep, lrep = splitEncodedUnicode(rep, avail, encoding=enc)[0]
 					strins[key] = rep
 					avail -= lrep
 				return s.format(**strins)
@@ -637,7 +656,7 @@ class BurlyBot(IRCClient):
 				# round 2, even divide
 				segmentlength = int(floor((avail / ls)))
 				for key, value in strins.iteritems():
-					strins[key] = splitEncodedUnicode(value, segmentlength, encoding=self.settings.encoding)[0][0]
+					strins[key] = splitEncodedUnicode(value, segmentlength, encoding=enc)[0][0]
 				return s.format(**strins)
 		else:
 			raise ValueError("Require list/tuple, dict, or string for strins.")

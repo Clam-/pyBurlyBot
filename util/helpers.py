@@ -1,6 +1,6 @@
 #timehelpers.py
 from datetime import timedelta, datetime
-from time import time
+from time import time, mktime, gmtime
 from calendar import timegm
 from codecs import lookup
 from operator import itemgetter
@@ -539,7 +539,10 @@ def _parseDigit(s):
 
 def parseDateTime(s, t=None):
 	if not t: t = timegm(datetime.now().timetuple())
-	elif not (isinstance(t, float) or isinstance(t, int)): t = timegm(t)
+	elif not (isinstance(t, float) or isinstance(t, int)):
+		# check for dst flag
+		if t[-1] == 1: t = timegm(gmtime(mktime(t)))
+		else: t = timegm(t)
 	s = s.strip().lower()
 	# even though "at 2/2 sounds odd, allow it so that all the 'absolute relative' timecodes are in one place
 	if s.startswith("on") or s.startswith("at"):

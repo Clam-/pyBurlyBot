@@ -30,7 +30,7 @@ def calc(event, bot):
 		
 	# TODO: use "units" param in conjunction with calling user's location.
 	
-	f = urlopen(URL % (urlencode(s)), timeout=10)
+	f = urlopen(URL % (urlencode(s)), timeout=15)
 	if f.getcode() == 200:
 		# http://effbot.org/zone/element-iterparse.htm
 		# get an iterable
@@ -72,9 +72,9 @@ def calc(event, bot):
 			if isinstance(entry, list):
 				entry[0] = POD_PRIORITY.get(entry[0][0], entry[0][1])
 		results.sort()
-		msg = "[%s] %s" % (input, "\x02,\x02 ".join(("{%s}" % x for x in xrange(len(results)))))
+		msg = "[%s] {0}" % (input,)
 		#~ print msg, results
-		bot.say(msg, strins=[x[1] for x in results], fcfs=True)
+		bot.say(msg, strins=[x[1] for x in results], fcfs=True, joinsep="\x02,\x02 ")
 	else:
 		bot.say("Dunno.")
 

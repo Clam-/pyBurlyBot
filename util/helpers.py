@@ -531,7 +531,9 @@ def escape_control_codes(s):
 def AAA(s):
 	return bold(underline(italicize(color('RED'))))
 
-TIMEREGEX = compile_re(r'''(?:(\d*\.?\d+)d(?:ay(?:s)?)?)?(?:(\d*\.?\d+)h(?:our(?:s)?)?)?(?:(\d*\.?\d+)m(?:in(?:s|utes)?)?)?(?:(\d*\.?\d+)s(?:ec(?:s|onds)?)?)?''')
+# this is getting a bit out of hand...
+# TODO: check if this is very bad.
+TIMEREGEX = compile_re(r'''(?:(\d*\.?\d+)m(?:onth(?:s)?)?)?(?:(\d*\.?\d+)w(?:eek(?:s)?)?)?(?:(\d*\.?\d+)d(?:ay(?:s)?)?)?(?:(\d*\.?\d+)h(?:our(?:s)?)?)?(?:(\d*\.?\d+)m(?:in(?:s|utes)?)?)?(?:(\d*\.?\d+)s(?:ec(?:s|onds)?)?)?''')
 
 def _parseDigit(s):
 	try: return float(s)
@@ -627,18 +629,24 @@ def parseDateTime(s, t=None):
 		s = s[2:].strip()
 	# if no marker assume relative time
 	m = TIMEREGEX.match(s)
-	if m and (m.group(1) or m.group(2) or m.group(3) or m.group(4)):
+	if m and (m.group(1) or m.group(2) or m.group(3) or m.group(4) or m.group(5) or m.group(6)):
 		if m.group(1):
-			#days
-			t += _parseDigit(m.group(1))*60*60*24
+			#months
+			t += _parseDigit(m.group(1))*60*60*24*29.53059 # Just to be silly, a synodic lunar month
 		if m.group(2):
-			#hours
-			t += _parseDigit(m.group(2))*60*60
+			#weeks
+			t += _parseDigit(m.group(2))*60*60*24*7
 		if m.group(3):
-			#mins
-			t += _parseDigit(m.group(3))*60
+			#days
+			t += _parseDigit(m.group(3))*60*60*24
 		if m.group(4):
+			#hours
+			t += _parseDigit(m.group(4))*60*60
+		if m.group(5):
+			#mins
+			t += _parseDigit(m.group(5))*60
+		if m.group(6):
 			#secs
-			t += _parseDigit(m.group(4))
+			t += _parseDigit(m.group(6))
 		return t
 	return None

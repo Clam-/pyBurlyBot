@@ -538,11 +538,10 @@ def _parseDigit(s):
 	except ValueError: return 0
 
 def parseDateTime(s, t=None):
-	if not t: t = timegm(datetime.now().timetuple())
+	if not t: 
+		t = timegm(datetime.now().timetuple())
 	elif not (isinstance(t, float) or isinstance(t, int)):
-		# check for dst flag
-		if t[-1] == 1: t = timegm(gmtime(mktime(t)))
-		else: t = timegm(t)
+		t = timegm(t)
 	s = s.strip().lower()
 	# even though "at 2/2 sounds odd, allow it so that all the 'absolute relative' timecodes are in one place
 	if s.startswith("on") or s.startswith("at"):

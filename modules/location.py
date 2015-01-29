@@ -17,18 +17,17 @@ def getlocation(qfunc, user):
 def getLocationWithError(bot, arg, nick):
 	target = arg
 	user = None
-	isself = False
+	isself = True
 	if target: 
 		user = USERS_MODULE.get_username(bot, target, nick)
-		if user == USERS_MODULE.get_username(bot, nick): isself = True
+		if user != USERS_MODULE.get_username(bot, nick): isself = False
 	else:
-		user = USERS_MODULE.get_username(bot, nick)
-		target = user
+		target = user = USERS_MODULE.get_username(bot, nick)
 	if user:
 		#get location
 		loc = getlocation(bot.dbQuery, user)
 		if not loc: 
-			if isself: return bot.say("Your location isn't known. Try using location." % target)
+			if isself: return bot.say("Your location isn't known. Try using location.")
 			else: return bot.say("Location not known for (%s). Try getting them to set it." % target)
 	else:
 		# lookup location

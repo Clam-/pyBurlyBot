@@ -1,5 +1,6 @@
 #tell module
 from time import gmtime, localtime, mktime
+from datetime import datetime
 from calendar import timegm # silly python... I just want UTC seconds
 from collections import deque
 
@@ -175,22 +176,23 @@ def remind(event, bot):
 	except ConfigException: pass
 	
 	origintime = timegm(gmtime())
+	alocaltime = localtime(origintime)
+	localoffset = timegm(alocaltime) - origintime
 	if locmod and goomod:
 		t = origintime
-		#borrowed from time.py
 		loc = locmod.getlocation(bot.dbQuery, origuser)
-		if not loc:
-			t = localtime()
+		if not loc: 
 			timelocale = False
+			t = alocaltime
 		else:
 			tz = goomod.google_timezone(loc[1], loc[2], t)
-			if not tz:
-				t = localtime()
+			if not tz: 
 				timelocale = False
+				t = alocaltime
 			else:
 				t = gmtime(t + tz[2] + tz[3]) #[2] dst [3] timezone offset
 	else:
-		t = localtime()
+		t = alocaltime
 	ntime = parseDateTime(dtime, t)
 	if not ntime: return bot.say("Don't know what time and/or day and/or date (%s) is." % dtime)
 	
@@ -199,8 +201,8 @@ def remind(event, bot):
 		t = timegm(t) - tz[2] - tz[3]
 		ntime = ntime - tz[2] - tz[3]
 	else:
-		t = mktime(t)
-		ntime = ntime
+		t = timegm(t) - localoffset
+		ntime = ntime - localoffset
 
 	if ntime < t or ntime > t+MAX_REMIND_TIME:
 		return bot.say("Don't sass me with your back to the future reminds.")

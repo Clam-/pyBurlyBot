@@ -36,7 +36,7 @@ class DBManager(object):
 	
 	def batch(self, serverlabel, qs):
 		db = self.managerThread.call(self._getDB, serverlabel)
-		db.batch(qs)
+		return db.batch(qs)
 		
 	def _addServer(self, serverlabel, datafile):
 		if not datafile == self.datafile:
@@ -201,6 +201,7 @@ class DBaccess(Thread):
 			raise RuntimeError("Attempted query on non running (%s)" % self.name)
 		resultq = Queue()
 		self.qq.put((qs, resultq))
+		results = []
 		# get all results. probably not needed.
 		for i in xrange(len(qs)):
 			result = resultq.get()
@@ -208,6 +209,8 @@ class DBaccess(Thread):
 				print "Exception with: %s" % str(qs[i])
 				raise result
 				# TODO: how to handle multiple exceptions?
+			results.append(result)
+		return results
 		
 	def stop(self):
 		self.qq.put("STOP")

@@ -68,6 +68,11 @@ def calc(event, bot):
 		root.clear()
 		# sort results
 		#~ print podnames, results
+		if not results: 
+			if input:
+				return bot.say("WolframAlpha doesn't know [%s]." % input)
+			else:
+				return bot.say("WolframAlpha doesn't know and doesn't understand your input.")
 		for entry in results:
 			if isinstance(entry, list):
 				entry[0] = POD_PRIORITY.get(entry[0][0], entry[0][1])

@@ -77,8 +77,15 @@ def deliver_tell(event, bot):
 		user = USERS_MODULE.ALIAS_MODULE.lookup_alias(bot.dbQuery, event.nick)
 	if not user: user = event.nick
 	toldtime = int(timegm(gmtime()))
-	tells = bot.dbQuery('''SELECT id,source,telltime,origintime,remind,msg FROM tell WHERE user=? AND delivered=0 AND telltime<? ORDER BY telltime;''', 
-		(user,toldtime))
+	# This seems like it might be a bit of a waste. But it should stop the rare occurance of "double tell delivery" (I've only seen it happen once.)
+	tells = bot.dbBatch(
+		(
+			# Query1, get tells
+			('''SELECT id,source,telltime,origintime,remind,msg FROM tell WHERE user=? AND delivered=0 AND telltime<? ORDER BY telltime;''', (user,toldtime)),
+			# Query2, update query
+			('''UPDATE tell SET delivered=1,toldtime=? WHERE user=? AND delivered=0 AND telltime<?;''',(toldtime, user, toldtime)),
+		)
+	)[0] # 0 gets the results from the first query only
 	if tells:
 		collate = False
 		lines = None
@@ -102,8 +109,6 @@ def deliver_tell(event, bot):
 				data = [event.nick, tell['source'], tell['msg'], distance_of_time_in_words(tell['telltime'], toldtime)]
 				if collate: lines.append(TELLFORMAT.format(*data))
 				else: bot.say(TELLFORMAT, strins=data, fcfs=True)
-			#TODO: change this to do a bulk update somehow?
-			bot.dbQuery('''UPDATE tell SET delivered=1,toldtime=? WHERE id=?;''', (toldtime, tell['id']))
 		if collate:
 			msg = "Tells/reminds for (%s): %%s" % event.nick
 			title = "Tells/reminds for (%s)" % event.nick

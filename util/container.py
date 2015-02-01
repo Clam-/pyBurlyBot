@@ -184,7 +184,12 @@ class Container:
 	# DB methods
 	def dbQuery(self, q, params=(), func=None):
 		return self._settings.databasemanager.query(self.network, q, params, func)
-		
+	
+	def dbBatch(self, qs):
+		""" Run a series of queries back to back without possibility of being interupted.
+		qs is an iterable of (query, params)"""
+		return self._settings.databasemanager.batch(self.network, qs)
+	
 	def dbCheckCreateTable(self, tablename, createstmt):
 		return self._settings.databasemanager.dbCheckCreateTable(self.network, tablename, createstmt)
 

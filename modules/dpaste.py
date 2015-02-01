@@ -17,7 +17,12 @@ def paste(s, syntax="text", title="BurlyBot paste", poster="BurlyBot", expiry_da
 		"expiry_days" : expiry_days,
 		"content" : s.encode("utf-8")
 	}
-	try: return urlopen(APIURL, urlencode(data)).geturl()
+	try: 
+		result = urlopen(APIURL, urlencode(data))
+		if result.geturl() == APIURL:
+			return result.read().strip()
+		else:
+			return result.geturl()
 	except URLError, HTTPError: print_exc()
 	return None
 		

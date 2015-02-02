@@ -34,10 +34,12 @@ KEYS_MAIN_SET = set(KEYS_MAIN)
 KEYS_COPY = set(("admins", "channels", "allowmodules", "denymodules", "modules"))
 #keys to deny getOption for:
 # TODO: probably needs more things here
-KEYS_DENY = set(("servers", "dispatcher", "moduleopts"))
+KEYS_DENY = set(("_admins", "servers", "dispatcher", "moduleopts"))
 # TODO: this may be incomplete
 # list of module setting types to copy to make sure no thread bads
 TYPE_COPY = set((list, tuple, dict))
+
+PROPERTIES_MAP = { "admins" : "_admins" }
 
 OPTION_DESC = {
 	"altnicks" : "nicknames to be tried when desired nick is in use/unavailable.",
@@ -73,7 +75,15 @@ class BaseServer(object):
 	def __init__(self, opts):
 		self.moduleopts = {}
 		self.setup(opts)
-		
+	
+	# special handler for .admins (.lowers() each nick on set to make for easier checking in wrapper.isadmin)
+	@property
+	def admins(self):
+		return self.__dict__.get("_admins", getattr(Settings, "_admins"))
+	@admins.setter
+	def admins(self, value):
+		self._admins = [x.lower() for x in value]
+	
 	def setup(self, opts):
 		self.channels = []
 		for key in KEYS_SERVER:
@@ -122,22 +132,25 @@ class BaseServer(object):
 	def _getDict(self):
 		d = OrderedDict()
 		for key in KEYS_SERVER:
+			# TODO: really bad hack for .admins (and other) property
+			okey = key
+			key = PROPERTIES_MAP.get(key, key)
 			if key in self.__dict__:
 				value = self.__dict__[key] #bypass __getattr__ override
 				if value: 
 					#preprocess channels
-					if key == "channels":
+					if okey == "channels":
 						channels = []
 						for channel in value:
 							if len(channel) == 1:
 								channels.append(channel[0])
 							else:
 								channels.append(channel)
-						d[key] = channels
-					elif key == "port":
-						d[key] = value if not self.__dict__["ssl"] else "+"+str(value)
+						d[okey] = channels
+					elif okey == "port":
+						d[okey] = value if not self.__dict__["ssl"] else "+"+str(value)
 					else:
-						d[key] = value
+						d[okey] = value
 		return d
 		
 DummyServer = BaseServer # alias to make example server code clear
@@ -172,14 +185,14 @@ class Server(BaseServer):
 	# if channel or server is False, retrieve "global" for that thing.
 	# TODO: make sure this optimized as it can be
 	def getOption(self, opt, module=None, channel=None, server=None, default=NoDefault, setDefault=True):
-		if opt in KEYS_DENY: raise AttributeError("Access denied. (%s)" % opt)
+		if opt in KEYS_DENY: raise ValueError("Access denied. (%s)" % opt)
 		if module:
 			if server or server is None:
 				# try searching for option in a server object
 				if not server is None:
 					try: moduleopts = Settings.servers[server].moduleopts
 					except KeyError:
-						raise AttributeError("Server (%s) not found" % server)
+						raise ValueError("Server (%s) not found" % server)
 				else:
 					moduleopts = self.moduleopts
 				if module in moduleopts:
@@ -216,26 +229,28 @@ class Server(BaseServer):
 			server = self
 		elif server:
 			if not server in Settings.servers:
-				raise AttributeError("Server label (%s) not found." % server)
+				raise ValueError("Server label (%s) not found." % server)
 			server = Settings.servers[server]
 		
 		if server and opt in KEYS_SERVER_SET:
+			print "getting (%s)" % opt
 			value = getattr(self, opt)
+			print "got (%s)" % value
 		else:
 			if not server or server is self:
 				if opt not in KEYS_MAIN_SET:
-					raise AttributeError("Settings has no option: (%s) to get." % opt)
+					raise ValueError("Settings has no option: (%s) to get." % opt)
 				else:
 					value = getattr(Settings, opt)	
 			else:
 				#case where a server setting is specifically attempted to be got, but it's not in KEYS_SERVER
 				# instead of falling back to KEYS_MAIN, raise error
-				raise AttributeError("Server setting has no option: (%s) to get." % opt)
+				raise ValueError("Server setting has no option: (%s) to get." % opt)
 		if opt in KEYS_COPY: return deepcopy(value)
 		else: return value
 	
 	def setOption(self, opt, value, module=None, channel=None, server=None):
-		if opt in KEYS_DENY: raise AttributeError("Access denied. (%s)" % opt)
+		if opt in KEYS_DENY: raise ValueError("Access denied. (%s)" % opt)
 		if type(value) in TYPE_COPY: value = deepcopy(value) # copy value if compound datatype
 		
 		if module:
@@ -244,7 +259,7 @@ class Server(BaseServer):
 				if not server is None:
 					try: moduleopts = Settings.servers[server].moduleopts
 					except KeyError:
-						raise AttributeError("Server (%s) not found" % server)
+						raise ValueError("Server (%s) not found" % server)
 				else:
 					moduleopts = self.moduleopts
 				mod = moduleopts.setdefault(module, {})
@@ -263,7 +278,7 @@ class Server(BaseServer):
 				server = self
 			elif server:
 				if not server in Settings.servers:
-					raise AttributeError("Server label (%s) not found." % server)
+					raise ValueError("Server label (%s) not found." % server)
 				server = Settings.servers[server]
 			
 			if server and opt in KEYS_SERVER_SET:
@@ -271,13 +286,13 @@ class Server(BaseServer):
 			else:
 				if not server or server is self:
 					if opt not in KEYS_MAIN_SET:
-						raise AttributeError("Settings has no option: (%s) to set." % opt)
+						raise ValueError("Settings has no option: (%s) to set." % opt)
 					else:
 						setattr(Settings, opt, value)	
 				else:
 					#case where a server setting is specifically attempted to be set, but it's not in KEYS_SERVER
 					# instead of falling back to KEYS_MAIN, raise error
-					raise AttributeError("Server settings has no option: (%s) to set." % opt)
+					raise ValueError("Server settings has no option: (%s) to set." % opt)
 				
 	
 	def getModuleOption(self, module, option):
@@ -299,7 +314,7 @@ class Server(BaseServer):
 		return (modname not in self.denymodules) and (modname in Dispatcher.MODULEDICT)
 	
 
-class SettingsBase:
+class SettingsBase(object):
 	nick = "BurlyBot"
 	altnicks = None # []
 	nicksuffix = "_"
@@ -313,20 +328,30 @@ class SettingsBase:
 	console = True
 	logfile = None
 	modules = None # OrderedSet(["core"])
-	admins = None # []
+	_admins = None
 	servers = None # {}
 	botdir = None
 	configfile = None
 	moduleopts = None # {}
 	databasemanager = None
 	
+	@property
+	def admins(self):
+		return self._admins
+	
+	@admins.setter
+	def admins(self, value):
+		# When we reset defaults, we grab values from SettingsBase... But 'admins' tries to get the property.
+		if isinstance(value, property): return # TODO: Don't know how to handle this more cleanly
+		self._admins = [x.lower() for x in value]
+	
 	#TODO: not sure if the following is needed or not. Class.dict seems to behave strangely
 	def _setDefaults(self):
 		self.altnicks = []
 		self.modules = OrderedSet(["core"])
-		self.admins = []
+		self._admins = []
 		self.moduleopts = {}
-		
+	
 	def __init__(self):
 		self.servers = {}
 		self._setDefaults()

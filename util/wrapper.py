@@ -44,7 +44,7 @@ class BotWrapper:
 			madmins = self._botcont._settings.getModuleOption(module, "admins")
 			if madmins:
 				admins.extend(madmins)
-		return self.event.nick in admins
+		return self.event.nick.lower() in admins
 		
 	# option getter/setters
 	# if channel is None, pass current channel.

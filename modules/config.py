@@ -31,6 +31,9 @@ def servchanParse(servchan):
 			channel = False
 	return server, channel
 
+class EmptyValue:
+	pass
+
 def config(event, bot):
 	""" config serverchannel module opt [value]. serverchannel = servername:#channel (channel on server) or
 	servername (default for server) or :#channel (channel globally) or #channel (channel on this server) or "-" (default)
@@ -83,6 +86,7 @@ def config(event, bot):
 				if not (t is tvalue):
 					return bot.say("Incorrect type of %s: %s. Require %s." % (opt, tvalue, t))
 			msg = "Set %%s(%%s) to %%s (was: %s)"
+			old = EmptyValue
 			try:
 				old = bot.getOption(opt, server=server, channel=channel, module=module)
 				msg = msg % dumps(old)
@@ -90,9 +94,11 @@ def config(event, bot):
 				msg = msg % "unset"
 			except Exception as e:
 				return bot.say("Error: %s" % e)
+			
 			# check type of non module option:
 			# TODO: some things won't be able to have the same type, like set for modules, allowmodules and such. What do?
-			if not module:
+			#       Use properties like .admins ??
+			if not module and (old is not EmptyValue):
 				t = type(old)
 				if not t is tvalue:
 					return bot.sat("Incorrect type of %s: %s. Require %s." % (opt, tvalue, t))

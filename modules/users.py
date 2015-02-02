@@ -43,7 +43,7 @@ def get_user(bot, nick):
 #returns username only, or None if no user exists.
 def get_username(bot, nick, source=None, _inalias=False):
 	qfunc = bot.dbQuery
-	if source and nick == "me": nick = source
+	if source and nick.lower() == "me": nick = source
 	if _inalias or bot.isModuleAvailable("alias"):
 		alias = ALIAS_MODULE.lookup_alias(qfunc, nick)
 		if alias: 

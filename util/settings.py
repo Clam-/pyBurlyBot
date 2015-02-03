@@ -233,9 +233,7 @@ class Server(BaseServer):
 			server = Settings.servers[server]
 		
 		if server and opt in KEYS_SERVER_SET:
-			print "getting (%s)" % opt
 			value = getattr(self, opt)
-			print "got (%s)" % value
 		else:
 			if not server or server is self:
 				if opt not in KEYS_MAIN_SET:

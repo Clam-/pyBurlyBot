@@ -16,7 +16,7 @@ def dochoice(event, bot):
 	return bot.say("%s" % choice(values))
 
 def dorand(event, bot):
-	""" rand [arg]. If no arg rand will generate random int between 0-10. If arg is an interger
+	""" rand [arg]. If no arg rand will generate random int between 0-10. If arg is an integer
 	value a random int between 0-arg will be generated. arg can also be a list of items, in which case will act like choice."""
 	if not event.argument:
 		return bot.say("%s" % randint(0, 10))
@@ -29,3 +29,4 @@ def dorand(event, bot):
 mappings = (Mapping(command=("rand", "random"), function=dorand), 
 	Mapping(command="choice", function=dochoice),
 	Mapping(command=("coinflip", "heads", "tails", "flip"), function=doflip),)
+

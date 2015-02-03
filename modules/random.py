@@ -29,3 +29,4 @@ def dorand(event, bot):
 mappings = (Mapping(command=("rand", "random"), function=dorand), 
 	Mapping(command="choice", function=dochoice),
 	Mapping(command=("coinflip", "heads", "tails", "flip"), function=doflip),)
+

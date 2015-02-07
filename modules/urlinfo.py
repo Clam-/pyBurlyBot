@@ -32,7 +32,7 @@ def headers(event, bot):
 	""" head [URL]. If no argument is provided the headers of the last URL will be displayed. 
 	Otherwise the title of the provided URL will be displayed."""
 	if not event.argument:
-		url = _getURL(event)
+		url = _getURL(event, bot.dbQuery)
 		if not url:
 			return bot.say("Haven't seen any URLs in here.")
 	else:

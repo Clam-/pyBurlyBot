@@ -205,6 +205,7 @@ def processHostmask(h):
 ENCODINGS = ("utf-8", "sjis", "latin_1", "gb2312", "cp1251", "cp1252",
 	"gbk", "cp1256", "euc_jp")
 def coerceToUnicode(s, enc=None):
+	if isinstance(s, unicode): return s
 	if enc:
 		try: return s.decode(enc)
 		except UnicodeDecodeError: pass

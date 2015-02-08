@@ -1,7 +1,7 @@
 from twisted.internet.threads import deferToThread
 
 from sys import stderr
-from traceback import format_exc
+from traceback import format_exc, print_exc
 from os.path import join
 from operator import attrgetter
 from uuid import uuid1
@@ -183,8 +183,20 @@ class Dispatcher:
 	
 	@classmethod
 	def reset(cls):
+		cls.unloadModules()
 		cls.MODULEDICT.clear()
 		cls.NOTLOADED.clear()
+	
+	@classmethod
+	def unloadModules(cls):
+		# call modules unload function to clean up.
+		for modname, module in cls.MODULEDICT.iteritems():
+			if hasattr(module, "unload"): 
+				print "UNLOADING (%s)" % modname
+				try: module.unload()
+				except Exception as e:
+					print "ERROR in unloading %s" % modname
+					print_exc()
 	
 	def dispatch(self, botinst, eventtype, **eventkwargs):
 		settings = self.settings
@@ -256,7 +268,7 @@ class Dispatcher:
 		if event.target or event.nick:
 			return event, BotWrapper(event, cont_or_wrap)
 		else:
-			return event
+			return event, cont_or_wrap
 	
 	@staticmethod					
 	def _dispatchreally(func, event, cont_or_wrap):

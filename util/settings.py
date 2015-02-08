@@ -505,10 +505,11 @@ class SettingsBase(object):
 		dump(d, open(self.configfile, "wb"), indent=4, separators=(',', ': '), cls=ConfigEncoder)
 	
 	def shutdown(self, relaunch=False):
-		#stop timers or just not care...
 		self._disconnect(self.servers.keys())
+		#stop timers or just not care...
 		Timers._stopall()
 		reactor.callLater(2.0, self.databasemanager.shutdown) # to give time for individual shutdown
+		Dispatcher.unloadModules()
 		reactor.callLater(2.5, reactor.stop) # to give time for individual shutdown
 		# TODO: make sure this works properly
 		# 	it may act odd on Windows due to execv not replacing current process.
@@ -517,6 +518,7 @@ class SettingsBase(object):
 			
 	def hardshutdown(self):
 		Timers._stopall()
+		Dispatcher.unloadModules()
 		self.databasemanager.shutdown()
 
 def relaunchfunc(pythonbin, args):

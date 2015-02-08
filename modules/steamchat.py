@@ -11,13 +11,19 @@ from collections import deque
 from traceback import print_exc, format_tb
 from twisted.words.protocols.irc import CHANNEL_PREFIXES
 from twisted.internet import reactor
+from twisted.internet.threads import blockingCallFromThread
 from twisted.python.failure import Failure
 from rsa import PublicKey, encrypt
-from util.settings import ConfigException
+from util.settings import ConfigException, Settings
 from util.event import Event
 from util import Mapping, commandSplit, functionHelp, pastehelper
 
 # TODO: handle IRC join/part events so can smartly remove listened channels when bot is no longer in it
+
+# SMALL TODO:
+#	queue messages per channel
+#	bulk send user messages every 2seconds
+#	check friend things
 
 RSAKEY_URL = "https://steamcommunity.com/login/getrsakey?%s"
 # Need to use mobile login URL because normal one doesn't have an API access token in it...
@@ -68,14 +74,33 @@ class SteamIRCBotWrapper(object):
 		return getattr(self._botcont, name)
 	
 	def say(self, msg, **kwargs):
-		if self.event.target: self._steamchat.steamSay(self.event.target, msg, **kwargs)
-		else: self._steamchat.steamSay(self.event.nick, msg, **kwargs)
-	
-	def checkSay(self, msg):
-		if self.event.target:
-			return self._botcont.checkSendMsg(self.event.target, msg)
+		su = self.event.kwargs.get('steamuser')
+		if su:
+			strins = kwargs.get("strins")
+			joinsep = kwargs.get("joinsep")
+			if strins:
+				if joinsep is not None: msg = msg.format(joinsep.join(strins))
+				else: msg = msg.format(*strins)
+			self._steamchat.steamSay(su.id, msg)
 		else:
-			return self._botcont.checkSendMsg(self.event.nick, msg)
+			dest = self.event.nick if self.event.nick else self.event.target
+			if not dest:
+				raise ValueError("Missing dest in say")
+			self.sendmsg(dest, msg, **kwargs)
+	
+	def checkSay(self, msg, **kwargs):
+		su = self.event.kwargs.get('steamuser')
+		if su:
+			strins = kwargs.get("strins")
+			if strins and len(strins) < 100 and len(msg) < 1000:
+				return True
+			else:
+				return len(msg) < 2500
+		else:
+			if self.event.target:
+				return self._botcont.checkSendMsg(self.event.target, msg)
+			else:
+				return self._botcont.checkSendMsg(self.event.nick, msg)
 	
 	def isadmin(self, module=None):
 		return False
@@ -136,9 +161,12 @@ class SteamPoller(Thread):
 					elif t == "saytext":
 						#recv msg
 						self.steamchatq.put(("steamMSG", (mfrom, message['text'])))
-			elif err != "Timeout": print "===========WAT HAPEN?==========="
+			elif err == "Not Logged On": 
+				self.steamchatq.put(("steamDC", ()))
+				break
+			elif err != "Timeout": print "===========WAT HAPEN? (%s)===========\n%s" % (err, rdata)
 			pollid += 1
-		print "SHUTTING DOWN STEAMPOLLER"
+		print "SHUT DOWN STEAMPOLLER"
 	
 	def stop(self):
 		self.pollerq.put("QUIT")
@@ -185,15 +213,20 @@ class SteamChat(Thread):
 	def populateCommandMap(self):
 		# command map. SOMETHING LIKE THIS SHOULD NEVER BE DONE. GOSH.
 		self.cmdMap = self.container._settings.dispatcher.eventmap.get("privmsged", {}).get("command", {}).copy()
-		for cmd in self.cmdMap.keys():
-			if cmd not in self.allowedmodules:
-				self.cmdMap.pop(cmd)
+		for cmd, mappings in self.cmdMap.items():
+			for mapping in mappings:
+				try:
+					remove = mapping.function.__module__.split("_", 1)[1] not in self.allowedmodules
+				except (AttributeError, IndexError):
+					self.cmdMap.pop(cmd)
+				else:
+					if remove: self.cmdMap.pop(cmd)
 	
 	def run(self):
 		self.login()
 		t = time()
 		while True:
-			if not self.oauth: 
+			if (not self.oauth) or (not self.sendready): #require missing oauth or missing sendready before attempt connect
 				if time() > self.cooldownuntil:
 					self.login()
 				else:
@@ -220,14 +253,13 @@ class SteamChat(Thread):
 			sleep(0.1)
 
 		#clean up (shut down poller)
-		print "========SHUTTING DOWN MAIN STEAMCHAT THREAD==========="
 		logout = self.sendready
+		sd = self.senddict.copy()
 		self.checkAndStopPoll()
-		print logout, self.senddict
-		if logout and self.senddict:
-			d = {"access_token" : self.senddict['access_token'], "umqid" : self.senddict['umqid']}
-			r = load(urlopen(CHAT_LOGOUT_URL, urlencode(d)))
-			print "LOGGED OUT:", repr(r)
+		if logout and sd['umqid']:
+			sd.pop("type")
+			r = load(urlopen(CHAT_LOGOUT_URL, urlencode(sd)))
+			print "LOGGED OUT OF STEAM"
 	
 	def getUser(self, uid):
 		return self.users.setdefault(uid, SteamUser(uid))
@@ -238,6 +270,15 @@ class SteamChat(Thread):
 			for u in self.users.itervalues():
 				if u.name == user: return u
 		return None
+	
+	def steamDC(self):
+		# when steam disconnects me, what do (will happen when I request disconnection, 
+		# but this won't have a chance to be called by then because we aren't in the loop anymore.)
+		# I guess we mimick checkAndStopPoll, without the poll stuff
+		self.poller = None
+		self.sendready = False
+		self.senddict.clear()
+		self.cooldownuntil = time() + COOLDOWN
 	
 	def purgeOffline(self):
 		t = time()
@@ -260,7 +301,6 @@ class SteamChat(Thread):
 	
 	def ircMSG(self, channel, nick, msg):
 		users = self.channels.get(channel, [])
-		print "WANT TO SEND TO: (%s) on (%s)" % (users, channel)
 		if users:
 			msg = FROMIRC_FMT % (channel, nick, msg)
 			for user in users:
@@ -270,7 +310,7 @@ class SteamChat(Thread):
 	def steamCMD(self, sourceid, msg):
 		#stolen from dispatcher
 		command, argument = commandSplit(msg)
-		command = command[len(self.cmdprefix):]
+		command = command[len(self.cmdprefix):].lower()
 		u = self.getUser(sourceid)
 		# TODO: Someone should clean this up a bit... probably.
 		if command == "listen":
@@ -314,7 +354,7 @@ class SteamChat(Thread):
 			return self.steamSay(sourceid, 'Use "listen" to join channels. Type messages to me to relay them to a channel.\n'
 				'If you are listening to multiple channels you need to prefix the target channel in your message e.g. "#channel hello".\n'
 				'Use "leave" to stop listening to a channel. Use "quit" or "stop" to stop listening to all channels.\n'
-				'To use my normal "help" function, use "hhelp".')
+				'To use my normal "help" function, use "hhelp". (Doesn\'t work yet...)')
 		elif command == "hhelp":
 			msg.replace("hhelp", "help", 1)
 		
@@ -322,7 +362,7 @@ class SteamChat(Thread):
 		u = self.getUser(sourceid)
 		event = None
 		for mapping in self.cmdMap.get(command,()):
-			if not event: event = Event(None, nick=u.getName(), command=command, argument=argument)
+			if not event: event = Event(None, nick=u.getName(), command=command, argument=argument, steamuser=u)
 			if not cont_or_wrap: cont_or_wrap = SteamIRCBotWrapper(event, self.container, self) # event, botcont, steamchat
 			# massive silliness
 			reactor.callFromThread(self.container._settings.dispatcher._dispatchreally,
@@ -386,18 +426,16 @@ class SteamChat(Thread):
 
 	def steamSay(self, userid, msg):
 		if self.sendready:
-			print "SENDING TO (%s): %s" % (userid, msg)
+			print "SENDING TO (%s): %s" % (userid, repr(msg))
 			d = self.senddict.copy()
 			d['steamid_dst'] = userid
-			d['text'] = msg
+			d['text'] = msg.encode(self.container._settings.encoding)
 			self.outbound.append(urlencode(d))
-			print "QUEUING DATA:", urlencode(d)
 		else:
 			print "CAN'T SEND, NOT LOGGED IN"
 	
 	def _steamSayReally(self):
 		rdata = load(urlopen(SENDMSG_URL, self.outbound.popleft()))
-		print "SENT DATA:", rdata
 		
 	# login to steamcommunity and get oauth token if not already have.
 	# if oauth token gotten, log in to webchat and start poller
@@ -442,6 +480,8 @@ class SteamChat(Thread):
 			self.cooldownuntil = time() + COOLDOWN
 			self.checkAndStopPoll()
 		self.container.setOption("oauthtoken", self.oauth, module="steamchat")
+		#persist oauth token
+		blockingCallFromThread(reactor, Settings.saveOptions)
 	
 	def listUsers(self, dest):
 		users = self.channels.get(dest)

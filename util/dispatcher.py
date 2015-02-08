@@ -6,6 +6,7 @@ from os.path import join
 from operator import attrgetter
 from uuid import uuid1
 from imp import find_module, load_module
+from functools import partial
 
 from wrapper import BotWrapper
 from container import SetupContainer
@@ -159,6 +160,9 @@ class Dispatcher:
 					mapcom = mapping.command
 					#check if tuple or list or basestring (str or unicodes)
 					# I guess it's not a big deal to check both
+					if mapping.function and isinstance(mapping.function, partial):
+						# little cheat for adding module to functools.partial things like in simplecommands
+						mapping.function.__module__ = module.__name__
 					if isIterable(mapcom):
 						for commandname in mapcom:
 							eventmap[etype]["command"].setdefault(commandname, []).append(mapping)

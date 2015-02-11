@@ -145,6 +145,21 @@ def escape_control_codes(s):
 	return s
 
 
+def strip_control_characters(s):
+	'''
+	Strip all control characters from s, and in the case of color codes
+	strip the associated numbers out as well.  Effectively return an
+	unformatted string, might be useful for relay/input for non-IRC things.
+	'''
+	control_codes = (MIRC_CONTROL_BOLD, MIRC_CONTROL_UNDERLINE,
+					 MIRC_CONTROL_ITALICIZE, MIRC_CONTROL_CLEARFORMATTING)
+
+	for control_code in control_codes:
+		s = s.replace(control_code, '')
+
+	return RE_COLOR_CODE.sub('', s)
+
+
 def AAA(s):
 	e = type(s)
 	s = list(s)

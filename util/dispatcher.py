@@ -137,7 +137,6 @@ class Dispatcher:
 		eventmap = self.eventmap
 		for mapping in module.mappings:
 			for etype in mapping.types:
-
 				etype = etype.lower()
 				
 				# There's no actual reason to restrict etypes to a preset list, and in some cases it might be annoying
@@ -150,7 +149,7 @@ class Dispatcher:
 				
 				# Add etype to servernamemapping
 				# This is _addmap inlined
-				if etype == "sendmsg":
+				if etype == "sendmsg" and mapping.override:
 					self.MSGHOOKS = True
 				if not mapping.command and not mapping.regex: 
 					eventmap[etype]["instant"].append(mapping)

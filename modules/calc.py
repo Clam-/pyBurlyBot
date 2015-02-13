@@ -77,9 +77,9 @@ def calc(event, bot):
 			if isinstance(entry, list):
 				entry[0] = POD_PRIORITY.get(entry[0][0], entry[0][1])
 		results.sort()
-		msg = "[%s] {0}" % (input,)
+		msg = u"[%s] {0}" % (input,)
 		#~ print msg, results
-		bot.say(msg, strins=[x[1] for x in results], fcfs=True, joinsep="\x02,\x02 ")
+		bot.say(msg, strins=[x[1] for x in results], fcfs=True, joinsep=u"\x02,\x02 ")
 	else:
 		bot.say("Dunno.")
 

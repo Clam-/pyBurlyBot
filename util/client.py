@@ -260,10 +260,10 @@ class BurlyBot(IRCClient):
 		message = params[-1]
 		if kicked.lower() == self.nickname.lower():
 			if self.state: self.state._leavechannel(channel)
-			self.dispatch(self, "kickedFrom", prefix=prefix, params=params, hostmask=prefix, target=channel, msg=message, kicked=kicked)
+			self.dispatch(self, "kickedFrom", prefix=prefix, params=params, hostmask=prefix, nick=kicker, target=channel, msg=message, kicked=kicked)
 		else:
 			if self.state: self.state._userpart(channel, kicked)
-			self.dispatch(self, "userKicked", prefix=prefix, params=params, hostmask=prefix, target=channel, msg=message, kicked=kicked)
+			self.dispatch(self, "userKicked", prefix=prefix, params=params, hostmask=prefix, nick=kicker, target=channel, msg=message, kicked=kicked)
 
 	def irc_RPL_TOPIC(self, prefix, params):
 		"""
@@ -541,6 +541,7 @@ class BurlyBot(IRCClient):
 		if self.dispatcher.MSGHOOKS and not direct:
 			self.dispatch(self, "sendmsg", target=target, msg=msg, **kwargs)
 		else:
+			self.dispatch(self, "sendmsg", target=target, nick=self.nickname, msg=msg, split=split, **kwargs)
 			if split:
 				for m in self._buildmsg(target, msg, split, **kwargs):
 					self.sendLine(m)

@@ -7,7 +7,7 @@ from time import time
 # TODO: prefix and hostmask are I think always the same. What to do?
 class Event:
 	def __init__(self, type, prefix=None, params=None, hostmask=None, target=None, msg=None, 
-		nick=None, ident=None, host=None, encoding="utf-8", command=None, argument=None, **kwargs):
+		nick=None, ident=None, host=None, encoding="utf-8", command=None, argument=None, priority=10, **kwargs):
 		self.type = type
 		# kwargs is a dict of uncommon event attributes
 		self.prefix = prefix
@@ -30,12 +30,13 @@ class Event:
 		
 		# might be useful
 		self.time = time()
+		self.priority = priority
 	
 	def __repr__(self):
-		return "Event(type=%s, prefix=%s, params=%s, args=%s, hostmask=%s, nick=%s, " \
-			"ident=%s, host=%s, target=%s, msg=%s, command=%s, argument=%s" % \
-			(self.type, self.prefix, self.params, self.args, self.hostmask, self.nick,
-				self.ident, self.host, self.target, self.msg, self.command, self.argument)
+		return "Event(type=%r, prefix=%r, params=%r, hostmask=%r, nick=%r, ident=%r, host=%r, "\
+			"target=%r, msg=%r, command=%r, argument=%r, kwargs=%r, time=%r" % \
+				(self.type, self.prefix, self.params, self.hostmask, self.nick, self.ident, self.host, 
+				self.target, self.msg, self.command, self.argument, self.kwargs, self.time)
 	
 	# TODO: Should this be called "isQuery" ?
 	def isPM(self):

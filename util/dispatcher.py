@@ -98,15 +98,6 @@ class Dispatcher:
 				self.NOTLOADED[modulename] = "Requirements cannot be loaded."
 				return None
 		
-		# check provides and add them to ADDONS
-		if hasattr(module, "PROVIDES"):
-			for item in module.PROVIDES:
-				try:
-					ADDONS._add(item, getattr(module, item))
-				except AttributeError:
-					self.NOTLOADED[modulename] = "Error in PROVIDES for server (%s):\n%s" % (self.settings.serverlabel, format_exc())
-					return None
-		
 		# process module default settings
 		if hasattr(module, "OPTIONS"):
 			for opt, params in module.OPTIONS.iteritems():
@@ -125,6 +116,15 @@ class Dispatcher:
 			except Exception as e:
 				self.NOTLOADED[modulename] = "Error in init() for server (%s):\n%s" % (self.settings.serverlabel, format_exc())
 				return None
+		
+		# check provides (AFTER init) and add them to ADDONS
+		if hasattr(module, "PROVIDES"):
+			for item in module.PROVIDES:
+				try:
+					ADDONS._add(item, getattr(module, item))
+				except AttributeError:
+					self.NOTLOADED[modulename] = "Error in PROVIDES for server (%s):\n%s" % (self.settings.serverlabel, format_exc())
+					return None
 		
 		self.MODULEDICT[modulename] = module
 		if hasattr(module, "mappings"):

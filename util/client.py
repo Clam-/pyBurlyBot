@@ -7,6 +7,7 @@ from twisted.internet import reactor
 from twisted.internet.protocol import ReconnectingClientFactory
 from twisted.python import log
 from twisted.protocols.basic import LineReceiver
+from twisted.protocols.policies import TimeoutMixin
 
 # system imports
 from time import asctime, time
@@ -31,8 +32,9 @@ numeric_to_symbolic["329"] = 'RPL_CREATIONTIME'
 numeric_to_symbolic["396"] = 'RPL_HOSTHIDDEN'
 numeric_to_symbolic["412"] = 'ERR_NOTEXTTOSEND'
 
-class BurlyBot(IRCClient):
+class BurlyBot(IRCClient, TimeoutMixin):
 	"""BurlyBot"""
+	timeOut = 150 # 2.5mins
 	
 	erroneousNickFallback = "Burly"
 	linethrottle = 3
@@ -90,6 +92,7 @@ class BurlyBot(IRCClient):
 	def _reallySendLine(self, line):
 		return LineReceiver.sendLine(self, lowQuote(line) + self.delimiter)
 	def dataReceived(self, data):
+		self.resetTimeout()
 		LineReceiver.dataReceived(self, data)
 	
 	def names(self, channels):

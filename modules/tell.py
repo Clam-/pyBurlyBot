@@ -13,19 +13,19 @@ REQUIRES = ("users",)
 USERS_MODULE = None
 
 #nick: <source> msg - time
-TELLFORMAT = "{0}: <{1}> {2} - {3}"
+TELLFORMAT = u"{0}: <{1}> {2} - {3}"
 #nick: I'll pass that on when target is around.
-RPLFORMAT = "%s: I'll %s when %s %s around.%s%s%s"
-PASSON = "pass that on"
-ASKTHAT = "ask that"
-UNKNOWN = " Don't know (%s)."
-URSELF = " Use notepad for yourself."
-MULTIUSER = " %s someone once is enough."
+RPLFORMAT = u"%s: I'll %s when %s %s around.%s%s%s"
+PASSON = u"pass that on"
+ASKTHAT = u"ask that"
+UNKNOWN = u" Don't know (%s)."
+URSELF = u" Use notepad for yourself."
+MULTIUSER = u" %s someone once is enough."
 #nick: I will remind target about that in timespec.
-RPLREMINDFORMAT = "%s: I will remind %s about that %s.%s%s"
+RPLREMINDFORMAT = u"%s: I will remind %s about that %s.%s%s"
 #TARGET, reminder from SOURCE: MSG - set TELLTIME, arrived TOLDTIME.
-REMINDFORMAT = "{0}, reminder from {1}: {2} - set {3}, arrived {4}."
-SELFREMINDFORMAT = "{0}, reminder: {1} - set {2}, arrived {3}."
+REMINDFORMAT = u"{0}, reminder from {1}: {2} - set {3}, arrived {4}."
+SELFREMINDFORMAT = u"{0}, reminder: {1} - set {2}, arrived {3}."
 
 MAX_REMIND_TIME = 31540000 # 1 year
 

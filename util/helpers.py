@@ -7,7 +7,7 @@ from operator import itemgetter
 from shlex import shlex
 from StringIO import StringIO
 from inspect import getdoc
-from re import compile as compile_re
+import re
 
 # extend shlex to implement slightly modified parser to treat all "nonhandled" characters
 # as "wordchars". Should mean it parses unicode and symbols as words.
@@ -392,7 +392,14 @@ def functionHelp(f, sub=None):
 
 # this is getting a bit out of hand...
 # TODO: check if this is very bad.
-TIMEREGEX = compile_re(r'''(?:(\d*\.?\d+)month(?:s)??)?(?:(\d*\.?\d+)w(?:eek(?:s)?)?)?(?:(\d*\.?\d+)d(?:ay(?:s)?)?)?(?:(\d*\.?\d+)h(?:our(?:s)?)?)?(?:(\d*\.?\d+)m(?:in(?:s|utes)?)?)?(?:(\d*\.?\d+)s(?:ec(?:s|onds)?)?)?''')
+TIMEREGEX = re.compile(r'''
+(?:(\d*\.?\d+)months?)?
+(?:(\d*\.?\d+)w(?:eeks?)?)?
+(?:(\d*\.?\d+)d(?:ays?)?)?
+(?:(\d*\.?\d+)h(?:ours?)?)?
+(?:(\d*\.?\d+)m(?:in(?:s|utes?)?)?)?
+(?:(\d*\.?\d+)s(?:ec(?:s|onds?)?)?)?
+''', re.VERBOSE | re.IGNORECASE)
 
 def _parseDigit(s):
 	try: return float(s)

@@ -25,10 +25,11 @@ def format_definition(json_obj):
 	if len(parts) > 1:
 		definition += ' [...]'
 
-	parts = textwrap(example, TOTAL_LENGTH - len(definition))
-	example = parts[0]
-	if len(parts) > 1:
-		example += ' [...]'
+	if example:
+		parts = textwrap(example, TOTAL_LENGTH - len(definition))
+		example = parts[0]
+		if len(parts) > 1:
+			example += ' [...]'
 
 	s = bold(word) + ': '
 	if definition and not example:

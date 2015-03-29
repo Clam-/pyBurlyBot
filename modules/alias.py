@@ -19,19 +19,18 @@ def add_alias(qfunc, source, alias):
 	qfunc('''INSERT OR REPLACE INTO alias (alias, user) VALUES (?,?);''', (alias, source))
 
 def alias_list(qfunc, nick):
-	result = qfunc('''SELECT alias FROM alias WHERE user = ?;''', (nick,))
-	nick = nick.lower()
-	return filter(lambda x: x.lower() != nick, (row['alias'] for row in result) )
-	
+	result = qfunc('''SELECT alias FROM alias WHERE user = ? AND alias != ?;''', (nick, nick))
+	return (row['alias'] for row in result)
+
 def group_list(qfunc, group):
 	result = qfunc('''SELECT user FROM aliasgrp WHERE grp = ?;''', (group,))
-	return [row['user'] for row in result]
+	return (row['user'] for row in result)
 
 def group_add(qfunc, group, nick):
 	qfunc('''INSERT OR REPLACE INTO aliasgrp (grp, user) VALUES(?,?);''', (group, nick))
 
 def group_check(qfunc, group, nick):
-	return qfunc('''SELECT 1 FROM aliasgrp WHERE grp = ? AND user = ?;''', (group,nick), fetchone)
+	return qfunc('''SELECT 1 FROM aliasgrp WHERE grp = ? AND user = ?;''', (group, nick), fetchone)
 	
 def alias(event, bot):
 	""" alias [(source, ~group, ~del)] argument. If only argument is supplied, aliases for that argument are retrieved. 

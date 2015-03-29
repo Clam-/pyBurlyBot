@@ -20,7 +20,7 @@ def add_alias(qfunc, source, alias):
 
 def alias_list(qfunc, nick):
 	result = qfunc('''SELECT alias FROM alias WHERE user = ? AND alias != ?;''', (nick, nick))
-	return (row['alias'] for row in result)
+	return [row['alias'] for row in result]
 
 def group_list(qfunc, group):
 	result = qfunc('''SELECT user FROM aliasgrp WHERE grp = ?;''', (group,))

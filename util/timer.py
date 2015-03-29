@@ -6,12 +6,22 @@ from twisted.internet import reactor
 from twisted.internet.task import LoopingCall
 from twisted.internet.threads import deferToThread, blockingCallFromThread
 
+class TimerExists(Exception):
+	pass
+
+class TimerInvalidName(Exception):
+	pass
+	
+class TimerNotFound(Exception):
+	pass
+
 class Timer(object):
 	# reps <= 0 means forever
-	def __init__(self, name, interval, f, reps=1, startnow=False, **kwargs):
+	def __init__(self, name, interval, f, reps=1, startnow=False, *args, **kwargs):
 		self.name = name
 		self.f = f
 		self.kwargs = kwargs
+		self.args = args
 		self.reps = reps
 		self.interval = interval
 		self.lc = LoopingCall(Timers.runTimer, self)
@@ -29,50 +39,51 @@ class Timers:
 	timers = {}
 	
 	@classmethod
-	def _addTimer(cls, name, interval, f, reps=1, startnow=False, **kwargs):
+	def _addTimer(cls, name, interval, f, reps=1, startnow=False, *args, **kwargs):
 		if name in cls.timers:
-			return (False, "Timer already exists.")
+			raise TimerExists("Timer already exists.")
 		else:
-			cls.timers[name] = Timer(name, interval, f, reps, startnow, **kwargs)
-			return (True, "Timer added.")
+			cls.timers[name] = Timer(name, interval, f, reps, startnow, *args, **kwargs)
+			return True
 	
 	# _timers are for internal use only
 	@classmethod
-	def addtimer(cls, name, interval, f, reps=1, startnow=False, **kwargs):
+	def addtimer(cls, name, interval, f, reps=1, startnow=False, *args, **kwargs):
 		#kinda want to use _ prefix for internal things like DBcommit
 		try:
 			if name.startswith("_"):
-				return (False, "Invalid name.")
+				raise TimerInvalidName("Invalid name (%s)." % name)
 		except AttributeError:
-			return (False, "Invalid name.")
+			raise TimerInvalidName("Invalid name (%s)." % name)
 		else:
 			# force interval and rep in to float and int respectivly in case module forgot (I forgot)
-			return blockingCallFromThread(reactor, cls._addTimer, name, float(interval), f, int(reps), startnow, **kwargs)
+			return blockingCallFromThread(reactor, cls._addTimer, name, float(interval), f, int(reps), startnow, *args, **kwargs)
 		
 	@classmethod
 	def _deltimer(cls, name):
 		if name in cls.timers:
 			#maybe add tryexcept here incase timer already finished
-			cls.timers[name].lc.stop()
+			try: cls.timers[name].lc.stop()
+			except AssertionError: pass
 			del cls.timers[name]
-			return (True, "Timer removed.")
+			return True
 		else:
-			return (False, "Timer %s not found." % name)
+			raise TimerNotFound("Timer %s not found." % name)
 		
 	@classmethod
 	def deltimer(cls, name):
 		try:
 			if name.startswith("_"):
-				return (False, "Invalid name.")
+				raise TimerInvalidName("Invalid name (%s)." % name)
 		except AttributeError:
-			return (False, "Invalid name (%s)." % name)
+			raise TimerInvalidName("Invalid name (%s)." % name)
 		return blockingCallFromThread(reactor, cls._deltimer, name)
 	
 	#run the desired function in a thread but manage the timer in the reactor
 	@classmethod
 	def runTimer(cls, timerobj):
 		#print "Calling f: %s" % timerobj.f
-		reactor.callInThread(timerobj.f, **timerobj.kwargs)
+		reactor.callInThread(timerobj.f, *timerobj.args, **timerobj.kwargs)
 		if timerobj.reps > 0:
 			timerobj.reps -= 1
 			if timerobj.reps == 0:
@@ -97,3 +108,15 @@ class Timers:
 	@classmethod
 	def getTimers(cls):
 		return blockingCallFromThread(reactor, cls._getTimers)
+		
+	@classmethod
+	def _delPrefix(cls, prefix):
+		for timername in cls.timers.keys():
+			if timername.startswith(prefix):
+				try: cls.timers[timername].lc.stop()
+				except AssertionError: pass
+				del cls.timers[timername]
+				
+	@classmethod
+	def delPrefix(cls, prefix):
+		return blockingCallFromThread(reactor, cls._delPrefix, prefix)

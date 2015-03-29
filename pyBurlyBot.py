@@ -1,5 +1,10 @@
 #pyBurlyBot
 
+#win32 codepage fix (http://stackoverflow.com/a/3259271) :
+from codecs import register, lookup
+from os import name
+if name == "nt": register(lambda name: lookup('utf-8') if name == 'cp65001' else None)
+
 from os.path import exists
 from os import getcwdu
 from os.path import join

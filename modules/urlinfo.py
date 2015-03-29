@@ -11,7 +11,7 @@ from time import strftime, strptime
 
 # (code - reason) content-type, encoding, size, serversoftware, redirect
 HEAD_RPL = "(%s - %s) %s, %s%s bytes, %s%s"
-TITLE_REGEX = recompile('<title>(.*?)</title>', IGNORECASE|DOTALL)
+TITLE_REGEX = recompile('<title>(.*?)</title>', UNICODE|IGNORECASE|DOTALL)
 
 def seen_link(event, bot):
 	match = event.regex_match
@@ -27,6 +27,12 @@ def _getURL(event, dbQuery):
 	if not row:
 		return None
 	return row['url']
+
+def lasturl(event, bot):
+	url = _getURL(event, bot.dbQuery)
+	if not url:
+		return bot.say("Haven't seen any URLs in here.")
+	bot.say(url)
 
 def headers(event, bot):
 	""" head [URL]. If no argument is provided the headers of the last URL will be displayed. 
@@ -92,5 +98,5 @@ def init(bot):
 	return True
 
 #mappings to methods
-mappings = (Mapping(command=("head"), function=headers), Mapping(command=("title"), function=title),
-	Mapping(types=["privmsged"], regex=recompile(r"\bhttps?\://[\w./-]+\.[\w./-]+(?:\?[\w./=%-]+(?:#[\w./=%-]+)?)?", UNICODE), function=seen_link),)
+mappings = (Mapping(command=("head",), function=headers), Mapping(command=("title",), function=title), Mapping(command=("lasturl",), function=lasturl),
+	Mapping(types=["privmsged"], regex=recompile(r"\bhttps?\://[\w./-]+\.[\w./-]+(?:\?[\w./=%-&]+(?:#[\w./=%-]+)?)?", UNICODE|IGNORECASE), function=seen_link),)

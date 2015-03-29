@@ -9,7 +9,7 @@ PROVIDES = ("paste",)
 
 APIURL = "http://dpaste.com/api/v2/"
 
-def paste(s, syntax="text", title="BurlyBot paste", poster="BurlyBot", expiry_days=1):
+def paste(s, syntax="text", title="BurlyBot paste", poster="BurlyBot", expiry_days=1, **kwargs):
 	data = {
 		"title" : title.encode("utf-8"),
 		"syntax" : syntax.encode("utf-8"),

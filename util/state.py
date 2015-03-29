@@ -1,7 +1,10 @@
 #preliminary State
 
-# State class should only be used for reading by modules, and setting from main event triggers, I guess
-# I think State is only marginally useful. I think it's overheads might be a waste.
+# State MUST be READ ONLY from modules.
+# Iteration MUST be performed over copies of .keys() and such else RuntimeError will most likely be raised.
+# This will work for python 2.x because ~GIL MAJIKS~ http://blog.labix.org/2008/06/27/watch-out-for-listdictkeys-in-python-3
+# went this route because I don't want to copy these containers when it isn't really necessary and they may be huge.
+# TODO: devise proper way to go about the above with minimal (nested?) copying
 
 from time import time
 from twisted.internet import reactor
@@ -10,9 +13,9 @@ from twisted.internet.threads import blockingCallFromThread
 class Channel:
 	def __init__(self, name, modes = None):
 		self.name = name
-		self._users = {} # [nick] = User
-		self._ops = set() # set of nicks
-		self._voices = set() # set of nicks
+		self.users = {} # [nick] = User
+		self.ops = set() # set of nicks
+		self.voices = set() # set of nicks
 		
 		self.moderated = False
 		self.inviteonly = False
@@ -27,9 +30,9 @@ class Channel:
 		# If you want this to be fully populated MODE #channel <b,e,I> will need to be issued
 		# Also NOTE: exceptlist is a list of ban exceptions, invitelist is a list of users
 		#	exempted from invite only.
-		self._banlist = {} # [host] = nickwhosetban, time
-		self._exceptlist = {} # [host] = nickwhosetexcept, time
-		self._invitelist = {} # [host] = nickwhosetinvite, time
+		self.banlist = {} # [host] = nickwhosetban, time
+		self.exceptlist = {} # [host] = nickwhosetexcept, time
+		self.invitelist = {} # [host] = nickwhosetinvite, time
 		
 		self.topic = ""
 		# (nick, ident, host, hostmask)
@@ -45,54 +48,30 @@ class Channel:
 		self.optopic = False
 		self.noextmsg = False
 
-	# NOTE: access to these attributes may cause the bot to slow if in massive channels
-	@property
-	def users(self):
-		return blockingCallFromThread(reactor, self._users.copy)
-	@property
-	def ops(self):
-		return blockingCallFromThread(reactor, self._ops.copy)
-	@property
-	def voices(self):
-		return blockingCallFromThread(reactor, self._voices.copy)
-	@property
-	def banlist(self):
-		return blockingCallFromThread(reactor, self._banlist.copy)
-	@property
-	def exceptlist(self):
-		return blockingCallFromThread(reactor, self._exceptlist.copy)
-	@property
-	def invitelist(self):
-		return blockingCallFromThread(reactor, self._invitelist.copy)
-
 	def _adduser(self, user, modes = None):
-		if user.nick not in self._users:
-			self._users[user.nick] = user
-		user._channels.add(self.name)
+		if user.nick not in self.users:
+			self.users[user.nick] = user
+		user.channels.add(self.name)
 			
 	def _changeuser(self, old, new):
-		self._users[new] = self._users[old]
-		del self._users[old]
+		self.users[new] = self.users[old]
+		del self.users[old]
 		
 	def _removeuser(self, nick):
-		if nick in self._users:
-			del self._users[nick]
+		if nick in self.users:
+			del self.users[nick]
 	
 	def _settopic(self, topic, nick, ident, host, hostmask):
 		self.topic = topic
-		self._topicsetby = (nick, ident, host, hostmask)
+		self.topicsetby = (nick, ident, host, hostmask)
 
 class User:
 	def __init__(self, nick, ident=None, host=None, hostmask=None):
-		self._channels = set()
+		self.channels = set()
 		self.nick = nick
 		self.ident = ident
 		self.host = host
 		self.hostmask = host
-	
-	@property
-	def channels(self):
-		return blockingCallFromThread(reactor, self._channels.copy)
 		
 	# TODO: Should we really be caring enough to update hostmaks and stuff
 	#	whenever we see the user do something?
@@ -110,54 +89,47 @@ class User:
 class Network:
 	def __init__(self, network):
 		self.name = network
-		self._users = {} # [nick] = User
-		self._channels = {}
+		self.users = {} # [nick] = User
+		self.channels = {}
 		self.motd = None
-	
-	@property
-	def users(self):
-		return blockingCallFromThread(reactor, self._users.copy)
-	@property
-	def channels(self):
-		return blockingCallFromThread(reactor, self._channels.copy)
 	
 	def _resetnetwork(self):
 		#clear channels
-		self._channels = {}
-		self._users = {}
+		self.channels = {}
+		self.users = {}
 		
 	def _nukechannel(self, channel):
-		if channel in self._channels:
-			for user in self._channels[channel]._users.itervalues():
-				user._channels.remove(channel)
-				if not user._channels:
+		if channel in self.channels:
+			for user in self.channels[channel].users.itervalues():
+				user.channels.remove(channel)
+				if not user.channels:
 					#user not known in any channels, remove existance
-					del self._users[user.nick]
-			del self._channels[channel]
+					del self.users[user.nick]
+			del self.channels[channel]
 
 	def _userquit(self, nick):
-		if nick in self._users:
-			u = self._users[nick]
-			for channel in u._channels:
-				self._channels[channel]._removeuser(u.nick)
-			del self._users[nick]
+		if nick in self.users:
+			u = self.users[nick]
+			for channel in u.channels:
+				self.channels[channel]._removeuser(u.nick)
+			del self.users[nick]
 
 	def _joinchannel(self, channel):
 		self._nukechannel(channel)
-		self._channels[channel] = Channel(channel)
+		self.channels[channel] = Channel(channel)
 
 	def _leavechannel(self, channel):
 		self._nukechannel(channel)
 
 	def _userjoin(self, channel, nick, ident=None, host=None, hostmask=None):
 		u = None
-		if nick not in self._users:
+		if nick not in self.users:
 			u = User(nick, ident, host, hostmask)
-			self._users[nick] = u
+			self.users[nick] = u
 		else:
-			u = self._users[nick]
+			u = self.users[nick]
 			if ident or host or hostmask: u._refresh(ident, host, hostmask)
-		self._channels[channel]._adduser(u)
+		self.channels[channel]._adduser(u)
 
 	@staticmethod
 	def _processlist(l):
@@ -167,30 +139,30 @@ class Network:
 		return d
 	
 	def _addinvites(self, channel, invitelist):
-		self._channels[channel]._invitelist = self._processlist(invitelist)
+		self.channels[channel].invitelist = self._processlist(invitelist)
 	
 	def _addexcepts(self, channel, exceptlist):
-		self._channels[channel]._exceptlist = self._processlist(exceptlist)
+		self.channels[channel].exceptlist = self._processlist(exceptlist)
 		
 	def _addbans(self, channel, banlist):
-		self._channels[channel]._banlist = self._processlist(banlist)
+		self.channels[channel].banlist = self._processlist(banlist)
 
 	def _userrename(self, oldnick, newnick, ident, host, hostmask):
-		user = self._users[oldnick]
+		user = self.users[oldnick]
 		user._refresh(ident, host, hostmask)
-		del self._users[oldnick]
-		self._users[newnick] = user
+		del self.users[oldnick]
+		self.users[newnick] = user
 		#go through channels user is on
-		for chan in user._channels:
-			self._channels[chan]._changeuser(oldnick, newnick)
+		for chan in user.channels:
+			self.channels[chan]._changeuser(oldnick, newnick)
 
 	def _userpart(self, channel, nick, ident=None, host=None, hostmask=None):
-		if nick in self._users:
-			u = self._users[nick]
-			self._channels[channel]._removeuser(u.nick)
-			if not u._channels:
+		if nick in self.users:
+			u = self.users[nick]
+			self.channels[channel]._removeuser(u.nick)
+			if not u.channels:
 				#user not known in any channels, remove existance
-				del self._users[nick]
+				del self.users[nick]
 			else:
 				if ident or host or hostmask: u._refresh(ident, host, hostmask)
 		else:
@@ -199,16 +171,17 @@ class Network:
 
 	# TODO: This could probably be less wordly, also check if KeyErrors and pop's
 	#	will present a problem
+	# TODO: also allow tracking of current bot user modes
 	def _modechange(self, channel, nick, added, removed, reset=True):
-		c = self._channels[channel]
+		c = self.channels[channel]
 		if reset: c._resetModeIs()
 		for mode, arg in added:
 			if mode in self.prefixmap.opcmds:
-				c._ops.add(arg)
+				c.ops.add(arg)
 			elif mode == "b":
-				c._banlist[arg] = (nick, int(time()))
+				c.banlist[arg] = (nick, int(time()))
 			elif mode == "e":
-				c._exceptlist[arg] = (nick, int(time()))
+				c.exceptlist[arg] = (nick, int(time()))
 			elif mode == "i":
 				c.inviteonly = True
 			elif mode == "m":
@@ -226,18 +199,18 @@ class Network:
 			elif mode == "l":
 				c.limit = arg
 			elif mode == "I":
-				c._invitelist[arg] = (nick, int(time()))
+				c.invitelist[arg] = (nick, int(time()))
 			elif mode in self.prefixmap.voicecmds:
-				c._voices.add(arg)
+				c.voices.add(arg)
 				
 		for mode, arg in removed:
 			if mode in self.prefixmap.opcmds:
-				try: c._ops.remove(arg)
+				try: c.ops.remove(arg)
 				except KeyError: pass
 			elif mode == "b":
-				c._banlist.pop(arg, None)
+				c.banlist.pop(arg, None)
 			elif mode == "e":
-				c._exceptlist.pop(arg, None)
+				c.exceptlist.pop(arg, None)
 			elif mode == "i":
 				c.inviteonly = False
 			elif mode == "m":
@@ -255,13 +228,13 @@ class Network:
 			elif mode == "l":
 				c.limit = None
 			elif mode == "I":
-				c._invitelist.pop(arg, None)
+				c.invitelist.pop(arg, None)
 			elif mode in self.prefixmap.voicecmds:
-				try: c._voices.remove(arg)
+				try: c.voices.remove(arg)
 				except KeyError: pass
 
 	def _settopic(self, channel, newtopic, nick=None, ident=None, host=None, hostmask=None):
-		self._channels[channel]._settopic(newtopic, nick, ident, host, hostmask=None)
+		self.channels[channel]._settopic(newtopic, nick, ident, host, hostmask=None)
 		
 	def _addusers(self, channel, users):
 		for nick in users:
@@ -271,6 +244,6 @@ class Network:
 				
 			self._userjoin(channel, nick)
 			if prefix in self.prefixmap.opprefixes:
-				self._channels[channel]._ops.add(nick)
+				self.channels[channel].ops.add(nick)
 			if prefix in self.prefixmap.voiceprefixes:
-				self._channels[channel]._voices.add(nick)
+				self.channels[channel].voices.add(nick)

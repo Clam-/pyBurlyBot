@@ -1,5 +1,5 @@
 #users
-from util import Mapping, distance_of_time_in_words, fetchone, pastehelper, ADDONS
+from util import Mapping, distance_of_time_in_words, fetchone, pastehelper
 # Modules should not import Settings unless you have a very good reason to do so.
 from util.settings import Settings
 
@@ -80,7 +80,7 @@ def user_seen(event, bot):
 						seen['seenwhere'], seen['lastmsg']))
 			if len(group) > 3:
 				try:
-					return "%s, see %s" % (event.nick, ADDONS.paste("\n".join(msgs), title="Seen %s" % target))
+					return "%s, see %s" % (event.nick, bot.getAddon("paste")("\n".join(msgs), title="Seen %s" % target))
 				except AttributeError:
 					return bot.say("Too many users and no paste available.")
 			else:

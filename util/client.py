@@ -36,7 +36,7 @@ class BurlyBot(IRCClient, TimeoutMixin):
 	"""BurlyBot"""
 	timeOut = 150 # 2.5mins
 	
-	erroneousNickFallback = "Burly"
+	erroneousNickFallback = "BurlyBot"
 	linethrottle = 3
 	_lines = 0
 	_lastmsg = 0
@@ -45,6 +45,8 @@ class BurlyBot(IRCClient, TimeoutMixin):
 	altindex = 0
 	prefixlen = None
 	delimiter = '\r\n' # stick to specification
+	versionName = "pyBurlyBot git"
+	realname = "Burly Bot"
 	
 	# http://twistedmatrix.com/trac/browser/trunk/twisted/words/protocols/irc.py
 	# irc_ and RPL_ methods are duplicated here verbatim so that we can dispatch higher level
@@ -55,7 +57,7 @@ class BurlyBot(IRCClient, TimeoutMixin):
 	def sendLine(self, line):
 		#main point of encoding outbound messages:
 		if isinstance(line, unicode): line = line.encode(self.settings.encoding)
-		if len(line) > 512: line = line[:512] #blindly truncate to not get killed for huge messages.
+		if len(line) > 510: line = line[:510] #blindly truncate to not get killed for huge messages.
 		t = time()
 		if self._lastmsg + 1 < t:
 			# if message hasn't been sent for 1 seconds, go for it
@@ -90,6 +92,7 @@ class BurlyBot(IRCClient, TimeoutMixin):
 
 	# sticking to specification
 	def _reallySendLine(self, line):
+		if self.debug >= 2: print "REALLY SENDING LINE:", repr(lowQuote(line) + self.delimiter)
 		return LineReceiver.sendLine(self, lowQuote(line) + self.delimiter)
 	def dataReceived(self, data):
 		self.resetTimeout()
@@ -188,10 +191,10 @@ class BurlyBot(IRCClient, TimeoutMixin):
 		"""
 		Called when we get a message.
 		"""
+		if self.debug >= 2: print "INCOMING PRIVMSG:", prefix, params
 		user = prefix
 		channel = params[0]
 		message = params[-1]
-
 		if not message:
 			# Don't raise an exception if we get blank message.
 			return
@@ -218,6 +221,7 @@ class BurlyBot(IRCClient, TimeoutMixin):
 		"""
 		Called when a user gets a notice.
 		"""
+		if self.debug >= 2: print "INCOMING NOTICE:", prefix, params
 		user = prefix
 		channel = params[0]
 		message = params[-1]
@@ -440,7 +444,7 @@ class BurlyBot(IRCClient, TimeoutMixin):
 				self.irc_unknown(prefix, command, params)
 
 	def lineReceived(self, line):
-		#print "---%s---" % line
+		if self.debug >= 3: print "INCOMING LINE: %s" % line
 		IRCClient.lineReceived(self, line)
 				
 	###
@@ -459,11 +463,24 @@ class BurlyBot(IRCClient, TimeoutMixin):
 			self.prefixlen = len(prefix)
 		for tag, data in messages:
 			if tag not in seen:
-				#dispatch event
+				#dispatch event					
 				self.dispatch(self, "ctcpQuery", prefix=user, params=params, hostmask=user, target=channel, tag=tag, 
 					data=data, nick=nick, ident=ident, host=host)
+				#call handler if defined:
+				method = getattr(self, 'ctcpQueryB_%s' % tag, None)
+				if method is not None: method(user, channel, data)
+				else: self.ctcp_unknownQuery(user, channel, tag, data)
 			seen.add(tag)
-			
+	
+	# borrowed mostly from IRCClient
+	def ctcpQueryB_VERSION(self, user, channel, data):
+		if self.versionName:
+			nick = user.split('!')[0]
+			veritems = [self.versionName]
+			if self.versionNum: veritems.append(self.versionNum)
+			if self.versionEnv: veritems.append(self.versionEnv)
+			self.ctcpMakeReply(nick, [('VERSION', ';'.join(veritems))])
+	
 	def ctcpReply(self, user, channel, messages, params):
 		"""
 		Dispatch method for any CTCP replies received.
@@ -481,7 +498,11 @@ class BurlyBot(IRCClient, TimeoutMixin):
 				self.dispatch(self, "ctcpReply", prefix=user, params=params, hostmask=user, target=channel, tag=tag, 
 					data=data, nick=nick, ident=ident, host=host)
 			seen.add(tag)
-	
+
+	def ctcp_unknown(self, user, channel, tag, data):
+		if self.settings.debug:
+			print 'Unknown CTCP query from %r: %r %r' % (user, tag, data)
+
 	def signedOn(self):
 		"""Called when bot has succesfully signed on to server."""
 		print "[Signed on]"
@@ -492,16 +513,14 @@ class BurlyBot(IRCClient, TimeoutMixin):
 		self.prefixmap = PrefixMap(self.supported.getFeature("PREFIX").iteritems())
 		if self.state:
 			self.state.prefixmap = self.prefixmap
-		if self.settings.nickservpass:
-			self.sendmsg("nickserv", "identify %s" % self.settings.nickservpass)
-			# send notice to self to see if prefix changed, allow for some latency:
-			reactor.callLater(1.0, self.notice, self.nickname, "\x1b")
-		
-		for chan in self.settings.channels:
-			self.join(*chan)
 		
 		self.container._setBotinst(self)
 		if self.state: self.state._resetnetwork()
+		
+		# allow modules to implement a delay or somesuch for joining channels if they handle this event
+		if not self.dispatch(self, "preJoin"):
+			for chan in self.settings.channels:
+				self.join(*chan)
 		self.dispatch(self, "signedOn")
 
 	# TODO: this currently doesn't get called. Do we want to dispatch these events? Or just make
@@ -718,4 +737,6 @@ class BurlyBotFactory(ReconnectingClientFactory):
 		proto.nickname = proto.settings.nick
 		#throttle queue
 		proto._dqueue = deque()
+		#debug
+		proto.debug = proto.settings.debug
 		return proto

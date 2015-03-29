@@ -1,7 +1,7 @@
 # youtube search/info module
 
 from util import Mapping, commandSplit, functionHelp, fetchone
-from re import compile as recompile
+from re import compile as recompile, IGNORECASE, UNICODE
 from urlparse import urlparse, parse_qs
 
 from time import strftime, strptime
@@ -122,5 +122,5 @@ def init(bot):
 
 #mappings to methods
 mappings = (Mapping(command=("youtube", "yt"), function=youtube), 
-	Mapping(types=["privmsged"], regex=recompile(r"\bhttps?\://(?:www\.)?youtu\.be\/[a-zA-Z0-9_-]{11}.*\b"), function=seen_video),
-	Mapping(types=["privmsged"], regex=recompile(r"\bhttps?\://(?:www\.)?youtube\.com\/.*v\=[a-zA-Z0-9_-]{11}.*\b"), function=seen_video),)
+	Mapping(types=["privmsged"], regex=recompile(r"\bhttps?\://(?:www\.)?youtu\.be\/[a-zA-Z0-9_-]{11}.*\b", IGNORECASE|UNICODE), function=seen_video),
+	Mapping(types=["privmsged"], regex=recompile(r"\bhttps?\://(?:www\.)?youtube\.com\/.*v\=[a-zA-Z0-9_-]{11}.*\b", IGNORECASE|UNICODE), function=seen_video),)

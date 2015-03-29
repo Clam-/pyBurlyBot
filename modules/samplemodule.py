@@ -45,6 +45,6 @@ def init(bot):
 	return True
 
 #mappings to methods
-mappings = (Mapping(types=["privmsged"], regex=recompile(r"\|.*"), function=repeater),
+mappings = (Mapping(types=["privmsged"], regex=recompile(r"^\|.*"), function=repeater),
 	Mapping(command="samplecommand", function=samplecommand),
 	Mapping(command="print", function=printer),)

@@ -1,6 +1,6 @@
 #timerexample.py
 
-from util import Mapping, Timers, commandSplit, argumentSplit
+from util import Mapping, Timers, commandSplit, argumentSplit, TimerExists, TimerInvalidName, TimerNotFound
 
 # requires keyword arguments
 def timercallback(bot=None, channel=None, msg=None):
@@ -19,11 +19,22 @@ def timers(event, bot):
 		if not args:
 			bot.say("Not enough arguments. Need: timername delay reps message (reps <= 0 means forever)")
 			return
-		msg = Timers.addtimer(args[0], float(args[1]), timercallback, reps=int(args[2]), msg=args[3], bot=bot, channel=event.target)[1]
-		bot.say("%s (%s)" % (msg, args[0]))
+		try:
+			if Timers.addtimer(args[0], float(args[1]), timercallback, reps=int(args[2]), msg=args[3], bot=bot, channel=event.target):
+				bot.say("Timer added (%s)" % args[0])
+			else:
+				bot.say("Timer not added for some reason?")
+		except TimerExists:
+			bot.say("Timer not added because it exists already.")
+		except TimerInvalidName:
+			bot.say("Timer not added because it has an invalid name.")
 
 	elif command == "stop":
-		bot.say(Timers.deltimer(args)[1])
+		try: 
+			Timers.deltimer(args)
+			bot.say("Timer stopped (%s)" % args)
+		except (TimerNotFound, TimerInvalidName):
+			bot.say("Can't stop (%s) because timer not found or internal timer." % args)
 
 #mappings to methods
 mappings = (Mapping(command="timers", function=timers),)

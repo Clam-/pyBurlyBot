@@ -13,8 +13,6 @@ from container import SetupContainer
 from helpers import isIterable, commandSplit, coerceToUnicode
 from event import Event
 
-from util import ADDONS
-
 class Dispatcher:
 	MODULEDICT = {}
 	NOTLOADED = {}
@@ -23,14 +21,12 @@ class Dispatcher:
 		self.moddir = join(settings.botdir, "modules")
 		self.waitmap = {}
 		self.settings = settings
+		self.debug = settings.debug
 		self.reload()
 
 	def reload(self):
 		#temporary set to keep track of what we have loaded
 		self.loadedModules = set()
-		
-		#restore ADDONS
-		ADDONS.clear()
 		
 		self.eventmap = {}
 		# don't clear waitmap on reload to allow for still waiting functions to pass
@@ -121,7 +117,7 @@ class Dispatcher:
 		if hasattr(module, "PROVIDES"):
 			for item in module.PROVIDES:
 				try:
-					ADDONS._add(item, getattr(module, item))
+					self.settings.addons._add(item, modulename, getattr(module, item))
 				except AttributeError:
 					self.NOTLOADED[modulename] = "Error in PROVIDES for server (%s):\n%s" % (self.settings.serverlabel, format_exc())
 					return None
@@ -203,12 +199,12 @@ class Dispatcher:
 	
 	def dispatch(self, botinst, eventtype, **eventkwargs):
 		settings = self.settings
-		servername = settings.serverlabel
 		cont_or_wrap = botinst.container
 		event = None
 		# Case insensitivity for etypes (convenience) 
 		#TODO: (is this a bad idea?)
 		eventtype = eventtype.lower()
+		dispatched = False
 		
 		msg = eventkwargs.get("msg", None)
 		if msg and eventtype != "sendmsg": eventkwargs["msg"] = msg = coerceToUnicode(eventkwargs["msg"], settings.encoding)
@@ -223,20 +219,22 @@ class Dispatcher:
 			# Maintain case for event, for funny things like replying in all caps
 			eventkwargs["command"], eventkwargs["argument"] = (command, argument)
 			command = command.lower()
-		
 		eventmap = self.eventmap
 		if eventtype in eventmap:
 			# TODO: Event and wrapper creation could possible be delayed even further maybe
 			if event is None: 
 				eventkwargs["encoding"] = settings.encoding
 				event, cont_or_wrap = self.createEventAndWrap(cont_or_wrap, eventtype, eventkwargs)
+			if self.debug >= 2: print "DISPATCHING: %s" % event
 			#lol dispatcher is 100 more simple now, but at the cost of more dict...
 			for mapping in eventmap[eventtype]["instant"]:
-				self._dispatchreally(mapping.function, event, cont_or_wrap)
+				self._dispatchreally(mapping.function, event, cont_or_wrap, self.debug)
+				dispatched = True
 				if mapping.priority == 0: break #lol cheap and easy way to support total override
 			#super fast command dispatching now... Only thing left that's slow is the regex but has to be
 			for mapping in eventmap[eventtype]["command"].get(command,()):
-				self._dispatchreally(mapping.function, event, cont_or_wrap)
+				self._dispatchreally(mapping.function, event, cont_or_wrap, self.debug)
+				dispatched = True
 				if mapping.priority == 0: break
 			# TODO: Consider this:
 			# super priority==0 override doesn't really make much sense on a regex, but whatever
@@ -244,7 +242,8 @@ class Dispatcher:
 				result = mapping.regex.search(msg)
 				if result:
 					event.regex_match = result
-					self._dispatchreally(mapping.function, event, cont_or_wrap)
+					self._dispatchreally(mapping.function, event, cont_or_wrap, self.debug)
+					dispatched = True
 					if mapping.priority == 0: break
 		
 		if eventtype in self.waitmap:
@@ -260,11 +259,15 @@ class Dispatcher:
 					remove.append(wd)
 					wd.q.put(event)
 					wd.done = True
+					dispatched = True
 				elif eventtype in wd.interestede:
 					wd.q.put(event)
+					dispatched = True
 			if remove:
 				for x in remove:
 					self.delWaitData(x)
+		return dispatched
+		
 	@staticmethod
 	def createEventAndWrap(cont_or_wrap, eventtype, eventkwargs):
 		event = Event(eventtype, **eventkwargs)
@@ -274,7 +277,8 @@ class Dispatcher:
 			return event, cont_or_wrap
 	
 	@staticmethod					
-	def _dispatchreally(func, event, cont_or_wrap):
+	def _dispatchreally(func, event, cont_or_wrap, debug):
+		if debug >= 2: print "DISPATCHING TO: %r" % func
 		d = deferToThread(func, event, cont_or_wrap)
 		#add errback
 		d.addErrback(cont_or_wrap._moduleerr)

@@ -25,7 +25,8 @@ from util.client import BurlyBotFactory
 from util.db import DBManager
 from util.timer import Timers
 
-KEYS_COMMON = ("admins", "altnicks", "commandprefix", "datafile", "encoding", "moduleopts", "nick", "nickservpass", "nicksuffix")
+KEYS_COMMON = ("admins", "altnicks", "commandprefix", "datafile", "encoding", "moduleopts", "nick", 
+	"nickservpass", "nicksuffix")
 KEYS_SERVER = ("serverlabel",) + KEYS_COMMON + ("host", "port", "channels", "allowmodules", "denymodules")
 KEYS_SERVER_SET = set(KEYS_SERVER)
 KEYS_MAIN = KEYS_COMMON + ("console", "debug", "datadir", "enablestate", "logfile", "modules", "servers")
@@ -68,6 +69,21 @@ class ConfigException(Exception):
 	
 class NoDefault(object):
 	pass
+
+# This is managed from dispatcher, but accessed is managed through settings, and called from container.
+# (container wrapped the call in callfromthread if needed and settings managed allowed access)
+class _ADDONS(object):
+	def __init__(self):
+		self._dict = {}
+	
+	def clear(self):
+		self._dict.clear()
+		
+	def _add(self, addonname, modulename, f):
+		self._dict[addonname] = (modulename, f)
+		
+	def _getModuleAddon(self, addonname):
+		return self._dict[addonname]
 
 class BaseServer(object):
 	moduleopts = None # {}
@@ -159,13 +175,18 @@ class Server(BaseServer):
 	
 	def __init__(self, opts):
 		BaseServer.__init__(self, opts)
+		self.addons = None
 		#dispatcher placeholder (probably not needed)
 		self.dispatcher = None
-		# TODO: fix the complicated relationship between Factory<->Settings<->Container<->Factory
+		# TODO: fix the complicated relationship between Factory<->Settings<->Container
+		#       also the relationship between Dispatcher<->Settings<->Dispatcher
 		self.container = Container(self)
 		self._factory = BurlyBotFactory(self)
 
 	def initializeReload(self):
+		# Addons should only be created once
+		if self.addons is None: self.addons = _ADDONS()
+		else: self.addons.clear()
 		# Dispatcher should only be created once.
 		if self.dispatcher is None:
 			#create dispatcher:
@@ -310,6 +331,16 @@ class Server(BaseServer):
 	
 	def isModuleAvailable(self, modname):
 		return (modname not in self.denymodules) and (modname in Dispatcher.MODULEDICT)
+		
+	def getAddon(self, addonname):
+		try:
+			modname, f = self.addons._getModuleAddon(addonname)
+		except KeyError:
+			raise AttributeError("No provider for %s" % addonname)
+		if self.isModuleAvailable(modname):
+			return f
+		else:
+			raise AttributeError("Provider %s is not available because module (%s) is not available." % (addonname, modname))
 	
 
 class SettingsBase(object):

@@ -9,7 +9,6 @@ class Event:
 	def __init__(self, type, prefix=None, params=None, hostmask=None, target=None, msg=None, 
 		nick=None, ident=None, host=None, encoding="utf-8", command=None, argument=None, priority=10, **kwargs):
 		self.type = type
-		# kwargs is a dict of uncommon event attributes
 		self.prefix = prefix
 		self.params = params
 		self.hostmask = hostmask
@@ -26,6 +25,7 @@ class Event:
 		self.command = command
 		self.argument = argument
 		
+		# kwargs is a dict of uncommon event attributes which will be looked up on attribute access
 		self.kwargs = kwargs
 		
 		# might be useful
@@ -37,6 +37,14 @@ class Event:
 			"target=%r, msg=%r, command=%r, argument=%r, kwargs=%r, time=%r" % \
 				(self.type, self.prefix, self.params, self.hostmask, self.nick, self.ident, self.host, 
 				self.target, self.msg, self.command, self.argument, self.kwargs, self.time)
+	def __str__(self): return self.__repr__()
+		
+	def __getattr__(self, name):
+		# return attr if it exists, else return the one in kwargs
+		try: return self.__dict__[name]
+		except KeyError:
+			return getattr(self, "kwargs")[name] # will raise KeyError if requested kwarg doesn't exist
+	
 	
 	# TODO: Should this be called "isQuery" ?
 	def isPM(self):

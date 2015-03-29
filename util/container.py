@@ -125,6 +125,11 @@ class Container:
 		return self._settings.isModuleAvailable(modname)
 	def isModuleAvailable(self, modname):
 		return blockingCallFromThread(reactor, self._isModuleAvailable, modname)
+		
+	def _getAddon(self, addonname):
+		return self._settings.getAddon(addonname)
+	def getAddon(self, addonname):
+		return blockingCallFromThread(reactor, self._getAddon, addonname)
 	
 	#callback to handle module errors
 	#TODO: maybe provide modules a way to hook these?
@@ -200,7 +205,7 @@ class SetupContainer(object):
 		self.container = realcontainer
 		self.network = realcontainer.network
 		
-	# Some module helpers
+	# Some module helpers so that the bot doesn't freeze during dispatcher initialization due to "blockingcallfromthread"
 	def getModule(self, modname):
 		return self.container._getModule(modname)
 	
@@ -216,6 +221,8 @@ class SetupContainer(object):
 	def dbCheckCreateTable(self, tablename, createstmt):
 		return self.container.dbCheckCreateTable(tablename, createstmt)
 	
+	def getAddon(self, addonname):
+		return self.container._getAddon(addonname)
 	# do not do the following so we don't risk freezing in reload
 	# means need to duplicate needed items from Container in this...
 	#~ def __getattr__(self, name):

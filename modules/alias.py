@@ -24,7 +24,7 @@ def alias_list(qfunc, nick):
 
 def group_list(qfunc, group):
 	result = qfunc('''SELECT user FROM aliasgrp WHERE grp = ?;''', (group,))
-	return (row['user'] for row in result)
+	return [row['user'] for row in result]
 
 def group_add(qfunc, group, nick):
 	qfunc('''INSERT OR REPLACE INTO aliasgrp (grp, user) VALUES(?,?);''', (group, nick))

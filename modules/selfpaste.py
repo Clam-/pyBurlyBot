@@ -19,15 +19,14 @@ from urllib import unquote
 from hashids import Hashids
 hashids = Hashids()
 
+from util import URLREGEX
+
 PROVIDES = ("paste",)
 
 OPTIONS = {
 	"wwwroot" : (unicode, "Web directory location for storing pastes.", u"data/pastes/"),
 	"url_prefix" : (unicode, "Prefix of the webfacing URL. e.g. 'http://domain.com/paste/'", u"http://localhost/pastepls"),
 }
-
-# taken from urlinfo.py
-URLREGEX = recompile(r"\b(https?\://[\w./-]+\.[\w./-]+(?:\?[\w./=%-&]+(?:#[\w./=%-]+)?)?)", UNICODE|IGNORECASE)
 
 # tempfile.NamedTemporaryFile  dir= module/server path for www. prefix=tmp
 # after file has been got, get it's inode number, write to file, then mode to hex(inode)

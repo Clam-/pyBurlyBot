@@ -2,7 +2,7 @@
 
 # Using Requests because easier
 
-from util import Mapping, commandSplit, functionHelp, fetchone, coerceToUnicode
+from util import Mapping, commandSplit, functionHelp, fetchone, coerceToUnicode, URLREGEX
 from re import compile as recompile, IGNORECASE, DOTALL, UNICODE
 
 from requests import head, get
@@ -99,4 +99,4 @@ def init(bot):
 
 #mappings to methods
 mappings = (Mapping(command=("head",), function=headers), Mapping(command=("title",), function=title), Mapping(command=("lasturl",), function=lasturl),
-	Mapping(types=["privmsged"], regex=recompile(r"\bhttps?\://[\w./-]+\.[\w./-]+(?:\?[\w./=%-&]+(?:#[\w./=%-]+)?)?", UNICODE|IGNORECASE), function=seen_link),)
+	Mapping(types=["privmsged"], regex=URLREGEX, function=seen_link),)

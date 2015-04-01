@@ -1,4 +1,6 @@
 # utils for modules to import
+from re import compile as recompile, IGNORECASE, UNICODE, VERBOSE
+
 from timer import Timers, TimerExists, TimerInvalidName, TimerNotFound
 from container import TimeoutException
 from helpers import distance_of_time_in_words, processHostmask, commandSplit, argumentSplit, \
@@ -41,6 +43,14 @@ def pastehelper(bot, basemsg, items=None, altmsg=None, sep=(", ","\n"), force=Fa
 			tmsg = basemsg
 		print "ATTEMPTED PASTEHELPER MSG: %r" % tmsg
 		raise
+
 def englishlist(l):
 	if len(l) > 1: return "%s and %s" % (", ".join(l[:-1]), l[-1])
 	else: return l[0]
+
+URLREGEX = recompile(r"""
+\bhttps?\://			# schema
+[\w.\-]+\.[\w./-]+		# domain + path
+(?:\?[\w./=%&-]+)?		# querystring
+(?:\#[\w./=%-]+)?		# anchor (shouldn't be nested in querystring group)
+""", UNICODE|IGNORECASE|VERBOSE)

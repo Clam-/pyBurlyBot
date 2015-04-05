@@ -49,8 +49,9 @@ def englishlist(l):
 	else: return l[0]
 
 URLREGEX = recompile(r"""
-\bhttps?\://			# schema
-[\w.\-]+\.[\w./-]+		# domain + path
-(?:\?[\w./=%&-]+)?		# querystring
-(?:\#[\w./=%-]+)?		# anchor (shouldn't be nested in querystring group)
+\bhttps?\://					# schema
+[\w.\:-]+						# domain
+(?:/[\w./_~!$&'()*+,;=:@-]+)?	# path
+(?:\?[^ #]+)?					# querystring
+(?:\#[^ #]+)?					# anchor (shouldn't be nested in querystring group)
 """, UNICODE|IGNORECASE|VERBOSE)

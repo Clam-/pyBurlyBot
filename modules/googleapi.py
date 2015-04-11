@@ -129,7 +129,7 @@ def google_youtube_search(query, relatedTo=None):
 def google_youtube_check(id):
 	""" helper to ask google if youtube ID is valid."""
 	try:
-		f = urlopen(YOUTUBE_CHECK_URL % (quote(id)))
+		f = urlopen(YOUTUBE_CHECK_URL % (quote(id.encode("utf-8"))))
 		return f.getcode() == 200
 	except HTTPError:
 		return False

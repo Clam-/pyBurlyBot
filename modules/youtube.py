@@ -28,16 +28,7 @@ def seen_video(event, bot):
 	#verify ID exists:
 	#TODO: is this bad? I can't find reference of "regs" in re docs but it seems to hold what I want
 	match = event.regex_match
-	pos = match.regs[0]
-	url = urlparse(match.string[pos[0]:pos[1]])
-	id = None
-	if url.netloc.endswith("youtu.be"):
-		id = url.path.lstrip("/")
-	elif url.netloc.endswith("youtube.com"):
-		q = parse_qs(url.query)
-		if "v" in q:
-			if len(q['v']) > 0:
-				id = q['v'][0]
+	id = match.group(1)
 	if id and GAPI_MODULE.google_youtube_check(id):
 		bot.dbQuery("""INSERT OR REPLACE INTO youtubeseen (source, id) 
 			VALUES (?,?);""", (event.target, id))
@@ -122,5 +113,5 @@ def init(bot):
 
 #mappings to methods
 mappings = (Mapping(command=("youtube", "yt"), function=youtube), 
-	Mapping(types=["privmsged"], regex=recompile(r"\bhttps?\://(?:www\.)?youtu\.be\/[a-zA-Z0-9_-]{11}.*\b", IGNORECASE|UNICODE), function=seen_video),
-	Mapping(types=["privmsged"], regex=recompile(r"\bhttps?\://(?:www\.)?youtube\.com\/.*v\=[a-zA-Z0-9_-]{11}.*\b", IGNORECASE|UNICODE), function=seen_video),)
+	Mapping(types=["privmsged"], regex=recompile(r"\bhttps?\://(?:www\.)?youtu\.be\/([a-zA-Z0-9_-]{11}).*\b", IGNORECASE|UNICODE), function=seen_video),
+	Mapping(types=["privmsged"], regex=recompile(r"\bhttps?\://(?:www\.)?youtube\.com\/.*v\=([a-zA-Z0-9_-]{11}).*\b", IGNORECASE|UNICODE), function=seen_video),)

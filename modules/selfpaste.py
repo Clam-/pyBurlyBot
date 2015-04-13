@@ -47,10 +47,12 @@ TEMPLATE = """<!DOCTYPE html>
 """
 
 #Borrowed from helpers.coerceToUnicode
+# TODO: I don't think this is actually needed.
 ENCODINGS = ("utf-8", "sjis", "latin_1", "gb2312", "cp1251", "cp1252",
 	"gbk", "cp1256", "euc_jp")
 def decodeURL(u):
 	u = unquote(u)
+	if isinstance(u, unicode): return u
 	for enc in ENCODINGS:
 		try:
 			return u.decode(enc)

@@ -52,6 +52,6 @@ URLREGEX = recompile(r"""
 \bhttps?\://					# schema
 [\w.\:-]+						# domain
 (?:/[\w./_~!$&'()*+,;=:@-]+)?	# path
-(?:\?[^ #]+)?					# querystring
-(?:\#[^ #]+)?					# anchor (shouldn't be nested in querystring group)
+(?:\?[^ #\n\r]+)?				# querystring
+(?:\#[^ #\n\r]+)?				# anchor (shouldn't be nested in querystring group)
 """, UNICODE|IGNORECASE|VERBOSE)

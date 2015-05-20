@@ -20,7 +20,6 @@ SEARCH_URL = "https://www.googleapis.com/customsearch/v1?%s"
 LOC_URL = "https://maps.googleapis.com/maps/api/geocode/json?%s"
 TIMEZONE_URL = "https://maps.googleapis.com/maps/api/timezone/json?%s"
 YOUTUBE_URL = "https://www.googleapis.com/youtube/v3/search?%s"
-YOUTUBE_CHECK_URL = "http://gdata.youtube.com/feeds/api/videos/%s"
 YOUTUBE_INFO_URL = "https://www.googleapis.com/youtube/v3/videos?%s"
 API_KEY = None
 CSE_ID = None
@@ -128,11 +127,15 @@ def google_youtube_search(query, relatedTo=None):
 
 def google_youtube_check(id):
 	""" helper to ask google if youtube ID is valid."""
-	try:
-		f = urlopen(YOUTUBE_CHECK_URL % (quote(id.encode("utf-8"))))
-		return f.getcode() == 200
-	except HTTPError:
+	if not API_KEY:
+		raise ConfigException("Require API_KEY for googleapi. Reload after setting.")
+	d = {"id" : quote(id), "part" : "id,status", "key" : API_KEY}
+	
+	f = urlopen(YOUTUBE_INFO_URL % (urlencode(d)))
+	ytdata = load(f)
+	if not ytdata.get("items"): # if there are no items for the ID search, return False
 		return False
+	return True
 		
 def google_youtube_details(vidid):
 	""" helper to ask google for youtube video details."""

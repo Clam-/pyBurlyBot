@@ -51,6 +51,7 @@ def englishlist(l):
 URLREGEX = recompile(r"""
 \bhttps?\://					# schema
 [\w.\:-]+						# domain
+(?:/)?							# first path separator
 (?:/[\w./_~!$&'()*+,;=:@-]+)?	# path
 (?:\?[^ #\n\r]+)?				# querystring
 (?:\#[^ #\n\r]+)?				# anchor (shouldn't be nested in querystring group)

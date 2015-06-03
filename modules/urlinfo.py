@@ -8,6 +8,7 @@ from re import compile as recompile, IGNORECASE, DOTALL, UNICODE
 from requests import head, get
 
 from time import strftime, strptime
+from HTMLParser import HTMLParser
 
 # (code - reason) content-type, encoding, size, serversoftware, redirect
 HEAD_RPL = "(%s - %s) %s, %s%s bytes, %s%s"
@@ -78,8 +79,7 @@ def title(event, bot):
 			m = TITLE_REGEX.search(chunk)
 			if m: 
 				title = m.group(1)
-				if not isinstance(title, unicode): title = coerceToUnicode(title)
-				bot.say("Title: %s" % title)
+				bot.say("Title: %s" % HTMLParser().unescape(title))
 			else: bot.say("Couldn't find a title in (%s)." % url)
 	else:
 		# TODO: Maybe display last portion of pathname using something like os.path.basename

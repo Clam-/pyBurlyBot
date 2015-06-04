@@ -73,7 +73,7 @@ def title(event, bot):
 	ctype = resp.headers.get("content-type", "?;").split(";")[0]
 	if ctype == "text/html":
 		m = None
-		try: chunk = resp.iter_content(chunk_size=1024*5).next() # only get one chunk to look in (5KB)
+		try: chunk = resp.iter_content(chunk_size=1024*10).next() # only get one chunk to look in (10KB)
 		except StopIteration: bot.say("Couldn't find a title in (%s)." % url)
 		else:
 			m = TITLE_REGEX.search(chunk)

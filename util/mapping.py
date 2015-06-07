@@ -18,11 +18,15 @@ class Mapping:
 		override = If True will override internal bot routines (currently only implemented on sendmsg.)
 			If False, internal bot routines will run as well as the event being dispatched. (Default)
 		"""
-		assert((types is None) or isinstance(types, list) or isinstance(types, tuple))
+		assert(types is None or isinstance(types, list) or isinstance(types, tuple))
 		if not types: self.types = []
 		else: self.types = types
+
+		assert(command is None or any(isinstance(command, t) for t in (list, tuple, basestring, unicode)))
 		if command:
-			if not self.types: 
+			if isinstance(command, basestring) or isinstance(command, unicode):
+				command = [command]
+			if not self.types:
 				self.types = ["privmsged"]
 		self.command = command
 		self.regex = regex

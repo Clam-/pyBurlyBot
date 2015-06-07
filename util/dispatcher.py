@@ -158,14 +158,9 @@ class Dispatcher:
 					if mapping.function and isinstance(mapping.function, partial):
 						# little cheat for adding module to functools.partial things like in simplecommands
 						mapping.function.__module__ = module.__name__
-					if isIterable(mapcom):
-						for commandname in mapcom:
-							eventmap[etype]["command"].setdefault(commandname, []).append(mapping)
-							eventmap[etype]["command"][commandname].sort(key=attrgetter('priority'))
-					# TODO: unicode command, should work...
-					elif isinstance(mapcom, basestring):
-						eventmap[etype]["command"].setdefault(mapcom, []).append(mapping)
-						eventmap[etype]["command"][mapcom].sort(key=attrgetter('priority'))
+					for commandname in mapcom:
+						eventmap[etype]["command"].setdefault(commandname, []).append(mapping)
+						eventmap[etype]["command"][commandname].sort(key=attrgetter('priority'))
 
 				if mapping.regex:
 					eventmap[etype]["regex"].append(mapping)
@@ -185,7 +180,7 @@ class Dispatcher:
 		cls.unloadModules()
 		cls.MODULEDICT.clear()
 		cls.NOTLOADED.clear()
-	
+
 	@classmethod
 	def unloadModules(cls):
 		# call modules unload function to clean up.

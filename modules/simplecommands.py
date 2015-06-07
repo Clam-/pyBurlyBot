@@ -14,8 +14,8 @@ from util import Mapping, argumentSplit, functionHelp
 from json import loads, dumps
 
 OPTIONS = {
-	"commands" : (list, 'List of [command, output]. E.g. ["someurl", "URL: http://google.com"] will output "URL: http://google.com" on usage of the "someurl" command.'
-		'command may be a string of a single command or a list of multiple commands to bind to a single output string.', [["hello", "world."]]),
+	"commands" : (list, 'List of [[command], output]. E.g. [["someurl"], "URL: http://google.com"] will output "URL: http://google.com" on usage of the "someurl" command.'
+		'command may be a string of a single command or a list of multiple commands to bind to a single output string.', [[["hello"], "world."]]),
 }
 
 # TODO: Was lazy, can't remember cross-module trickiness
@@ -69,7 +69,7 @@ def simplecommands(event, bot):
 		if not match:
 			return bot.say('(%s) is not a known simplecommand.' % arg2)
 		commands.remove(match)
-		bot.setOption("commands", commands, module="simplecommands")
+		bot.setOption("commands", commands, module="simplecommands", channel=False)
 		blockingCallFromThread(reactor, Settings.saveOptions)
 		bot.say('Simplecommand (%s) deleted.  Options saved.  Reloading...' % arg2)
 		blockingCallFromThread(reactor, _reallyReload)
@@ -96,7 +96,7 @@ def simplecommands(event, bot):
 					delete it first with \x02~del %s\x02 and recreate it." % (', '.join(match[0]), arg1))
 			commands.remove(match)
 			commands.append([arg1.split(','), arg2])
-			bot.setOption("commands", commands, module="simplecommands")
+			bot.setOption("commands", commands, module="simplecommands", channel=False)
 			blockingCallFromThread(reactor, Settings.saveOptions)
 			bot.say('Simplecommand (%s) replaced.  Options saved.  Reloading...' % arg1)
 			blockingCallFromThread(reactor, _reallyReload)
@@ -109,7 +109,7 @@ def simplecommands(event, bot):
 				if ret:
 					return bot.say('Command (%s) already in use by the \x02%s\x02 module.' % (cmd, ret[0][0].__module__[11:]))
 			commands.append([arg1.split(','), arg2])
-			bot.setOption("commands", commands, module="simplecommands")
+			bot.setOption("commands", commands, module="simplecommands", channel=False)
 			blockingCallFromThread(reactor, Settings.saveOptions)
 			bot.say('Simplecommand (%s) added.  Options saved.  Reloading...' % arg1)
 			blockingCallFromThread(reactor, _reallyReload)

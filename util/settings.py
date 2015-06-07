@@ -284,14 +284,17 @@ class Server(BaseServer):
 				mod = moduleopts.setdefault(module, {})
 				if channel: 
 					mod.setdefault("_channels", {}).setdefault(channel, {})[opt] = value
-				mod[opt] = value
+				else:
+					mod[opt] = value
+				return
 			# if server was False, (setting "global")
 			moduleopts = Settings.moduleopts
 			# duplicated code from above, micro-optimization because bad.
 			mod = moduleopts.setdefault(module, {})
 			if channel: 
 				mod.setdefault("_channels", {}).setdefault(channel, {})[opt] = value
-			mod[opt] = value
+			else:
+				mod[opt] = value
 		else:
 			if server is None:
 				server = self

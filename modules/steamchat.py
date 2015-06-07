@@ -526,7 +526,7 @@ class SteamChat(Thread):
 			print "FAILED TO LOGIN, DOING COOLDOWN"
 			self.cooldownuntil = time() + COOLDOWN
 			self.checkAndStopPoll()
-		self.container.setOption("oauthtoken", self.oauth, module="steamchat")
+		self.container.setOption("oauthtoken", self.oauth, module="steamchat", channel=False)
 		#persist oauth token
 		blockingCallFromThread(reactor, Settings.saveOptions)
 	

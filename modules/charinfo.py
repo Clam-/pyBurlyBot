@@ -26,7 +26,7 @@ def funicode(event, bot):
 	or does a search on the character description or provides information on the character indexed by the given hexidecimal."""
 	arg = event.argument
 	if not arg:
-		return bot.say(functionHelp(funquote))
+		return bot.say(functionHelp(funicode))
 	if REGHEX.match(arg):
 		i = int(arg, 16)
 		u = unichr(i)

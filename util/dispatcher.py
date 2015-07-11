@@ -173,7 +173,10 @@ class Dispatcher:
 		return cmds
 	
 	def getCommands(self):
-		return self.eventmap.get("privmsged", {}).get("command", {}).keys()[:]
+		commands = set([])
+		for mappings in self.eventmap.get("privmsged", {}).get("command", {}).values():
+			for mapping in mappings: commands.add(mapping.command[0])
+		return list(commands)
 	
 	@classmethod
 	def reset(cls):

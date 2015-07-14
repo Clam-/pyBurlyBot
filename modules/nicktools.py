@@ -46,7 +46,7 @@ def identify(bot, snick=None):
 	passwd = bot.getOption("nickservpass")
 	if not snick: snick = bot.getOption("nick")
 	if bot.nickname == snick and passwd:
-		bot.sendmsg("nickserv", "identify %s" % passwd)
+		if not bot.getOption("cert"): bot.sendmsg("nickserv", "identify %s" % passwd)
 		# send notice to self to see if prefix changed, allow for some latency:
 		# special magic to not get the wrapped bot function for call inside reactor (Don't do this.)
 		# this may do odd things if bot disconnects while preJoin (or nickChanged) got sent.

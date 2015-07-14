@@ -12,7 +12,7 @@ from twisted.python import log
 
 try: 
 	SSL = True
-	from twisted.internet.ssl import ClientContextFactory
+	from twisted.internet.ssl import CertificateOptions, PrivateCertificate, platformTrust
 except:
 	SSL = None
 from twisted.internet import reactor
@@ -25,8 +25,8 @@ from util.client import BurlyBotFactory
 from util.db import DBManager
 from util.timer import Timers
 
-KEYS_COMMON = ("admins", "altnicks", "commandprefix", "datafile", "encoding", "moduleopts", "nick", 
-	"nickservpass", "nicksuffix")
+KEYS_COMMON = ("admins", "altnicks", "cert", "commandprefix", "datafile", "encoding", "moduleopts", 
+	"nick", "nickservpass", "nicksuffix", "verify")
 KEYS_SERVER = ("serverlabel",) + KEYS_COMMON + ("host", "port", "channels", "allowmodules", "denymodules")
 KEYS_SERVER_SET = set(KEYS_SERVER)
 KEYS_MAIN = KEYS_COMMON + ("console", "debug", "datadir", "enablestate", "logfile", "modules", "servers")
@@ -357,6 +357,8 @@ class SettingsBase(object):
 	datafile = "BurlyBot.db"
 	enablestate = False
 	encoding = "utf-8"
+	cert = None
+	verify = False
 	console = True
 	logfile = None
 	modules = None # OrderedSet(["core"])
@@ -439,10 +441,13 @@ class SettingsBase(object):
 	def _connect(self, servers):
 		for server in servers:
 			if server.ssl:
-				if SSL:
-					reactor.connectSSL(server.host, server.port, server._factory, ClientContextFactory())
-				else:
+				if not SSL:
 					print "Error: Cannot connect to '%s', pyOpenSSL not installed" % server.serverlabel
+					self.databasemanager.delServer(server.serverlabel)
+					continue
+				try: reactor.connectSSL(server.host, server.port, server._factory, createCertOptions(server))
+				except Exception as e:
+					print "SSL Error: Cannot connect to '%s' (%s)" % (server.serverlabel, e)
 					self.databasemanager.delServer(server.serverlabel)
 			else:
 				reactor.connectTCP(server.host, server.port, server._factory)
@@ -566,5 +571,15 @@ class ConfigEncoder(JSONEncoder):
 		elif isinstance(obj, MutableSet):
 			return list(obj)
 		return JSONEncoder.default(self, obj)
+
+def createCertOptions(server):
+	pk = None
+	cert = None
+	if server.cert:
+		pc = PrivateCertificate.loadPEM(open(server.cert,"rb").read())
+		pk = pc.privateKey.original
+		cert = pc.original
+	tr = platformTrust() if server.verify else None
+	return CertificateOptions(privateKey=pk, certificate=cert, trustRoot=tr)
 
 Settings = SettingsBase()

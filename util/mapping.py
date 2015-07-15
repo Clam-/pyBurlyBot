@@ -4,7 +4,7 @@ def dummyfunc(event, botwrap):
 #TODO: Should this be called "hook"? (with the variable name in modules called "hooks")
 #	"hooks" seems kind of "low level" though...
 class Mapping:
-	def __init__(self, types=None, command=None, regex=None, function = dummyfunc, priority=10, override=False):
+	def __init__(self, types=None, command=None, regex=None, function = dummyfunc, priority=10, override=False, admin=False):
 		""" Mapping object to map module functions to IRC events.
 		Mapping takes the following arguments:
 		type = [list of strings], 
@@ -33,7 +33,8 @@ class Mapping:
 		self.function = function
 		self.priority = priority
 		self.override = override
+		self.admin = admin
 		
 	def __repr__(self):
-		return "Mapping(id()=%X, types=%r, command=%r, regex=%r, function=%r, priority=%r)" % \
-				(id(self), self.types, self.command, self.regex, self.function, self.priority)
+		return "Mapping(id()=%X, types=%r, command=%r, regex=%r, function=%r, priority=%r, admin=%r)" % \
+				(id(self), self.types, self.command, self.regex, self.function, self.priority, self.admin)

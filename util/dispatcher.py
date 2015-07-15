@@ -231,6 +231,9 @@ class Dispatcher:
 				if mapping.priority == 0: break #lol cheap and easy way to support total override
 			#super fast command dispatching now... Only thing left that's slow is the regex but has to be
 			for mapping in eventmap[eventtype]["command"].get(command,()):
+				if mapping.admin and (event.nick.lower() not in settings.admins):
+					# TODO: Do we bot.say("access denied") ?
+					continue
 				self._dispatchreally(mapping.function, event, cont_or_wrap, self.debug)
 				dispatched = True
 				if mapping.priority == 0: break

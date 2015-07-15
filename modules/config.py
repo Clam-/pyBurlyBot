@@ -41,9 +41,9 @@ def config(event, bot):
 	"""
 	#do some things
 	command = ""
-	if not bot.isadmin():
-		bot.say("Good joke.")
-		return
+	#~ if not bot.isadmin():
+		#~ bot.say("Good joke.")
+		#~ return
 	
 	if event.argument == "save":
 		blockingCallFromThread(reactor, Settings.saveOptions)
@@ -124,4 +124,4 @@ def config(event, bot):
 		return bot.say(functionHelp(config))
 	
 #mappings to methods
-mappings = (Mapping(command="config", function=config),)
+mappings = (Mapping(command="config", function=config, admin=True),)

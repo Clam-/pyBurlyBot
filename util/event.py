@@ -2,6 +2,7 @@ from twisted.words.protocols.irc import CHANNEL_PREFIXES
 from helpers import coerceToUnicode
 
 from time import time
+from datetime import datetime
 
 # NOTHING IN EVENT SHOULD BE MODIFIED BY MODULES EVER, THANKS.
 # TODO: prefix and hostmask are I think always the same. What to do?
@@ -30,6 +31,7 @@ class Event:
 		
 		# might be useful
 		self.time = time()
+		self.dtime = datetime.now()
 		self.priority = priority
 	
 	def __repr__(self):

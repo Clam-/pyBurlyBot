@@ -1,6 +1,8 @@
 # basic autoop/voice/hop module
 
 from util import Mapping
+from util.settings import ConfigException
+
 #TODO: Make this work on hostmasks
 
 OPTIONS = {

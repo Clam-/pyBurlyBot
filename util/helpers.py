@@ -516,3 +516,12 @@ def parseDateTime(s, t=None):
 			t += _parseDigit(m.group(6))
 		return t
 	return None
+
+# TODO: Would making a custom parser be faster than this? Is this even correct?
+#		Consider this? https://github.com/mammon-ircd/ircmatch
+def match_hostmask(s, mask):
+	if mask == "*": return True
+	mask = mask.replace(".", "\\.")
+	mask = mask.replace("*", ".+")
+	mask = mask.replace("?", ".")
+	return bool(re.match(mask, s))

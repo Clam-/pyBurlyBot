@@ -201,7 +201,13 @@ class Server(BaseServer):
 			return getattr(self, name)
 		else:
 			return getattr(Settings, name)
-			
+	
+	def getOptions(self, opts, **kwargs):
+		vals = []
+		for opt in opts:
+			vals.append(self.getOption(opt, **kwargs))
+		return vals
+	
 	# if channel or server is set, retrieve for that specific thing.
 	# if channel or server is False, retrieve "global" for that thing.
 	# TODO: make sure this optimized as it can be

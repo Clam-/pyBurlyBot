@@ -4,7 +4,7 @@ from re import compile as recompile, IGNORECASE, UNICODE, VERBOSE
 from timer import Timers, TimerExists, TimerInvalidName, TimerNotFound
 from container import TimeoutException
 from helpers import distance_of_time_in_words, processHostmask, commandSplit, argumentSplit, \
-	commandlength, functionHelp, coerceToUnicode, parseDateTime
+	commandlength, functionHelp, coerceToUnicode, parseDateTime, match_hostmask
 
 from mapping import Mapping
 

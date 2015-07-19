@@ -109,6 +109,12 @@ class Container:
 	def _getOption(self, opt, **kwargs):
 		return self._settings.getOption(opt, **kwargs)
 	
+	def getOptions(self, opts, **kwargs):
+		return blockingCallFromThread(reactor, self._getOptions, opts, **kwargs)
+	
+	def _getOptions(self, opts, **kwargs):
+		return self._settings.getOptions(opts, **kwargs)
+		
 	def setOption(self, opt, value, **kwargs):
 		blockingCallFromThread(reactor, self._setOption, opt, value, **kwargs)
 		
@@ -214,6 +220,9 @@ class SetupContainer(object):
 		
 	def getOption(self, opt, **kwargs):
 		return self.container._getOption(opt, **kwargs)
+	
+	def getOptions(self, opts, **kwargs):
+		return self.container._getOptions(opts, **kwargs)
 	
 	def setOption(self, opt, value, **kwargs):
 		return self.container._setOption(opt, value, **kwargs)

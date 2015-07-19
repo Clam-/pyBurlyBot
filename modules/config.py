@@ -14,7 +14,7 @@ def servchanParse(servchan):
 	# parse servchan
 	if servchan == "-": 
 		server = False
-		channel = None
+		channel = False
 	elif servchan == "this":
 		server = None
 		channel = None #event.target will be set in wrapper

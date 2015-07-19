@@ -55,6 +55,12 @@ class BotWrapper:
 		else:
 			return blockingCallFromThread(reactor, self._botcont._settings.getOption, opt, channel=channel, **kwargs)
 	
+	def getOptions(self, opts, channel=None, **kwargs):
+		if not self.event.isPM() and channel is None:
+			return blockingCallFromThread(reactor, self._botcont._settings.getOptions, opts, channel=self.event.target, **kwargs)
+		else:
+			return blockingCallFromThread(reactor, self._botcont._settings.getOptions, opts, channel=channel, **kwargs)
+	
 	# Default target channel for setOption is to target current channel unless argument of "channel" is False
 	def setOption(self, opt, value, channel=None, **kwargs):
 		if not self.event.isPM() and channel is None:

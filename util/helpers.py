@@ -16,6 +16,7 @@ class newshlex(shlex):
 	def __init__(self, *args, **kwargs):
 		shlex.__init__(self, *args, **kwargs)
 		#self.debug = 5
+		self.commenters = ""
 		
 	def read_token(self):
 		quoted = False
@@ -288,8 +289,10 @@ def commandSplit(s, nargs=1, pad=True):
 	return (None, None)
 
 # like commandSplit, this is only for splitting arguments up
-# except will return empty tuple in the case of nargs < len(arguments) if pad is false
 def argumentSplit(s, nargs, pad=True):
+	""" Splits provided s in to a list of arguments up to nargs. If pad is true, it will pad
+		the remaining args up to nargs with None.
+	"""
 	if s:
 		s = newshlex(StringIO(s)) # use non-C StringIO for (somewhat) unicode support?
 		i = 0

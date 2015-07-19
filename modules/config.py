@@ -20,11 +20,11 @@ def servchanParse(servchan):
 		channel = None #event.target will be set in wrapper
 	else:
 		if ":#" in servchan:
-			server, channel = servchan.split(":", 1)
+			server, servchan = servchan.split(":", 1)
 			if not server:
 				server = False
-		elif servchan.startswith("#"):
-			server = None
+		if servchan.startswith("#"):
+			server = False
 			channel = servchan
 		else:
 			server = servchan
@@ -56,7 +56,6 @@ def config(event, bot):
 	# set or get value
 	if servchan and module and opt:
 		server, channel = servchanParse(servchan)
-		
 		if opt in PRIVATE_OPTIONS and not event.isPM():
 			if value:
 				return bot.say("Use PM to set this option. If this is a password you probably want to change it now.")

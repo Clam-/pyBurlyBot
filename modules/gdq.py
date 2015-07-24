@@ -31,6 +31,7 @@ def agdq(event, bot):
 	f = o.open(TWITCH_API_URL)
 	game = "Don't know"
 	eta = None
+	print f.getcode()
 	if f.getcode() == 200:
 		data = load(f)
 		game = data['game']
@@ -41,7 +42,8 @@ def agdq(event, bot):
 		f = o.open(GDQ_URL)
 		# http://stackoverflow.com/a/9920703
 		page = parse(f)
-		rows = page.xpath("body/table/tbody")[0].findall("tr")
+		rows = page.xpath("body/div/table/tbody")[0].findall("tr")
+
 		data = []
 		for row in rows:
 			data.append([c.text for c in row.getchildren()])

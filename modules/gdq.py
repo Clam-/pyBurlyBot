@@ -31,7 +31,6 @@ def agdq(event, bot):
 	f = o.open(TWITCH_API_URL)
 	game = "Don't know"
 	eta = None
-	print f.getcode()
 	if f.getcode() == 200:
 		data = load(f)
 		game = data['game']
@@ -52,7 +51,7 @@ def agdq(event, bot):
 		
 		# try searching for incorrect name in timetable because bads...
 		for igametitle in (ngame, ngame.replace(":", ""), ngame.split(":")[0], ngame.split(u"\u2013")[0].strip(), 
-				ngame.replace("two", "2"), ngame.replace(":", "").replace("two", "2")):
+				ngame.replace("two", "2"), ngame.replace(":", "").replace("two", "2")), ngame.rstrip("!"):
 			upcoming, eta = _searchGame(data, igametitle)
 			if upcoming: break
 		else:

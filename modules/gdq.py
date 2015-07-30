@@ -51,7 +51,7 @@ def agdq(event, bot):
 		
 		# try searching for incorrect name in timetable because bads...
 		for igametitle in (ngame, ngame.replace(":", ""), ngame.split(":")[0], ngame.split(u"\u2013")[0].strip(), 
-				ngame.replace("two", "2"), ngame.replace(":", "").replace("two", "2")), ngame.rstrip("!"):
+				ngame.replace("two", "2"), ngame.replace(":", "").replace("two", "2"), ngame.rstrip("!"), ngame.replace("the ", "")):
 			upcoming, eta = _searchGame(data, igametitle)
 			if upcoming: break
 		else:

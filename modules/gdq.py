@@ -41,7 +41,8 @@ def agdq(event, bot):
 		f = o.open(GDQ_URL)
 		# http://stackoverflow.com/a/9920703
 		page = parse(f)
-		rows = page.xpath("body/table/tbody")[0].findall("tr")
+		rows = page.xpath("body/div/table/tbody")[0].findall("tr")
+
 		data = []
 		for row in rows:
 			data.append([c.text for c in row.getchildren()])
@@ -50,7 +51,7 @@ def agdq(event, bot):
 		
 		# try searching for incorrect name in timetable because bads...
 		for igametitle in (ngame, ngame.replace(":", ""), ngame.split(":")[0], ngame.split(u"\u2013")[0].strip(), 
-				ngame.replace("two", "2"), ngame.replace(":", "").replace("two", "2")):
+				ngame.replace("two", "2"), ngame.replace(":", "").replace("two", "2"), ngame.rstrip("!"), ngame.replace("the ", "")):
 			upcoming, eta = _searchGame(data, igametitle)
 			if upcoming: break
 		else:

@@ -99,7 +99,9 @@ class BurlyBot(IRCClient, TimeoutMixin):
 		LineReceiver.dataReceived(self, data)
 	
 	def names(self, channels):
-		"""List the users in a channel"""
+		"""
+		List the users in a channel.
+		"""
 		if isIterable(channels):
 			self.sendLine('NAMES %s' % ",".join(channels))
 		else:
@@ -430,7 +432,7 @@ class BurlyBot(IRCClient, TimeoutMixin):
 		method = getattr(self, method_name, None)
 		#print "INCOMING (%s): %s, %s" % (command, prefix, params)
 		try:
-			if method is not None:
+			if callable(method):
 				method(prefix, params)
 		except:
 			log.deferr()
@@ -504,7 +506,9 @@ class BurlyBot(IRCClient, TimeoutMixin):
 			print 'Unknown CTCP query from %r: %r %r' % (user, tag, data)
 
 	def signedOn(self):
-		"""Called when bot has succesfully signed on to server."""
+		"""
+		Called when bot has successfully signed on to server.
+		"""
 		print "[Signed on]"
 		
 		#process nickprefixes
@@ -524,7 +528,7 @@ class BurlyBot(IRCClient, TimeoutMixin):
 		self.dispatch(self, "signedOn")
 
 	# TODO: this currently doesn't get called. Do we want to dispatch these events? Or just make
-	#	module catch ctcp events and check for ACTION tag?
+	# module catch CTCP events and check for ACTION tag?
 	def action(self, hostmask, channel, msg, params):
 		"""
 		This will get called when the bot sees someone do an action.
@@ -712,7 +716,8 @@ class BurlyBot(IRCClient, TimeoutMixin):
 		print "[disconnected: %s]" % reason
 
 class BurlyBotFactory(ReconnectingClientFactory):
-	"""A factory for BurlyBot.
+	"""
+	A factory for BurlyBot.
 	A new protocol instance will be created each time we connect to the server.
 	"""
 

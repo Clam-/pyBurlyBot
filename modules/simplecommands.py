@@ -30,8 +30,10 @@ def simplecommands(event, bot):
 	If only input is supplied, output is retrieved.  If ~del is specified, input is deleted if found.
 	e.g. .simplecommands google google.com
 	"""
+
 	arg1, arg2 = argumentSplit(event.argument, 2)
-	if arg1 == '~list':
+	# For non-admins just list commands no matter what
+	if not bot.isadmin() or arg1 == '~list':
 		commands = bot.getOption("commands", module="simplecommands")
 		cmdlist = []
 		commands.sort()
@@ -127,7 +129,7 @@ def echo_this(text, event, bot):
 	bot.say(text)
 
 # for abuse in init:
-mappings = [Mapping(command=("simplecommands", "simplecommand", "sc"), function=simplecommands, admin=True)]
+mappings = [Mapping(command=("simplecommands", "simplecommand", "sc"), function=simplecommands)]
 
 
 def init(bot):

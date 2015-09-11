@@ -162,20 +162,11 @@ class Dispatcher:
 					eventmap[etype]["regex"].append(mapping)
 					eventmap[etype]["regex"].sort(key=attrgetter('priority'))
 	
-	def getCommandFuncs(self, cmd):
-		cmds = []
-		for mapping in self.eventmap.get("privmsged", {}).get("command", {}).get(cmd, []):
-			if not mapping.hidden:
-				cmds.append((mapping.function, mapping.command))
-		return cmds
-	
-	def getCommands(self):
-		commands = set([])
-		for mappings in self.eventmap.get("privmsged", {}).get("command", {}).values():
-			for mapping in mappings:
-				if not mapping.hidden:
-					commands.add(mapping.command[0])
-		return list(commands)
+	def _getCommandMappings(self, cmd=None):
+		if cmd:
+			return self.eventmap.get("privmsged", {}).get("command", {}).get(cmd, [])
+		else:
+			return self.eventmap.get("privmsged", {}).get("command", {}).values()
 	
 	@classmethod
 	def reset(cls):

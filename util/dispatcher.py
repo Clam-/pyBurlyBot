@@ -287,7 +287,6 @@ class Dispatcher:
 			self.waitmap.setdefault(ietype, set()).add(wd)
 		for setype in wd.stope:
 			self.waitmap.setdefault(setype, set()).add(wd)
-		print self.waitmap
 
 	def delWaitData(self, wd):
 		for wdtype in (wd.interestede, wd.stope):

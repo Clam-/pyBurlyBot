@@ -21,19 +21,17 @@ OPTIONS = {
 	"git_path" : (unicode, "Path to git executable.", u"git"),
 }
 
+
 #TODO: This won't really play nice when running multiple bot processes at a time.
 #	After the first bot process updates, the rest will think they are up-to-date.
 #	This could be solved by storing modtimes of modules and core files at launch time and comparing them.
 def update(event, bot):
 	""" update will check for git update and restart bot if core files need updating. """
-	if not bot.isadmin():
-		bot.say("Good joke.")
-		return
 
 	gitpath = bot.getOption("git_path", module="updaterelaunch")
 	if not gitpath:
 		gitpath = "git"
-		
+
 	check_output([gitpath, "fetch"])
 	changes = check_output([gitpath, "diff", "--name-status", "master", "origin/master"])
 	print "CHANGES:", changes
@@ -45,12 +43,12 @@ def update(event, bot):
 		elif line.endswith(".py"):
 			corechange = True
 	check_output([gitpath, "merge", "origin/master"])
-	
+
 	if corechange:
 		print "RESTARTING BOT"
 		#restart bot
 		blockingCallFromThread(reactor, Settings.shutdown, True)
-		
+
 	elif modchange:
 		#reload
 		if bot.isModuleAvailable("reload"):
@@ -61,6 +59,13 @@ def update(event, bot):
 		bot.say("Already up-to date.")
 
 
+def local_update(event, bot):
+	if not bot.getOption('debug'):
+		return bot.say('Debug must be enabled for localupdate.')
+	print "RESTARTING BOT"
+	bot.say('Restarting...')
+	blockingCallFromThread(reactor, Settings.shutdown, True)
 
-#mappings to methods
-mappings = (Mapping(command="update", function=update),)
+
+mappings = (Mapping(command="update", function=update, admin=True),
+			Mapping(command="localupdate", function=local_update, admin=True))

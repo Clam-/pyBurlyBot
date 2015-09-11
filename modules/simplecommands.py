@@ -18,10 +18,12 @@ OPTIONS = {
 		'command may be a string of a single command or a list of multiple commands to bind to a single output string.', [[["hello"], "world."]]),
 }
 
+
 # TODO: Was lazy, can't remember cross-module trickiness
 def _reallyReload():
 	Settings.reloadStage1()
 	Settings.reloadStage2()
+
 
 def simplecommands(event, bot):
 	""" simplecommands [(~del, ~list)] input[,alias1,alias2,etc] output.  Simple interface for adding/removing simplecommands.
@@ -41,9 +43,6 @@ def simplecommands(event, bot):
 				print repr(command)
 				cmdlist.extend(command)
 		return bot.say('Simplecommands: %s' % ', '.join(cmdlist))
-
-	if not bot.isadmin():
-		return bot.say('Uwish.')
 
 	if not arg1:
 		return bot.say(functionHelp(simplecommands))
@@ -124,15 +123,16 @@ def simplecommands(event, bot):
 		bot.say('Simplecommand (%s): %s' % (', '.join(match[0]), match[1]))
 
 
-def echothis(text, event, bot):
+def echo_this(text, event, bot):
 	bot.say(text)
 
 # for abuse in init:
-mappings = [Mapping(command=("simplecommand", "simplecommands"), function=simplecommands)]
+mappings = [Mapping(command=("simplecommand", "simplecommands"), function=simplecommands, admin=True)]
+
 
 def init(bot):
 	global mappings # oops! Bad things are going to happen
 	# you should very much not do the following. This relies on knowing how the internals of dispatcher setup work!
 	for command, output in bot.getOption("commands", module="simplecommands"):
-		mappings.append(Mapping(command=command, function=partial(echothis, output)))
+		mappings.append(Mapping(command=command, function=partial(echo_this, output)))
 	return True

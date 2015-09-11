@@ -14,19 +14,20 @@ def doeval(bot, event):
 	except Exception as e:
 		return "%s : %s" % (type(e).__name__, e.message)
 
-# WARNING: DO NOT CALL A METHOD THAT CALLS "blockingCallFromThread", you will have bad time and freeze bot.
-def runeval(event, bot):
-	if bot.isadmin():
-		r = blockingCallFromThread(reactor, doeval, bot, event)
-		if r: bot.say(r)
-		else: bot.say("done.")
-	else:
-		bot.say("No, you.")
 
-def flood(event, bot):
+# WARNING: DO NOT CALL A METHOD THAT CALLS "blockingCallFromThread", you will have bad time and freeze bot.
+def admin_runeval(event, bot):
+	r = blockingCallFromThread(reactor, doeval, bot, event)
+	if r:
+		bot.say(r)
+	else:
+		bot.say("Done.")
+
+
+def admin_flood(event, bot):
 	for x in xrange(7):
 		bot.say("Hello %s" % x)
 
 #mappings to methods
-mappings = (Mapping(command="eval", function=runeval),
-	Mapping(command="flood", function=flood),)
+mappings = (Mapping(command="eval", function=admin_runeval, admin=True),
+	Mapping(command="flood", function=admin_flood, admin=True),)

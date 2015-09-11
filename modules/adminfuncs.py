@@ -1,64 +1,57 @@
 from util import Mapping, commandSplit, TimeoutException
 from util.irctools import escape_control_codes as esc, AAA
 from twisted.words.protocols.irc import CHANNEL_PREFIXES
+from random import randint
 
 
-JOIN_TIMEOUT = 10
-# https://tools.ietf.org/html/rfc1459#page-20
-ERR_NOSUCHCHANNEL   = '403'
-ERR_TOOMANYCHANNELS = '405'
-ERR_NEEDMOREPARAMS  = '461'
-ERR_CHANNELISFULL   = '471'
-ERR_INVITEONLYCHAN  = '473'
-ERR_BANNEDFROMCHAN  = '474'
-ERR_BADCHANNELKEY   = '475'
-ERR_BADCHANMASK     = '476'
+WAIT_TIMEOUT = 5
+PRIVMSG_WAIT_TIMEOUT = 2
+
+# https://tools.ietf.org/html/rfc1459#section-4.2.1
+JOIN_ERRORS = set(('ERR_NOSUCHCHANNEL', 'ERR_TOOMANYCHANNELS', 'ERR_NEEDMOREPARAMS',
+				'ERR_CHANNELISFULL', 'ERR_INVITEONLYCHAN', 'ERR_BANNEDFROMCHAN',
+				'ERR_BADCHANNELKEY', 'ERR_BADCHANMASK'))
+
+# https://tools.ietf.org/html/rfc1459#section-4.2.2
+PART_ERRORS = set(('ERR_NEEDMOREPARAMS', 'ERR_NOSUCHCHANNEL', 'ERR_NOTONCHANNEL'))
+
+# https://tools.ietf.org/html/rfc1459#section-4.2.8
+KICK_ERRORS = set(('ERR_NEEDMOREPARAMS', 'ERR_NOSUCHCHANNEL', 'ERR_BADCHANMASK',
+			'ERR_CHANOPRIVSNEEDED', 'ERR_NOTONCHANNEL'))
+
+# https://tools.ietf.org/html/rfc1459#section-4.4.1
+# RPL_AWAY ignored because I don't think we'll ever care, but it might be
+# desirable for other people
+PRIVMSG_ERRORS = set(('ERR_NORECIPIENT', 'ERR_NOTEXTTOSEND', 'ERR_CANNOTSENDTOCHAN',
+			'ERR_NOTOPLEVEL', 'ERR_WILDTOPLEVEL', 'ERR_TOOMANYTARGETS', 'ERR_NOSUCHNICK'))
 
 
 def admin_join(event, bot):
 	channel, key = commandSplit(event.argument)
-
 	if not channel:
 		return bot.say(".%s #channel [key]" % event.command)
 	elif channel[0] not in CHANNEL_PREFIXES:
 		channel = '#' + channel
 
-	bot.join(channel, key)
 	try:
-		for event in bot.send_and_wait(None, stope=("joined", ERR_BADCHANNELKEY, ERR_BANNEDFROMCHAN,
-													ERR_INVITEONLYCHAN, ERR_BADCHANMASK, ERR_CHANNELISFULL,
-													ERR_TOOMANYCHANNELS, ERR_NOSUCHCHANNEL),
-						f=bot.join, fargs=(channel, key), timeout=JOIN_TIMEOUT):
-			if event.type == ERR_BADCHANNELKEY and event.params[1] == channel:
-				bot.say("Failed to join (%s), incorrect key (received ERR_BADCHANNELKEY)." % channel)
-				break
-			elif event.type == ERR_TOOMANYCHANNELS and event.params[1] == channel:
-				bot.say("Failed to join (%s), we've joined too many channels (received ERR_TOOMANYCHANNELS)." % channel)
-				break
-			elif event.type == ERR_NOSUCHCHANNEL and event.params[1] == channel:
-				bot.say("Failed to join (%s), no such channel (received ERR_NOSUCHCHANNEL)." % channel)
-				break
-			elif event.type == ERR_INVITEONLYCHAN and event.params[1] == channel:
-				bot.say("Failed to join (%s), invite only (received ERR_INVITEONLYCHAN)." % channel)
-				break
-			elif event.type == ERR_CHANNELISFULL and event.params[1] == channel:
-				bot.say("Failed to join (%s), channel is full (received ERR_CHANNELISFULL)." % channel)
-				break
-			elif event.type == ERR_BADCHANMASK and event.params[1] == channel:
-				bot.say("Failed to join (%s), received ERR_BADCHANMASK." % channel)
-				break
-			elif event.type == ERR_NEEDMOREPARAMS and event.params[1] == channel:
-				bot.say("Failed to join (%s), received ERR_NEEDMOREPARAMS." % channel)
-				break
-			elif event.type == "joined" and event.target == channel:
+		for w_event in bot.send_and_wait(None, stope=(("joined",) + tuple(JOIN_ERRORS)),
+						f=bot.join, fargs=(channel, key), timeout=WAIT_TIMEOUT):
+			if w_event.type == "joined" and w_event.target == channel:
 				r_msg = "Successfully joined (%s)" % channel
 				if key:
 					r_msg += " with key (%s)" % key
 				bot.say(r_msg + '.')
 				break
-			print event.params
+			elif w_event.type in JOIN_ERRORS:
+				if w_event.params[1] != channel:
+					continue
+				r_msg = 'Failed to join (%s): %s' % (channel, w_event.type)
+				if w_event.params[2]:
+					r_msg += ' - %s' % w_event.params[2]
+				bot.say(r_msg)
+				break
 	except TimeoutException:
-		bot.say("Failed to join (%s) in (%d second) timeout." % (channel, JOIN_TIMEOUT))
+		bot.say("Failed to join (%s) in (%d second) timeout." % (channel, WAIT_TIMEOUT))
 
 
 def admin_part(event, bot):
@@ -66,16 +59,28 @@ def admin_part(event, bot):
 
 	if not channel:
 		bot.say("Bye.")
-		return bot.leave(event.target)
+		channel = event.target
 	elif channel[0] not in CHANNEL_PREFIXES:
 		channel = '#' + channel
 
-	if reason:
-		bot.leave(channel, reason)
-		return bot.say("Attempting to part (%s) with reason (%s)." % (channel, reason))
-	else:
-		bot.leave(channel)
-		return bot.say("Attempting to part (%s)." % channel)
+	try:
+		for w_event in bot.send_and_wait(None, stope=(("left",) + tuple(PART_ERRORS)),
+						f=bot.leave, fargs=(channel, reason), timeout=WAIT_TIMEOUT):
+			if w_event.type == "left" and w_event.target == channel:
+				# We already said bye in this case
+				if channel != event.target:
+					r_msg = "Successfully parted (%s)" % channel
+					if reason:
+						r_msg += " with reason (%s)" % reason
+					bot.say(r_msg + '.')
+				break
+			r_msg = 'Failed to part from (%s): %s' % (channel, w_event.type)
+			if w_event.params[2]:
+				r_msg += ' - %s' % w_event.params[2]
+			bot.say(r_msg)
+			break
+	except TimeoutException:
+		bot.say("Failed to part (%s) in (%d second) timeout." % (channel, WAIT_TIMEOUT))
 
 
 def admin_kick(event, bot):
@@ -86,13 +91,43 @@ def admin_kick(event, bot):
 		return bot.say(".%s #channel user [reason]" % event.command)
 	elif channel[0] not in CHANNEL_PREFIXES:
 		channel = '#' + channel
+	l_user = user.lower()
 
-	if reason:
-		bot.say("Attempting to kick (%s) from (%s) with reason (%s)." % (user, channel, reason))
-		return bot.kick(channel, user, reason)
-	else:
-		bot.say("Attempting to kick (%s) from (%s)." % (user, channel))
-		return bot.kick(channel, user)
+	try:
+		for w_event in bot.send_and_wait(None, stope=(("userKicked",) + tuple(KICK_ERRORS)),
+						f=bot.kick, fargs=(channel, user, reason), timeout=WAIT_TIMEOUT):
+			print w_event.type, w_event.target, w_event.params
+			if w_event.type == "userKicked" and w_event.target == channel and w_event.kicked.lower() == l_user:
+				r_msg = "Successfully kicked (%s) from (%s)" % (user, channel)
+				if reason:
+					r_msg += " with reason (%s)" % esc(reason)
+				bot.say(r_msg + '.')
+				break
+			r_msg = 'Failed to kick (%s) from (%s): %s' % (user, channel, w_event.type)
+			if w_event.params[2]:
+				r_msg += ' - %s' % w_event.params[2]
+			bot.say(r_msg)
+			break
+	except TimeoutException:
+		bot.say("Failed to kick (%s) in (%d second) timeout." % (channel, WAIT_TIMEOUT))
+
+
+def send_msg_and_wait(bot, chan_or_user, msg):
+	"""
+	Helper method to send a PRIVMSG and check for errors/success
+	"""
+	try:
+		for w_event in bot.send_and_wait(None, stope=(PRIVMSG_ERRORS),
+						f=bot.sendmsg, fargs=(chan_or_user, msg), timeout=PRIVMSG_WAIT_TIMEOUT):
+			print w_event.type, w_event.target, w_event.params
+			r_msg = 'Message (%s) to (%s) failed: %s' % (esc(msg), chan_or_user, w_event.type)
+			if w_event.params[2]:
+				r_msg += ' - %s' % w_event.params[2]
+			bot.say(r_msg)
+			return False
+	except TimeoutException:
+		# Assume success
+		return True
 
 
 def admin_msg(event, bot):
@@ -102,13 +137,13 @@ def admin_msg(event, bot):
 		chan_or_user, msg = commandSplit(msg)
 		if not chan_or_user or not msg:
 			return bot.say(".%s #channel message" % event.command)
-		else:
-			bot.sendmsg(chan_or_user, msg)
-			return bot.say("Attempted to send message (%s) to (%s)." % (esc(msg), chan_or_user))
 	elif not msg:
 		return bot.say(".%s message" % event.command)
+	else:
+		chan_or_user = event.target
 
-	bot.sendmsg(event.target, msg)
+	if send_msg_and_wait(bot, chan_or_user, msg) and event.isPM():
+		bot.say("Successfully sent message to (%s)." % chan_or_user)
 
 
 def admin_action(event, bot):
@@ -118,32 +153,30 @@ def admin_action(event, bot):
 		chan_or_user, msg = commandSplit(msg)
 		if not chan_or_user or not msg:
 			return bot.say(".%s #channel action" % event.command)
-		else:
-			bot.sendmsg(chan_or_user, "\x01ACTION %s\x01" % msg)
-			return bot.say("Attempted to send action (%s) to (%s)." % (esc(msg), chan_or_user))
 	elif not msg:
 		return bot.say(".%s action" % event.command)
+	else:
+		chan_or_user = event.target
 
-	bot.sendmsg(event.target, "\x01ACTION %s\x01" % msg)
+	if send_msg_and_wait(bot, chan_or_user, "\x01ACTION %s\x01" % msg) and event.isPM():
+		bot.say("Successfully sent action to (%s)." % chan_or_user)
 
 
 def admin_rage(event, bot):
 	msg = event.argument
 
-	if not msg:
-		from random import randint
-		msg = 'A' * randint(200, 400)
-
 	if event.isPM():
 		chan_or_user, msg = commandSplit(msg)
-		if not chan_or_user or not msg:
-			return bot.say(".%s #channel furious_message" % event.command)
-		else:
-			msg = AAA(msg)
-			bot.sendmsg(chan_or_user, msg)
-			return bot.say("Attempted to send furious message (%s) to (%s)." % (esc(msg), chan_or_user))
+		if not chan_or_user:
+			return bot.say(".%s #channel FURIOUS_MESSAGE" % event.command)
+	else:
+		chan_or_user = event.target
 
-	bot.sendmsg(event.target, AAA(msg))
+	if not msg:
+		msg = 'A' * randint(200, 400)
+
+	if send_msg_and_wait(bot, chan_or_user, AAA(msg)) and event.isPM():
+		bot.say("Successfully sent FURIOUS_MESSAGE to (%s)." % chan_or_user)
 
 
 mappings = (Mapping(command="join", function=admin_join, admin=True),

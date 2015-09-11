@@ -2,18 +2,23 @@
 from util import Mapping, functionHelp, argumentSplit
 from util.helpers import isIterable
 
+from twisted.internet import reactor
+from twisted.internet.threads import blockingCallFromThread
+
 def _filter_mappings(bot, pm=False, cmd=None):
-	for mapping in bot._settings.dispatcher._getCommandMappings(cmd):
-		if not mapping.hidden:
-			if mapping.admin and pm and bot._isadmin:
-				cmds.append(mapping.command[0])
-			else:
-				cmds.append(mapping.command[0])
+	mappings = bot._settings.dispatcher._getCommandMappings(cmd)
+	if not cmd:
+		# flattening the nested mappings http://stackoverflow.com/a/952952
+		# "incomprehensible list comprehensions", lol
+		mappings = (item for sublist in mappings for item in sublist)
+	
+	return [mapping for mapping in mappings if mapping.admin and pm and bot._isadmin() or not mapping.admin]
 
 def list_commands(bot, pm=False):
 	cmds = set()
+	print blockingCallFromThread(reactor, _filter_mappings, bot, pm)
 	for mapping in blockingCallFromThread(reactor, _filter_mappings, bot, pm):
-		cmds.append(mapping.command[0])
+		cmds.add(mapping.command[0])
 	cmds = list(cmds)
 	cmds.sort()
 	bot.say(" ".join(cmds))
@@ -45,12 +50,12 @@ def help(event, bot):
 		else:
 			bot.say("Command %s not found." % cmd)
 	else:
-		list_commands(bot, event.isPM(), bot.isadmin())
+		list_commands(bot, event.isPM())
 
 def commands(event, bot):
 	""" commands.  List available pyBurlyBot commands by their primary name.
 	"""
-	list_commands(bot, event.isPM(), bot.isadmin())
+	list_commands(bot, event.isPM())
 
 
 

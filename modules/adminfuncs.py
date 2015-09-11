@@ -96,7 +96,6 @@ def admin_kick(event, bot):
 	try:
 		for w_event in bot.send_and_wait(None, stope=(("userKicked",) + tuple(KICK_ERRORS)),
 						f=bot.kick, fargs=(channel, user, reason), timeout=WAIT_TIMEOUT):
-			print w_event.type, w_event.target, w_event.params
 			if w_event.type == "userKicked" and w_event.target == channel and w_event.kicked.lower() == l_user:
 				r_msg = "Successfully kicked (%s) from (%s)" % (user, channel)
 				if reason:
@@ -119,7 +118,6 @@ def send_msg_and_wait(bot, chan_or_user, msg):
 	try:
 		for w_event in bot.send_and_wait(None, stope=(PRIVMSG_ERRORS),
 						f=bot.sendmsg, fargs=(chan_or_user, msg), timeout=PRIVMSG_WAIT_TIMEOUT):
-			print w_event.type, w_event.target, w_event.params
 			r_msg = 'Message (%s) to (%s) failed: %s' % (esc(msg), chan_or_user, w_event.type)
 			if w_event.params[2]:
 				r_msg += ' - %s' % w_event.params[2]

@@ -427,7 +427,7 @@ class BurlyBot(IRCClient, TimeoutMixin):
 		Determine the function to call for the given command and call it with
 		the given arguments.
 		"""
-		method_name = "irc_%s" % command
+		method_name = "irc_%s" % command.upper()
 		method = getattr(self, method_name, None)
 		# print "INCOMING (%s): %s, %s" % (command, prefix, params)
 		try:
@@ -441,7 +441,7 @@ class BurlyBot(IRCClient, TimeoutMixin):
 			# corresponding symbolic/numeric event when possible for ease of use
 			self.dispatch(self, command, prefix=prefix, params=params)
 			if command.upper() in symbolic_to_numeric:
-				self.dispatch(self, symbolic_to_numeric[command], prefix=prefix, params=params)
+				self.dispatch(self, symbolic_to_numeric[command.upper()], prefix=prefix, params=params)
 			elif command in numeric_to_symbolic:
 				self.dispatch(self, numeric_to_symbolic[command], prefix=prefix, params=params)
 			if method is None:

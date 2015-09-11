@@ -155,6 +155,7 @@ class Dispatcher:
 						# little cheat for adding module to functools.partial things like in simplecommands
 						mapping.function.__module__ = module.__name__
 					for commandname in mapcom:
+						commandname = commandname.lower()
 						eventmap[etype]["command"].setdefault(commandname, []).append(mapping)
 						eventmap[etype]["command"][commandname].sort(key=attrgetter('priority'))
 

@@ -106,9 +106,9 @@ def simplecommands(event, bot):
 		else:
 			# TODO: Yeah, this probably isn't good -- or maybe it's fine
 			for cmd in newcmds:
-				ret = bot._settings.dispatcher.getCommandFuncs(cmd.lower())
+				ret = bot._settings.dispatcher._getCommandMappings(cmd.lower())
 				if ret:
-					return bot.say('Command (%s) already in use by the \x02%s\x02 module.' % (cmd, ret[0][0].__module__[11:]))
+					return bot.say('Command (%s) already in use by the \x02%s\x02 module.' % (cmd, ret[0].function.__module__))
 			commands.append([arg1.split(','), arg2])
 			bot.setOption("commands", commands, module="simplecommands", channel=False)
 			blockingCallFromThread(reactor, Settings.saveOptions)

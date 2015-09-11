@@ -12,11 +12,10 @@ def _filter_mappings(bot, pm=False, cmd=None):
 		# "incomprehensible list comprehensions", lol
 		mappings = (item for sublist in mappings for item in sublist)
 	
-	return [mapping for mapping in mappings if mapping.admin and pm and bot._isadmin() or not mapping.admin]
+	return [mapping for mapping in mappings if not mapping.hidden and (mapping.admin and pm and bot._isadmin() or not mapping.admin)]
 
 def list_commands(bot, pm=False):
 	cmds = set()
-	print blockingCallFromThread(reactor, _filter_mappings, bot, pm)
 	for mapping in blockingCallFromThread(reactor, _filter_mappings, bot, pm):
 		cmds.add(mapping.command[0])
 	cmds = list(cmds)

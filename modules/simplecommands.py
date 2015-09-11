@@ -127,12 +127,12 @@ def echo_this(text, event, bot):
 	bot.say(text)
 
 # for abuse in init:
-mappings = [Mapping(command=("simplecommand", "simplecommands"), function=simplecommands, admin=True)]
+mappings = [Mapping(command=("simplecommands", "simplecommand", "sc"), function=simplecommands, admin=True)]
 
 
 def init(bot):
 	global mappings # oops! Bad things are going to happen
 	# you should very much not do the following. This relies on knowing how the internals of dispatcher setup work!
 	for command, output in bot.getOption("commands", module="simplecommands"):
-		mappings.append(Mapping(command=command, function=partial(echo_this, output)))
+		mappings.append(Mapping(command=command, function=partial(echo_this, output), hidden=True))
 	return True

@@ -6,6 +6,7 @@ from collections import deque
 
 from util import Mapping, argumentSplit, functionHelp, distance_of_time_in_words, fetchone,\
 	pastehelper, englishlist, parseDateTime
+from util.settings import ConfigException
 # added dependency on user module only for speed. Means can keep reference to user module without having
 # to dive in to the reactor twice? per message
 # because of this I should do foreign key things but don't want to lock myself in to that just yet (bad@db)
@@ -66,6 +67,7 @@ def _generate_users(bot, s, nick, skipself=True):
 				l.reverse()
 				targets.extendleft(l)
 	return users, unknown, dupes, hasself
+
 
 def deliver_tell(event, bot):
 	# if alias module available use it
@@ -154,7 +156,7 @@ def tell(event, bot):
 def remind(event, bot):
 	""" remind target datespec msg. Will remind a user <target> about a message <msg> at datespec time. datespec can be relative (in) or calendar/day based (on), e.g. 'in 5 minutes"""
 	target, dtime1, dtime2, msg = argumentSplit(event.argument, 4)
-	if not target: return bot.say(bot.say(functionHelp(tell)))
+	if not target: return bot.say(functionHelp(tell))
 	if dtime1.lower() == "tomorrow":
 		target, dtime1, msg = argumentSplit(event.argument, 3) # reparse is easiest way I guess... resolves #30 if need to readdress
 		dtime2 = ""
@@ -178,7 +180,8 @@ def remind(event, bot):
 		locmod = bot.getModule("location")
 		goomod = bot.getModule("googleapi")
 		timelocale = True
-	except ConfigException: pass
+	except ConfigException:
+		pass
 	
 	origintime = timegm(gmtime())
 	alocaltime = localtime(origintime)

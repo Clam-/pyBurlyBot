@@ -42,7 +42,6 @@ def simplecommands(event, bot):
 			if (isinstance(command, list) or isinstance(command, tuple)) and len(command) > 1:
 				cmdlist.append('(%s)' % ', '.join(command))
 			else:
-				print repr(command)
 				cmdlist.extend(command)
 		return bot.say('Simplecommands: %s' % ', '.join(cmdlist))
 

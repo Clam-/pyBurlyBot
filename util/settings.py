@@ -322,16 +322,6 @@ class Server(BaseServer):
 					# instead of falling back to KEYS_MAIN, raise error
 					raise ValueError("Server settings has no option: (%s) to set." % opt)
 				
-	
-	def getModuleOption(self, module, option):
-		return Settings.getModuleOption(module, option, self.serverlabel)
-	
-	def setModuleOption(self, module, option, value, globalSetting=False):
-		if globalSetting:
-			Settings.setModuleOption(module, option, value)
-		else:
-			Settings.setModuleOption(module, option, value, self.serverlabel)
-	
 	def getModule(self, modname):
 		if not self.isModuleAvailable(modname):
 			raise ConfigException("Module (%s) is not available." % modname)

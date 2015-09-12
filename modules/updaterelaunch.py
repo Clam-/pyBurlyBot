@@ -52,9 +52,9 @@ def update(event, bot):
 	elif modchange:
 		#reload
 		if bot.isModuleAvailable("reload"):
-			bot.getModule("reload").reloadbot(event, bot)
+			bot.getModule("reload").admin_reload_bot(event, bot)
 		else:
-			bot.say("Module(s) updated but can't reload. core module not available.")
+			bot.say("Module(s) updated but can't reload. reload module not available.")
 	else:
 		bot.say("Already up-to date.")
 

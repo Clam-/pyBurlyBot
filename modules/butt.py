@@ -9,10 +9,10 @@ TODO:
 - Look into preventing rand_butt from being called on a dispatched command
 """
 
-from re import compile as re_compile
 from util import Mapping
 from time import sleep
-from random import randint, shuffle
+import re
+import random
 try:
 	from hyphenate import hyphenate_word
 except ImportError:
@@ -20,13 +20,11 @@ except ImportError:
 
 
 BUTT_RATE = 500 # 1 in 501, this was old rate
-
-STOPWORDS = ('a', 'an', 'and', 'or', 'but', 'it', 'is',
-'its', 'It\'s', 'it\'s', 'the', 'of', 'you', 'I', 'i',
-'your')
-
-RE_STOPWORDS = re_compile(r'^([\d\W+]+$|' + '|'.join(STOPWORDS) + ')$')
-RE_SPLITPUNCTUATION= re_compile(r'^([^A-Za-z]*)(.*?)([xXsS]?[^A-Za-z]*)$')
+# Words/regexes that are boring/intrinsically unbuttable
+STOPWORDS = (r'[^A-Za-z]+', 'butt', 'a', 'an', 'and', 'or', 'but', 'it', 'is',
+'its', "it's", 'the', 'of', 'you', 'I', 'your')
+RE_STOPWORDS = re.compile(r'^\W*(' + r'|'.join(STOPWORDS) + r')\W*$',
+							flags=re.IGNORECASE | re.UNICODE)
 
 
 def butt(event, bot):
@@ -38,66 +36,77 @@ def butt(event, bot):
 
 def rand_butt(event, bot):
 	msg = event.msg
-	if not msg or not len(msg) > 20: return
-	if randint(0, BUTT_RATE) != 0: return
+	if not msg or not len(msg) > 20:
+		return
+	if random.randint(0, BUTT_RATE) != 1:
+		return
 	result = buttify(msg)
 	# No butt occurred
-	if result == msg: return
-	sleep(randint(2,8))
+	if result == msg:
+		return
+	# TODO: callLater
+	sleep(random.randint(2, 8))
 	bot.say(result)
 
 
-def buttify(istr):
-	"""Take a string and buttify it."""
-	words = istr.split()
-	basewords = list(words)
-	repetitions = len(words) / 8 + 1
+def buttify(msg):
+	"""Return buttified msg."""
+	buttable_words = [word for word in msg.split() if not RE_STOPWORDS.match(word)]
+	butt_passes = len(buttable_words) / 8 + 1
+	buttable_words.sort(key=len, reverse=True)
 
-	# Sort list by word length
-	words.sort(lambda x,y: cmp(len(x), len(y)), reverse=True)
-	# Remove stop words
-	words = _remove_stop_words(words)
-	# create weighted index array of words by length
-	indices = _weighted_indices(words)
-	if indices: shuffle(indices)
+	# Weighted shuffle (by length of word) for pick order, then remove duplicates
+	words_to_butt = _weighted_butt_words(buttable_words)
+	random.shuffle(words_to_butt)
 
-	for i in range(0, repetitions):
-		try: index = indices.pop(i)
-		except IndexError: break
+	while butt_passes > 0 and words_to_butt:
+		# set().pop() pops left
+		word = words_to_butt.pop(0)
+		matches = list(re.finditer(re.escape(word), msg))
+		if not matches:
+			# Already butted all instances of this word, purge it so it doesn't get selected again
+			words_to_butt = [x for x in words_to_butt if x != word]
+			continue
+		# random_match is a MatchObject of a random occurrence of word in msg
+		random_match = random.choice(matches)
+		msg = msg[:random_match.start()] + _butt_word(word) + msg[random_match.end():]
+		butt_passes -= 1
 
-	for i in range(0, len(basewords)):
-		if basewords[i] == index:
-			basewords[i] = _buttsub(basewords[i])
-			newindices = []
-			for word in indices:
-				if word != index:
-					newindices.append(word)
-			break
-
-	return ' '.join(basewords)
+	return msg
 
 
-def _buttsub(word):
-	lp, actual_word, rp = RE_SPLITPUNCTUATION.match(word).groups()
-	if not actual_word: return word
+# RE_SPLIT_PUNCTUATION.match('~testings!!!').groups()
+# ('~', 'testing', 's!!!')
+RE_SPLIT_PUNCTUATION = re.compile(r'^([^A-Za-z]*)(.*?)([xXsS]?[^A-Za-z]*)$')
+
+
+def _butt_word(word, butt_pass=0):
+	# Split into left punctuation, word, right punctuation on first pass
+	lp, actual_word, rp = RE_SPLIT_PUNCTUATION.match(word).groups()
+
+	hyphenated_parts = hyphenate_word(actual_word)
+	if butt_pass > 0 and len(hyphenated_parts) == 1:
+		return word
 
 	x = 0
 	points = [0]
-	boilerplate = hyphenate_word(actual_word)
-	for i in range(0, len(boilerplate) - 1):
-		x += len(boilerplate[i])
+	# Generate 'word' string offsets for splicing
+	for part in hyphenated_parts:
+		x += len(part)
 		points.append(x)
-	points.append(len(actual_word))
 
-	length = len(points)
-	try: replace = randint(0, length - 2) # length - 1 - int(rand(0, length ** factor) ** (1 / float(factor)))
-	except ValueError: replace = 0
+	offset_index = random.randrange(len(points))
+
+	# Append last offset since we might be replacing rightmost hyphenated_part
 	points.append(len(actual_word))
-	l = points[replace]
-	r = points[replace + 1] - l
+	l = points[offset_index]
+	r = points[offset_index + 1] - l
+	# Scan left and right to consume all leading b's and trailing t's to avoid e.g.
+	# !butt Bartering -> Butttering # triple t
 	while (actual_word[l + r: l + r + 1]) == 't':
 		r += 1
-	while l > 0 and actual_word[l - 1] == 'b': l -= 1
+	while l > 0 and actual_word[l - 1] == 'b':
+		l -= 1
 	sub = actual_word[l:l+r]
 	butt = 'butt'
 	if not len(sub):
@@ -110,25 +119,19 @@ def _buttsub(word):
 		butt = 'Butt'
 
 	actual_word = actual_word[:l] + butt + actual_word[l+r:]
+	if len(hyphenated_parts) > 5 and random.randint(0, (4 - butt_pass)) == 1:
+		butt_pass += 1
+		actual_word = _butt_word(actual_word, butt_pass=butt_pass)
 	return lp + actual_word + rp
 
 
-def _remove_stop_words(sortedlist):
-	newlist = []
-	for word in sortedlist:
-		if not RE_STOPWORDS.search(word):
-			newlist.append(word)
-	return newlist
-
-
-def _weighted_indices(sortedlist):
+def _weighted_butt_words(sortedlist):
 	weight = len(sortedlist)
-	stack = []
+	weighted_butt_words = []
 	for word in sortedlist:
-		for i in range(0, weight**2):
-			stack.append(word)
+		weighted_butt_words.extend([word] * (weight ** 2))
 		weight -= 1
-	return stack
+	return weighted_butt_words
 
 
 mappings = (Mapping(command="butt", function=butt),

@@ -118,6 +118,10 @@ def alias(event, bot):
 		# check if target is an existing/seen user.
 		# If it is, it means we are probably applying a user as an alias (remove old user in that case)
 		# in this case we are going to remove target user and execute all observers to user's rename plans.
+		# TODO: Do we want to execute the rename plan regardless?
+		#		Example: If a module gets disabled for a time, and in that time, a user gets converted to an alias
+		#			that module will not have executed the "rename plan", so deleting an alias and readding it you
+		#			would assume fixes it, but it won't because the plan won't get executed. Complicated example.
 		target = target_user
 		
 		if source == target: return bot.say("But %s is already %s." % (arg1, arg2))

@@ -508,7 +508,6 @@ class SettingsBase(object):
 		oldmodules = oldmodules.difference(set(Dispatcher.MODULEDICT.keys()))
 		#remove oldmodules from sys.modules
 		for module in oldmodules:
-			module = "pyBurlyBot_%s" % module #prefix as was set in Dispatcher.load
 			print "Removing module: %s" % module
 			try: del modules[module]
 			except KeyError:

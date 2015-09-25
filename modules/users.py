@@ -10,8 +10,9 @@ OPTIONS = {
 }
 
 # [network] = [statement]
-TABLEUPDATES = {
-}
+TABLEUPDATES = {}
+# [network] = [func]
+EXTERNALUPDATES = {}
 
 SEENMSGWSOURCE = 'I last saw %s %s on %s. "%s"'
 SEENMSG = 'I last saw %s %s.'
@@ -113,10 +114,15 @@ def _rename_user(network, old, new):
 		qs.extend(f(old, new))
 	qs.append(('''DELETE FROM user WHERE user=?;''', (old,)))
 	Settings.databasemanager.batch(network, qs)
+	for f in EXTERNALUPDATES.get(network, []):
+		f(network, old, new)
 	
 # passed function MUST return a list of queries to be executed. See tell.py and location.py for examples.
-def REGISTER_UPDATE(network, func):
-	TABLEUPDATES.setdefault(network, []).append(func)
+def REGISTER_UPDATE(network, func, external=False):
+	if not external:
+		TABLEUPDATES.setdefault(network, []).append(func)
+	else:
+		EXTERNALUPDATES.setdefault(network, []).append(func)
 
 #init should always be here to setup needed DB tables or objects or whatever
 def init(bot):

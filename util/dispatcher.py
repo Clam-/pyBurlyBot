@@ -71,8 +71,8 @@ class Dispatcher:
 			try:
 				(f, pathname, description) = find_module(modulename, [self.moddir])
 				try:
-					# prefix module name to make sure no sys.modules clashes
-					module = load_module("pyBurlyBot_%s" % modulename, f, pathname, description)
+					# leave module name alone so multiprocessing works on win32
+					module = load_module(modulename, f, pathname, description)
 				except Exception as e:
 					self.NOTLOADED[modulename] = format_exc()
 					return None

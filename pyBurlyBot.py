@@ -8,7 +8,7 @@ if name == "nt": register(lambda name: lookup('utf-8') if name == 'cp65001' else
 from os.path import exists
 from os import getcwdu
 from os.path import join
-from sys import exit, stdout
+from sys import exit, stdout, path
 from argparse import ArgumentParser
 
 # twisted imports
@@ -22,6 +22,9 @@ if __name__ == '__main__':
 	
 	#TODO: make botdir an argument maybe
 	Settings.botdir = getcwdu()
+	# Add module dir to env PYTHONPATH for win32 multiprocess compatibility
+	path.append(join(Settings.botdir, "modules"))
+	
 	# temporary logging
 	templog = log.startLogging(stdout)
 	print "Starting pyBurlyBot, press CTRL+C to quit."

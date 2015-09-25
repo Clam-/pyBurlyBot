@@ -5,7 +5,7 @@ from time import time
 from datetime import datetime
 
 # NOTHING IN EVENT SHOULD BE MODIFIED BY MODULES EVER, THANKS.
-# TODO: prefix and hostmask are I think always the same. What to do?
+# TODO: I think prefix and hostmask are always the same. What to do?
 class Event:
 	def __init__(self, type, prefix=None, params=None, hostmask=None, target=None, msg=None, 
 		nick=None, ident=None, host=None, encoding="utf-8", command=None, argument=None, priority=10, **kwargs):

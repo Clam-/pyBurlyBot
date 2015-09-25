@@ -39,11 +39,7 @@ def config(event, bot):
 	servername (default for server) or :#channel (channel globally) or #channel (channel on this server) or "-" (default)
 	or "this" (current channel (unless PM) current server.) module = "-" for non-module options. value should be JSON
 	"""
-	#do some things
 	command = ""
-	#~ if not bot.isadmin():
-		#~ bot.say("Good joke.")
-		#~ return
 	
 	if event.argument == "save":
 		blockingCallFromThread(reactor, Settings.saveOptions)

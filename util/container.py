@@ -5,7 +5,7 @@
 
 from Queue import Queue, Empty
 from collections import deque
-from time import time
+from time import time, sleep
 from functools import partial
 
 from twisted.internet import reactor
@@ -21,18 +21,26 @@ class TimeoutException(Exception):
 
 class WaitData:
 	def __init__(self, interestede, stope):
+		# Cannot both be empty
+		assert(interestede or stope)
 		self.done = False
 		self.q = Queue()
-		#assume interestede (&stope) may be string for single event 
-		# (because I accidently made that mistake!)
+
+		# Coerce string/unicode to a set and force lower
+		# all event_types are lower in lookups/dispatch
 		if isIterable(interestede):
-			self.interestede = set(interestede)
+			self.interestede = set(x.lower() for x in interestede)
+		elif interestede:
+			self.interestede = set((interestede.lower(),))
 		else:
-			self.interestede = set((interestede,))
+			self.interestede = set((None,))
+
 		if isIterable(stope):
-			self.stope = set(stope)
+			self.stope = set(x.lower() for x in stope)
+		elif interestede:
+			self.stope = set((stope.lower(),))
 		else:
-			self.stope = set((stope,))
+			self.stope = set((None,))
 
 class Container:
 	# BurlyBot methods that should be waited on, and returned value of
@@ -165,8 +173,10 @@ class Container:
 			if expired < time():
 				raise TimeoutException()
 			sleep(0.5)
+
+		wd = WaitData(interestede, stope)
+
 		try:
-			wd = WaitData(interestede, stope)
 			#add wait events to dispatcher. ONLY MODIFY DISPATCHER IN REACTOR THREAD PLEASE.
 			reactor.callFromThread(self._settings.dispatcher.addWaitData, wd)
 			#send...
@@ -178,7 +188,7 @@ class Container:
 				try: 
 					item = wd.q.get(timeout=0.5)
 					yield item
-				except Empty: 
+				except Empty:
 					if expired < time():
 						raise TimeoutException()
 			while not wd.q.empty():

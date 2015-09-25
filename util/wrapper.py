@@ -41,7 +41,7 @@ class BotWrapper:
 		if not self.event.nick: return None
 		admins = self._botcont._settings.getOption("admins")
 		if module:
-			madmins = self._botcont._settings.getModuleOption(module, "admins")
+			madmins = self._botcont._settings.getOption("admins", module=module)
 			if madmins:
 				admins.extend(madmins)
 		return self.event.nick.lower() in admins

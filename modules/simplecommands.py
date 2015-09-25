@@ -18,18 +18,22 @@ OPTIONS = {
 		'command may be a string of a single command or a list of multiple commands to bind to a single output string.', [[["hello"], "world."]]),
 }
 
+
 # TODO: Was lazy, can't remember cross-module trickiness
 def _reallyReload():
 	Settings.reloadStage1()
 	Settings.reloadStage2()
+
 
 def simplecommands(event, bot):
 	""" simplecommands [(~del, ~list)] input[,alias1,alias2,etc] output.  Simple interface for adding/removing simplecommands.
 	If only input is supplied, output is retrieved.  If ~del is specified, input is deleted if found.
 	e.g. .simplecommands google google.com
 	"""
+
 	arg1, arg2 = argumentSplit(event.argument, 2)
-	if arg1 == '~list':
+	# For non-admins just list commands no matter what
+	if not bot.isadmin() or arg1 == '~list':
 		commands = bot.getOption("commands", module="simplecommands")
 		cmdlist = []
 		commands.sort()
@@ -38,12 +42,8 @@ def simplecommands(event, bot):
 			if (isinstance(command, list) or isinstance(command, tuple)) and len(command) > 1:
 				cmdlist.append('(%s)' % ', '.join(command))
 			else:
-				print repr(command)
 				cmdlist.extend(command)
 		return bot.say('Simplecommands: %s' % ', '.join(cmdlist))
-
-	if not bot.isadmin():
-		return bot.say('Uwish.')
 
 	if not arg1:
 		return bot.say(functionHelp(simplecommands))
@@ -105,9 +105,9 @@ def simplecommands(event, bot):
 		else:
 			# TODO: Yeah, this probably isn't good -- or maybe it's fine
 			for cmd in newcmds:
-				ret = bot._settings.dispatcher.getCommandFuncs(cmd.lower())
+				ret = bot._settings.dispatcher._getCommandMappings(cmd.lower())
 				if ret:
-					return bot.say('Command (%s) already in use by the \x02%s\x02 module.' % (cmd, ret[0][0].__module__[11:]))
+					return bot.say('Command (%s) already in use by the \x02%s\x02 module.' % (cmd, ret[0].function.__module__))
 			commands.append([arg1.split(','), arg2])
 			bot.setOption("commands", commands, module="simplecommands", channel=False)
 			blockingCallFromThread(reactor, Settings.saveOptions)
@@ -124,15 +124,16 @@ def simplecommands(event, bot):
 		bot.say('Simplecommand (%s): %s' % (', '.join(match[0]), match[1]))
 
 
-def echothis(text, event, bot):
+def echo_this(text, event, bot):
 	bot.say(text)
 
 # for abuse in init:
-mappings = [Mapping(command=("simplecommand", "simplecommands"), function=simplecommands)]
+mappings = [Mapping(command=("simplecommands", "simplecommand", "sc"), function=simplecommands)]
+
 
 def init(bot):
 	global mappings # oops! Bad things are going to happen
 	# you should very much not do the following. This relies on knowing how the internals of dispatcher setup work!
 	for command, output in bot.getOption("commands", module="simplecommands"):
-		mappings.append(Mapping(command=command, function=partial(echothis, output)))
+		mappings.append(Mapping(command=command, function=partial(echo_this, output), hidden=True))
 	return True

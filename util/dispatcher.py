@@ -134,17 +134,13 @@ class Dispatcher:
 		for mapping in module.mappings:
 			for etype in mapping.types:
 				etype = etype.lower()
-				
-				# There's no actual reason to restrict etypes to a preset list, and in some cases it might be annoying
-				# (e.g. hooking a numeric event etype)
+
 				if etype not in eventmap:
 					eventmap[etype] = {}
 					eventmap[etype]["instant"] = []
 					eventmap[etype]["regex"] = []
 					eventmap[etype]["command"] = {}
-				
-				# Add etype to servernamemapping
-				# This is _addmap inlined
+
 				if etype == "sendmsg" and mapping.override:
 					self.MSGHOOKS = True
 				if not mapping.command and not mapping.regex: 
@@ -159,6 +155,7 @@ class Dispatcher:
 						# little cheat for adding module to functools.partial things like in simplecommands
 						mapping.function.__module__ = module.__name__
 					for commandname in mapcom:
+						commandname = commandname.lower()
 						eventmap[etype]["command"].setdefault(commandname, []).append(mapping)
 						eventmap[etype]["command"][commandname].sort(key=attrgetter('priority'))
 
@@ -166,17 +163,11 @@ class Dispatcher:
 					eventmap[etype]["regex"].append(mapping)
 					eventmap[etype]["regex"].sort(key=attrgetter('priority'))
 	
-	def getCommandFuncs(self, cmd):
-		cmds = []
-		for mapping in self.eventmap.get("privmsged", {}).get("command", {}).get(cmd, []):
-			cmds.append((mapping.function, mapping.command))
-		return cmds
-	
-	def getCommands(self):
-		commands = set([])
-		for mappings in self.eventmap.get("privmsged", {}).get("command", {}).values():
-			for mapping in mappings: commands.add(mapping.command[0])
-		return list(commands)
+	def _getCommandMappings(self, cmd=None):
+		if cmd:
+			return self.eventmap.get("privmsged", {}).get("command", {}).get(cmd, [])
+		else:
+			return self.eventmap.get("privmsged", {}).get("command", {}).values()
 	
 	@classmethod
 	def reset(cls):
@@ -195,19 +186,18 @@ class Dispatcher:
 					print "ERROR in unloading %s" % modname
 					print_exc()
 	
-	def dispatch(self, botinst, eventtype, **eventkwargs):
+	def dispatch(self, botinst, event_type, **eventkwargs):
 		settings = self.settings
 		cont_or_wrap = botinst.container
 		event = None
-		# Case insensitivity for etypes (convenience) 
-		#TODO: (is this a bad idea?)
-		eventtype = eventtype.lower()
+		# Case insensitivity for event_type lookups
+		l_event_type = event_type.lower()
 		dispatched = False
 		
 		msg = eventkwargs.get("msg", None)
-		if msg and eventtype != "sendmsg": eventkwargs["msg"] = msg = coerceToUnicode(eventkwargs["msg"], settings.encoding)
+		if msg and l_event_type != "sendmsg": eventkwargs["msg"] = msg = coerceToUnicode(eventkwargs["msg"], settings.encoding)
 		command = ""
-		if eventtype != "sendmsg" and msg and msg.startswith(settings.commandprefix):
+		if l_event_type != "sendmsg" and msg and msg.startswith(settings.commandprefix):
 			#case insensitive command (see below)
 			#commands can't have spaces in them, and lol command prefix can't be a space
 			#if you want a case sensitive match you can do your command as a regex
@@ -218,19 +208,19 @@ class Dispatcher:
 			eventkwargs["command"], eventkwargs["argument"] = (command, argument)
 			command = command.lower()
 		eventmap = self.eventmap
-		if eventtype in eventmap:
+		if l_event_type in eventmap:
 			# TODO: Event and wrapper creation could possible be delayed even further maybe
 			if event is None: 
 				eventkwargs["encoding"] = settings.encoding
-				event, cont_or_wrap = self.createEventAndWrap(cont_or_wrap, eventtype, eventkwargs)
+				event, cont_or_wrap = self.createEventAndWrap(cont_or_wrap, l_event_type, eventkwargs)
 			if self.debug >= 2: print "DISPATCHING: %s" % event
 			#lol dispatcher is 100 more simple now, but at the cost of more dict...
-			for mapping in eventmap[eventtype]["instant"]:
+			for mapping in eventmap[l_event_type]["instant"]:
 				self._dispatchreally(mapping.function, event, cont_or_wrap, self.debug)
 				dispatched = True
 				if mapping.priority == 0: break #lol cheap and easy way to support total override
 			#super fast command dispatching now... Only thing left that's slow is the regex but has to be
-			for mapping in eventmap[eventtype]["command"].get(command,()):
+			for mapping in eventmap[l_event_type]["command"].get(command,()):
 				if mapping.admin and (event.nick.lower() not in settings.admins):
 					# TODO: Do we bot.say("access denied") ?
 					continue
@@ -239,29 +229,29 @@ class Dispatcher:
 				if mapping.priority == 0: break
 			# TODO: Consider this:
 			# super priority==0 override doesn't really make much sense on a regex, but whatever
-			for mapping in eventmap[eventtype]["regex"]:
+			for mapping in eventmap[l_event_type]["regex"]:
 				result = mapping.regex.search(msg)
 				if result:
 					event.regex_match = result
 					self._dispatchreally(mapping.function, event, cont_or_wrap, self.debug)
 					dispatched = True
 					if mapping.priority == 0: break
-		
-		if eventtype in self.waitmap:
+
+		if l_event_type in self.waitmap:
 			#special map to deal with WaitData
 			#delayed event creation as late as possible:
 			if event is None: 
-				event, cont_or_wrap = self.createEventAndWrap(cont_or_wrap, eventtype, eventkwargs)
-			wdset = self.waitmap[eventtype]
+				event, cont_or_wrap = self.createEventAndWrap(cont_or_wrap, event_type, eventkwargs)
+			wdset = self.waitmap[l_event_type]
 			remove = []
 			for wd in wdset:
 				# if found stopevent add it to list to remove after iteration
-				if eventtype in wd.stope:
+				if l_event_type in wd.stope:
 					remove.append(wd)
 					wd.q.put(event)
 					wd.done = True
 					dispatched = True
-				elif eventtype in wd.interestede:
+				elif l_event_type in wd.interestede:
 					wd.q.put(event)
 					dispatched = True
 			if remove:
@@ -289,7 +279,6 @@ class Dispatcher:
 			self.waitmap.setdefault(ietype, set()).add(wd)
 		for setype in wd.stope:
 			self.waitmap.setdefault(setype, set()).add(wd)
-		print self.waitmap
 
 	def delWaitData(self, wd):
 		for wdtype in (wd.interestede, wd.stope):

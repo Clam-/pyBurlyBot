@@ -99,7 +99,9 @@ class BurlyBot(IRCClient, TimeoutMixin):
 		LineReceiver.dataReceived(self, data)
 	
 	def names(self, channels):
-		"""List the users in a channel"""
+		"""
+		List the users in a channel.
+		"""
 		if isIterable(channels):
 			self.sendLine('NAMES %s' % ",".join(channels))
 		else:
@@ -335,12 +337,12 @@ class BurlyBot(IRCClient, TimeoutMixin):
 				self.state._modechange(channel, None, added, [])
 			self.dispatch(self, "channelModeIs", prefix=prefix, params=params, hostmask=prefix, target=channel,
 				added=added, modes=modes, args=args)
-	
+
 	def irc_RPL_CREATIONTIME(self, prefix, params):
 		channel = params[1]
 		t = params[2]
 		self.dispatch(self, "creationTime", prefix=prefix, params=params, target=channel, creationtime=t)
-	
+
 	def irc_RPL_NAMREPLY(self, prefix, params):
 		"""
 		Called when NAMES reply is received from the server.
@@ -351,12 +353,12 @@ class BurlyBot(IRCClient, TimeoutMixin):
 		if self.state: self.state._addusers(channel, users)
 		self._names.setdefault(channel, []).extend(users)
 		self.dispatch(self, "nameReply", prefix=prefix, params=params, target=channel, users=users)
-		
-			
+
+
 	def irc_RPL_ENDOFNAMES(self, prefix, params):
 		channel = params[1]
 		self.dispatch(self, "endOfNames", prefix=prefix, params=params, target=channel, users=self._names.pop(channel, []))
-	
+
 	def irc_RPL_BANLIST(self, prefix, params):
 		"""
 		Called when RPL_BANLIST reply is received from the server.
@@ -366,7 +368,7 @@ class BurlyBot(IRCClient, TimeoutMixin):
 		self._banlist.setdefault(channel, []).append((banmask, hostmask, t, nick))
 		self.dispatch(self, "banList", prefix=prefix, params=params, target=channel, banmask=banmask, hostmask=hostmask, 
 			timeofban=t, nick=nick, ident=ident, host=host)
-	
+
 	def irc_RPL_ENDOFBANLIST(self, prefix, params):
 		channel = params[1]
 		banlist = self._banlist.pop(channel, [])
@@ -382,7 +384,7 @@ class BurlyBot(IRCClient, TimeoutMixin):
 		self._exceptlist.setdefault(channel, []).append((exceptmask, hostmask, t, nick))
 		self.dispatch(self, "exceptList", prefix=prefix, params=params, target=channel, exceptmask=exceptmask, hostmask=hostmask, 
 			timeofban=t, nick=nick, ident=ident, host=host)
-	
+
 	def irc_RPL_ENDOFEXCEPTLIST(self, prefix, params):
 		channel = params[1]
 
@@ -390,7 +392,6 @@ class BurlyBot(IRCClient, TimeoutMixin):
 		if self.state: self.state._addexcepts(channel, exceptlist)
 		self.dispatch(self, "endOfBanList", prefix=prefix, params=params, target=channel, exceptlist=exceptlist)
 
-		
 	def irc_RPL_INVITELIST(self, prefix, params):
 		"""
 		Called when RPL_INVITELIST reply is received from the server.
@@ -400,14 +401,14 @@ class BurlyBot(IRCClient, TimeoutMixin):
 		self._invitelist.setdefault(channel, []).append((invitemask, hostmask, t, nick))
 		self.dispatch(self, "inviteList", prefix=prefix, params=params, target=channel, invitemask=invitemask, hostmask=hostmask, 
 			timeofban=t, nick=nick, ident=ident, host=host)
-	
+
 	def irc_RPL_ENDOFINVITELIST(self, prefix, params):
 		channel = params[1]
 
 		invitelist = self._invitelist.pop(channel, [])
 		if self.state: self.state._addinvites(channel, invitelist)
 		self.dispatch(self, "endOfInviteList", prefix=prefix, params=params, target=channel, invitelist=invitelist)
-	
+
 	def irc_RPL_ISUPPORT(self, prefix, params):
 		IRCClient.irc_RPL_ISUPPORT(self, prefix, params)
 		# This seems excessive but it's the only way to reliably update the prefixmap
@@ -426,20 +427,23 @@ class BurlyBot(IRCClient, TimeoutMixin):
 		Determine the function to call for the given command and call it with
 		the given arguments.
 		"""
-		method_name = "irc_%s" % command
+		method_name = "irc_%s" % command.upper()
 		method = getattr(self, method_name, None)
-		#print "INCOMING (%s): %s, %s" % (command, prefix, params)
+		# print "INCOMING (%s): %s, %s" % (command, prefix, params)
 		try:
-			if method is not None:
+			if callable(method):
 				method(prefix, params)
 		except:
 			log.deferr()
 		else:
 			# All low level (RPL_type) events dispatched as they are
+			# These will either be numeric or symbolic, so we also dispatch the
+			# corresponding symbolic/numeric event when possible for ease of use
 			self.dispatch(self, command, prefix=prefix, params=params)
-			if command in symbolic_to_numeric:
-				# we are dispatching symbolic event so also dispatch the numeric event
-				self.dispatch(self, symbolic_to_numeric[command], prefix=prefix, params=params)
+			if command.upper() in symbolic_to_numeric:
+				self.dispatch(self, symbolic_to_numeric[command.upper()], prefix=prefix, params=params)
+			elif command in numeric_to_symbolic:
+				self.dispatch(self, numeric_to_symbolic[command], prefix=prefix, params=params)
 			if method is None:
 				self.irc_unknown(prefix, command, params)
 
@@ -504,7 +508,9 @@ class BurlyBot(IRCClient, TimeoutMixin):
 			print 'Unknown CTCP query from %r: %r %r' % (user, tag, data)
 
 	def signedOn(self):
-		"""Called when bot has succesfully signed on to server."""
+		"""
+		Called when bot has successfully signed on to server.
+		"""
 		print "[Signed on]"
 		
 		#process nickprefixes
@@ -524,7 +530,7 @@ class BurlyBot(IRCClient, TimeoutMixin):
 		self.dispatch(self, "signedOn")
 
 	# TODO: this currently doesn't get called. Do we want to dispatch these events? Or just make
-	#	module catch ctcp events and check for ACTION tag?
+	# module catch CTCP events and check for ACTION tag?
 	def action(self, hostmask, channel, msg, params):
 		"""
 		This will get called when the bot sees someone do an action.
@@ -712,7 +718,8 @@ class BurlyBot(IRCClient, TimeoutMixin):
 		print "[disconnected: %s]" % reason
 
 class BurlyBotFactory(ReconnectingClientFactory):
-	"""A factory for BurlyBot.
+	"""
+	A factory for BurlyBot.
 	A new protocol instance will be created each time we connect to the server.
 	"""
 

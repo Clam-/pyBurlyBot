@@ -188,7 +188,7 @@ def distance_of_time_in_words(fromtime, totime=None, suffix="ago"):
 #isIterable (the tuple or list kind of iterable)
 # maybe there is a more apt name
 def isIterable(i):
-	return isinstance(i, tuple) or isinstance(i, list)
+	return isinstance(i, (set, list, tuple))
 	
 def processHostmask(h):
 	if h:

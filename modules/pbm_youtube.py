@@ -6,7 +6,7 @@ from urlparse import urlparse, parse_qs
 
 from time import strftime, strptime
 
-REQUIRES = ("googleapi",)
+REQUIRES = ("pbm_googleapi",)
 GAPI_MODULE = None
 
 # title: snippet (url)
@@ -108,7 +108,7 @@ def init(bot):
 			source TEXT PRIMARY KEY COLLATE NOCASE,
 			id TEXT
 		);''')
-	GAPI_MODULE = bot.getModule("googleapi")
+	GAPI_MODULE = bot.getModule("pbm_googleapi")
 	return True
 
 #mappings to methods

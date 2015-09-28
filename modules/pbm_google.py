@@ -2,7 +2,7 @@
 
 from util import Mapping, commandSplit, functionHelp
 
-REQUIRES = ("googleapi",)
+REQUIRES = ("pbm_googleapi",)
 GAPI_MODULE = None
 
 # title: snippet (url)
@@ -64,7 +64,7 @@ def google_image(event, bot):
 def init(bot):
 	global GAPI_MODULE # oh nooooooooooooooooo
 	
-	GAPI_MODULE = bot.getModule("googleapi")
+	GAPI_MODULE = bot.getModule("pbm_googleapi")
 	return True
 
 #mappings to methods

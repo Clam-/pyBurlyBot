@@ -8,8 +8,8 @@ data/
 logindex/
 
 #testing
-modules/test.py
-modules/dispatchtest.py
+modules/pbm_test.py
+modules/pbm_dispatchtest.py
 
 #archives
 *.7z

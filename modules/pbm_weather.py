@@ -8,7 +8,7 @@ from json import load
 from traceback import format_exc
 from re import compile as recompile
 
-REQUIRES = ("location", "wuapi")
+REQUIRES = ("pbm_location", "pbm_wuapi")
 WUAPI_MODULE = None
 LOC_MODULE = None
 
@@ -104,8 +104,8 @@ def init(bot):
 	global WUAPI_MODULE # oh nooooooooooooooooo
 	global LOC_MODULE # oh nooooooooooooooooo
 	
-	WUAPI_MODULE = bot.getModule("wuapi")
-	LOC_MODULE = bot.getModule("location")
+	WUAPI_MODULE = bot.getModule("pbm_wuapi")
+	LOC_MODULE = bot.getModule("pbm_location")
 	return True
 
 #mappings to methods

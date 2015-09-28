@@ -10,7 +10,7 @@ from util.settings import ConfigException
 # added dependency on user module only for speed. Means can keep reference to user module without having
 # to dive in to the reactor twice? per message
 # because of this I should do foreign key things but don't want to lock myself in to that just yet (bad@db)
-REQUIRES = ("users",)
+REQUIRES = ("pbm_users",)
 USERS_MODULE = None
 
 #nick: <source> msg - time
@@ -72,7 +72,7 @@ def _generate_users(bot, s, nick, skipself=True):
 def deliver_tell(event, bot):
 	# if alias module available use it
 	user = None
-	if bot.isModuleAvailable("alias"):
+	if bot.isModuleAvailable("pbm_alias"):
 		# pretty convoluted but faster than fetching both modules every time
 		# may return none if this event gets captured for a first time user before user module
 		# also faster this way than making 2 db calls for USER_MODULE.get_username
@@ -177,8 +177,8 @@ def remind(event, bot):
 	goomod = None
 	timelocale = False
 	try:
-		locmod = bot.getModule("location")
-		goomod = bot.getModule("googleapi")
+		locmod = bot.getModule("pbm_location")
+		goomod = bot.getModule("pbm_googleapi")
 		timelocale = True
 	except ConfigException:
 		pass
@@ -249,7 +249,7 @@ def init(bot):
 	
 	# cache user module.
 	# NOTE: you should only call getModule in init() if you have preloaded it first using "REQUIRES"
-	USERS_MODULE = bot.getModule("users")
+	USERS_MODULE = bot.getModule("pbm_users")
 	# Modules storing "users" in their own tables should register to be notified when a username is changed (by the alias module)
 	USERS_MODULE.REGISTER_UPDATE(bot.network, _user_rename)
 	return True

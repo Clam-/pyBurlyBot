@@ -3,7 +3,7 @@
 from util import Mapping, functionHelp
 from util.settings import ConfigException
 
-REQUIRES = ("wordsapi")
+REQUIRES = ("pbm_wordsapi")
 WORD_API = None
 
 
@@ -20,7 +20,7 @@ def spelling(event, bot, skipSearch=False):
 			return bot.say("Spelling suggestions: %s" % ", ".join(suggestions))
 		else:
 			try:
-				suggestion, _ = bot.getModule("google.api").google(event.argument)
+				suggestion, _ = bot.getModule("pbm_googleapi").google(event.argument)
 				if suggestion: return bot.say("Google suggests: %s" % suggestion)
 			except ConfigException:
 				pass
@@ -58,7 +58,7 @@ def synonym(event, bot):
 def init(bot):
 	global WORD_API # oh nooooooooooooooooo
 
-	WORD_API = bot.getModule("wordsapi")
+	WORD_API = bot.getModule("pbm_wordsapi")
 
 	return True
 

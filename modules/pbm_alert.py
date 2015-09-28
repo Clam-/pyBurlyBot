@@ -9,7 +9,7 @@ from util import Mapping, argumentSplit, functionHelp, distance_of_time_in_words
 from util.settings import ConfigException
 
 
-REQUIRES = ("users",)
+REQUIRES = ("pbm_users",)
 USERS_MODULE = None
 TELLDELIVER_OBJ = None
 LOOP_INTERVAL = 10 # 30 seconds
@@ -114,8 +114,8 @@ def alert(event, bot):
 	goomod = None
 	timelocale = False
 	try:
-		locmod = bot.getModule("location")
-		goomod = bot.getModule("googleapi")
+		locmod = bot.getModule("pbm_location")
+		goomod = bot.getModule("pbm_googleapi")
 		timelocale = True
 	except ConfigException:
 		pass
@@ -200,7 +200,7 @@ def init(bot):
 
 	# cache user module.
 	# NOTE: you should only call getModule in init() if you have preloaded it first using "REQUIRES"
-	USERS_MODULE = bot.getModule("users")
+	USERS_MODULE = bot.getModule("pbm_users")
 	# Modules storing "users" in their own tables should register to be notified when a username is changed (by the alias module)
 	USERS_MODULE.REGISTER_UPDATE(bot.network, _user_rename)
 	return True

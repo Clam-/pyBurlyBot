@@ -5,7 +5,7 @@ from time import gmtime, strftime
 from calendar import timegm # silly python... I just want UTC seconds
 
 # You could do this without web based service but whatever, offloading is easier. Cloud7.0
-REQUIRES = ("location", "googleapi", "users")
+REQUIRES = ("pbm_location", "pbm_googleapi", "pbm_users")
 LOC_MODULE = None
 GAPI_MODULE = None
 USERS_MODULE = None
@@ -31,9 +31,9 @@ def init(bot):
 	
 	# cache user module.
 	# NOTE: you should only call getModule in init() if you have preloaded it first using "REQUIRES"
-	LOC_MODULE = bot.getModule("location")
-	GAPI_MODULE = bot.getModule("googleapi")
-	USERS_MODULE = bot.getModule("users")
+	LOC_MODULE = bot.getModule("pbm_location")
+	GAPI_MODULE = bot.getModule("pbm_googleapi")
+	USERS_MODULE = bot.getModule("pbm_users")
 	return True
 	
 mappings = (Mapping(command=("time","t"), function=ttime),)

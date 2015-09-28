@@ -26,7 +26,7 @@ def _user_update(qfunc, event, nick=None):
 def user_update(event, bot):
 	#check is alias is loaded and available
 	# this method gets called on the reactor so it may cause many context switches :(
-	if bot.isModuleAvailable("alias"):
+	if bot.isModuleAvailable("pbm_alias"):
 		_user_update(bot.dbQuery, event, ALIAS_MODULE.lookup_alias(bot.dbQuery, event.nick))
 	else:
 		#alias not loaded
@@ -36,7 +36,7 @@ def user_update(event, bot):
 #returns user row, i.e. all user properties in the result
 def get_user(bot, nick):
 	qfunc = bot.dbQuery
-	if bot.isModuleAvailable("alias"):
+	if bot.isModuleAvailable("pbm_alias"):
 		anick = ALIAS_MODULE.lookup_alias(qfunc, nick)
 		if anick: return qfunc('''SELECT * FROM user WHERE user=?;''', (anick,), func=fetchone)
 	return qfunc('''SELECT * FROM user WHERE user=?;''', (nick,), func=fetchone)
@@ -45,7 +45,7 @@ def get_user(bot, nick):
 def get_username(bot, nick, source=None, _inalias=False):
 	qfunc = bot.dbQuery
 	if source and nick.lower() == "me": nick = source
-	if _inalias or bot.isModuleAvailable("alias"):
+	if _inalias or bot.isModuleAvailable("pbm_alias"):
 		alias = ALIAS_MODULE.lookup_alias(qfunc, nick)
 		if alias: 
 			user = qfunc('''SELECT user FROM user WHERE user=?;''', (alias,), func=fetchone)
@@ -67,7 +67,7 @@ def user_seen(event, bot):
 	
 	hidden = bot.getOption("hidden", module="users")
 	
-	if bot.isModuleAvailable("alias"):
+	if bot.isModuleAvailable("pbm_alias"):
 		# do magic for group
 		group = ALIAS_MODULE.group_list(bot.dbQuery, target)
 		if group:

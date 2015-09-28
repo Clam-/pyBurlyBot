@@ -51,8 +51,8 @@ def update(event, bot):
 
 	elif modchange:
 		#reload
-		if bot.isModuleAvailable("reload"):
-			bot.getModule("reload").admin_reload_bot(event, bot)
+		if bot.isModuleAvailable("pbm_reload"):
+			bot.getModule("pbm_reload").admin_reload_bot(event, bot)
 		else:
 			bot.say("Module(s) updated but can't reload. reload module not available.")
 	else:

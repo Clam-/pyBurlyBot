@@ -35,7 +35,7 @@ SCHEMA = Schema(id=NUMERIC(numtype=int, bits=64, stored=True, unique=True), time
 OPTIONS = {
 	"indexdir" : (unicode, "Dir where log indexes are stored.", "logindex"),
 }
-REQUIRES = ("users",)
+REQUIRES = ("pbm_users",)
 USERS_MODULE = None
 
 SOURCE_REGEX = re_compile(r".*\bsource:.")
@@ -267,7 +267,7 @@ def _user_rename(network, old, new):
 def init(bot):
 	global INDEX_PROXIES
 	global USERS_MODULE
-	USERS_MODULE = bot.getModule("users")
+	USERS_MODULE = bot.getModule("pbm_users")
 	if bot.network not in INDEX_PROXIES:
 		proxy = IndexProxy(bot.network, bot.getOption("indexdir", module="logindexsearch"), bot.getOption("commandprefix"))
 		INDEX_PROXIES[bot.network] = proxy

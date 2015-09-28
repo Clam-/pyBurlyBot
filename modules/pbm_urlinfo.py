@@ -94,7 +94,7 @@ def init(bot):
 			source TEXT PRIMARY KEY COLLATE NOCASE,
 			url TEXT
 		);''')
-	GAPI_MODULE = bot.getModule("googleapi")
+	GAPI_MODULE = bot.getModule("pbm_googleapi")
 	return True
 
 #mappings to methods

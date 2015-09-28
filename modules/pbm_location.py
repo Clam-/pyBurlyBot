@@ -4,7 +4,7 @@
 
 from util import Mapping, fetchone
 
-REQUIRES = ("users", "googleapi")
+REQUIRES = ("pbm_users", "pbm_googleapi")
 USERS_MODULE = None
 GAPI_MODULE = None
 
@@ -92,8 +92,8 @@ def init(bot):
 	
 	# cache user module.
 	# NOTE: you should only call getModule in init() if you have preloaded it first using "REQUIRES"
-	USERS_MODULE = bot.getModule("users")
-	GAPI_MODULE = bot.getModule("googleapi")
+	USERS_MODULE = bot.getModule("pbm_users")
+	GAPI_MODULE = bot.getModule("pbm_googleapi")
 	# Modules storing "users" in their own tables should register to be notified when a username is changed (by the alias module)
 	USERS_MODULE.REGISTER_UPDATE(bot.network, _user_rename)
 	return True

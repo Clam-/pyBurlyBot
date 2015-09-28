@@ -2,7 +2,7 @@
 from util import Mapping, fetchone, argumentSplit, functionHelp, pastehelper
 from sys import modules
 
-REQUIRES = ("users",)
+REQUIRES = ("pbm_users",)
 USERS_MODULE = None
 
 def lookup_alias(qfunc, alias):
@@ -177,7 +177,7 @@ def init(bot):
 	
 	# cache user module.
 	# NOTE: you should only call getModule in init() if you have preloaded it first using "REQUIRES"
-	USERS_MODULE = bot.getModule("users")
+	USERS_MODULE = bot.getModule("pbm_users")
 	# add backreference to alias module for fast lookup
 	# this probably shouldn't normally be done.
 	USERS_MODULE.ALIAS_MODULE = modules[__name__]

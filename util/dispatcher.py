@@ -62,6 +62,9 @@ class Dispatcher:
 	def loadModule(self, modulename, resolvedModules=None):
 		if modulename in self.loadedModules: return True
 		print "Loading %s..." % modulename
+		if not modulename.startswith("pbm_"):
+			self.NOTLOADED[modulename] = "Won't load modules that don't start with \"pbm_\""
+			return None
 		if resolvedModules and modulename in resolvedModules:
 			self.NOTLOADED[modulename] = "Circular module dependency. Parents: %s" % (resolvedModules)
 			return None

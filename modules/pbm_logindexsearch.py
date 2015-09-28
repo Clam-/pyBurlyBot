@@ -4,6 +4,7 @@ from whoosh.index import create_in, open_dir, exists_in
 from whoosh.fields import DATETIME, Schema, TEXT, NUMERIC
 from whoosh.qparser import QueryParser
 from whoosh.query import Term, And
+from whoosh.sorting import Count, FieldFacet
 
 from multiprocessing import Process, Pipe
 
@@ -53,14 +54,14 @@ STOP = -1
 
 LOG_FORMAT = "<%s> %s" # <nick> msg
 
+# ============= FOR DEBUGGING SESSION
 #~ from whoosh.index import create_in, open_dir, exists_in
 #~ from whoosh.fields import DATETIME, Schema, TEXT, NUMERIC
 #~ from whoosh.qparser import QueryParser
 #~ from whoosh.query import Term, And
-
 #~ ix = open_dir("logindex/Rizon")
 #~ s = ix.searcher()
-
+# ============= FOR DEBUGGING SESSION
 
 def prnt(s):
 	print s
@@ -115,12 +116,16 @@ class IndexProcess(Process):
 	# threadident, source, query
 	def _processSearch(self, data):
 		try:
-			threadident, source, query, n = data
+			threadident, source, query, n, gb = data
 			qp = self.qp.parse(query)
 			results = []
 			if not SOURCE_REGEX.match(query): qp = qp & Term(u"source", source.lstrip(CHANNEL_PREFIXES).lower())
-			for item in self.searcher.search(qp, limit=n):
-				results.append((item["timestamp"], item["nick"], item["source"], item["content"]))
+			if not gb:
+				for item in self.searcher.search(qp, limit=n, groupedby=gb):
+					results.append((item["timestamp"], item["nick"], item["source"], item["content"]))
+			else:
+				for user, count in self.searcher.search(qp, groupedby=FieldFacet(gb, maptype=Count)).groups().iteritems():
+					results.append((count, user))
 		except:
 			self.index_p.send((threadident, None)) # pass None back to caller so user error can be displayed.
 			print_exc()
@@ -203,10 +208,10 @@ class IndexProxy(Thread):
 		for queue in self.waiting.itervalues():
 			queue.put(None)
 	
-	def search(self, source, query, n):
+	def search(self, source, query, n, gb=None):
 		""" Will return None if shutdown before response ready."""
 		resultq = Queue()
-		self.inqueue.put((QUERY, (resultq, current_thread().ident, source, query, n)))
+		self.inqueue.put((QUERY, (resultq, current_thread().ident, source, query, n, gb)))
 		return resultq.get()
 		
 	def logmsg(self, *args):
@@ -253,12 +258,23 @@ def logsearch(event, bot):
 			bot.say("Log search error happened. Check console.")
 		else:
 			#results.append((item["timestamp"], item["nick"], item["source"], item["content"]))
+			if not results: 
+				return bot.say("No results.")
 			if n > 6 or n is None:
 				title = "Logsearch for (%s)" % q
 				body = "%s: %%s" % title
 				pastehelper(bot, body, items=(LOG_FORMAT % (x[1], x[3]) for x in results), title=title, altmsg="%s", force=True)
 			else:
 				bot.say("{0}", fcfs=True, strins=[LOG_FORMAT % (x[1], x[3]) for x in results], joinsep=u"\x02 | \x02")
+
+def logstats(event, bot):
+	iproxy = INDEX_PROXIES.get(bot.network)
+	if iproxy:
+		results = iproxy.search(event.target, event.argument, None, "user")
+		if not results:
+			return bot.say("No results.")
+		results.sort(reverse=True)
+		bot.say("(%s) %s" % (event.argument, ", ".join(("%s: %s" % (nick, count) for count, nick in results))))
 
 def _user_rename(network, old, new):
 	iproxy = INDEX_PROXIES.get(network)
@@ -281,4 +297,5 @@ def unload():
 	for lproc in INDEX_PROXIES.itervalues():
 		lproc.stop()
 
-mappings = (Mapping(types=["privmsged"], function=logmsg), Mapping(command="log", function=logsearch))
+mappings = (Mapping(types=["privmsged"], function=logmsg), Mapping(command="log", function=logsearch),
+	Mapping(command="logstats", function=logstats))

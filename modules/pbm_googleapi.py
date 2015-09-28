@@ -158,7 +158,7 @@ def google_youtube_details(vidid):
 def init(bot):
 	global API_KEY # oh nooooooooooooooooo
 	global CSE_ID # oh nooooooooooooooooo
-	API_KEY = bot.getOption("API_KEY", module="googleapi")
-	CSE_ID = bot.getOption("CSE_ID", module="googleapi")
+	API_KEY = bot.getOption("API_KEY", module="pbm_googleapi")
+	CSE_ID = bot.getOption("CSE_ID", module="pbm_googleapi")
 	return True
 

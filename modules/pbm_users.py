@@ -65,7 +65,7 @@ def user_seen(event, bot):
 	if not target:
 		return bot.say("Seen who?")
 	
-	hidden = bot.getOption("hidden", module="users")
+	hidden = bot.getOption("hidden", module="pbm_users")
 	
 	if bot.isModuleAvailable("pbm_alias"):
 		# do magic for group

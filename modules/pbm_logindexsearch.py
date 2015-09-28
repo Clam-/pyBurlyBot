@@ -269,7 +269,7 @@ def init(bot):
 	global USERS_MODULE
 	USERS_MODULE = bot.getModule("pbm_users")
 	if bot.network not in INDEX_PROXIES:
-		proxy = IndexProxy(bot.network, bot.getOption("indexdir", module="logindexsearch"), bot.getOption("commandprefix"))
+		proxy = IndexProxy(bot.network, bot.getOption("indexdir", module="pbm_logindexsearch"), bot.getOption("commandprefix"))
 		INDEX_PROXIES[bot.network] = proxy
 		proxy.start()
 		USERS_MODULE.REGISTER_UPDATE(bot.network, _user_rename, external=True)

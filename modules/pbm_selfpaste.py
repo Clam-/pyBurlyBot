@@ -63,8 +63,8 @@ def decodeURL(u):
 # TODO: Do we need to define some sort of 'typical paste API'?
 def paste(s, bot=None, title="BurlyBot paste", **kwargs):
 	assert(bot is not None)
-	wwwroot = bot.getOption("wwwroot", module="selfpaste")
-	urlprefix = bot.getOption("url_prefix", module="selfpaste")
+	wwwroot = bot.getOption("wwwroot", module="pbm_selfpaste")
+	urlprefix = bot.getOption("url_prefix", module="pbm_selfpaste")
 	assert(wwwroot and urlprefix)
 	if not exists(wwwroot):
 		try: makedirs(wwwroot)

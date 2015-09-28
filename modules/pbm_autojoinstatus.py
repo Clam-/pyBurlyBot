@@ -18,7 +18,7 @@ def dostatus(event, bot):
 	if not chan or (bot.nickname not in chan.ops): return
 	modes = []
 	target = target.lower()
-	ops, voices, hops = bot.getOptions(("autoop", "autovoice", "autohalf"), module="autojoinstatus")
+	ops, voices, hops = bot.getOptions(("autoop", "autovoice", "autohalf"), module="pbm_autojoinstatus")
 	for mask in ops:
 		if match_hostmask(hostmask, mask):
 			modes.append("o")

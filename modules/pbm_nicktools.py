@@ -23,7 +23,7 @@ OPTIONS = {
 def nickCheckAndRecover(event=None, bot=None):
 	snick = bot.getOption("nick")
 	snickpass = bot.getOption("nickservpass")
-	srestorenick = bot.getOption("restorenick", module="nicktools")
+	srestorenick = bot.getOption("restorenick", module="pbm_nicktools")
 	if bot.nickname != snick:
 		if srestorenick > 1 and snickpass:
 			#aggressive nick restore attempt kill old nick
@@ -63,11 +63,11 @@ def preJoin(event, bot):
 		reactor.callFromThread(reactor.callLater, 5.5, delayedJoin, bot._botinst.join, bot.getOption("channels"))
 
 def nickChanged(event, bot):
-	if bot.getOption("restorenick", module="nicktools"):
+	if bot.getOption("restorenick", module="pbm_nicktools"):
 		snick = bot.getOption("nick")
 		if event.newname != snick:
 			# start timer to checkandrecov
-			try: Timers.addtimer("NICKTOOLS_%s" % bot.network, float(bot.getOption("checkevery", module="nicktools")), 
+			try: Timers.addtimer("NICKTOOLS_%s" % bot.network, float(bot.getOption("checkevery", module="pbm_nicktools")), 
 				nickCheckAndRecover, reps=-1, bot=bot )
 			except TimerExists: pass
 		else:

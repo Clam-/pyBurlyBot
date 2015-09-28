@@ -71,5 +71,5 @@ def get_forecast(lat, lon):
 
 def init(bot):
 	global API_KEY # oh nooooooooooooooooo
-	API_KEY = bot.getOption("API_KEY", module="wuapi")
+	API_KEY = bot.getOption("API_KEY", module="pbm_wuapi")
 	return True

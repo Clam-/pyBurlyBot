@@ -34,7 +34,7 @@ def simplecommands(event, bot):
 	arg1, arg2 = argumentSplit(event.argument, 2)
 	# For non-admins just list commands no matter what
 	if not bot.isadmin() or arg1 == '~list':
-		commands = bot.getOption("commands", module="simplecommands")
+		commands = bot.getOption("commands", module="pbm_simplecommands")
 		cmdlist = []
 		commands.sort()
 
@@ -49,7 +49,7 @@ def simplecommands(event, bot):
 		return bot.say(functionHelp(simplecommands))
 
 	# [[["paste", "dpaste"], "http://dpaste.com"], [. . . ]]
-	commands = bot.getOption("commands", module="simplecommands")
+	commands = bot.getOption("commands", module="pbm_simplecommands")
 	# Delete a simplecommand
 	if arg1 == '~del' and arg2:
 		match = None
@@ -69,7 +69,7 @@ def simplecommands(event, bot):
 		if not match:
 			return bot.say('(%s) is not a known simplecommand.' % arg2)
 		commands.remove(match)
-		bot.setOption("commands", commands, module="simplecommands", channel=False)
+		bot.setOption("commands", commands, module="pbm_simplecommands", channel=False)
 		blockingCallFromThread(reactor, Settings.saveOptions)
 		bot.say('Simplecommand (%s) deleted.  Options saved.  Reloading...' % arg2)
 		blockingCallFromThread(reactor, _reallyReload)
@@ -96,7 +96,7 @@ def simplecommands(event, bot):
 					delete it first with \x02~del %s\x02 and recreate it." % (', '.join(match[0]), arg1))
 			commands.remove(match)
 			commands.append([arg1.split(','), arg2])
-			bot.setOption("commands", commands, module="simplecommands", channel=False)
+			bot.setOption("commands", commands, module="pbm_simplecommands", channel=False)
 			blockingCallFromThread(reactor, Settings.saveOptions)
 			bot.say('Simplecommand (%s) replaced.  Options saved.  Reloading...' % arg1)
 			blockingCallFromThread(reactor, _reallyReload)
@@ -109,7 +109,7 @@ def simplecommands(event, bot):
 				if ret:
 					return bot.say('Command (%s) already in use by the \x02%s\x02 module.' % (cmd, ret[0].function.__module__))
 			commands.append([arg1.split(','), arg2])
-			bot.setOption("commands", commands, module="simplecommands", channel=False)
+			bot.setOption("commands", commands, module="pbm_simplecommands", channel=False)
 			blockingCallFromThread(reactor, Settings.saveOptions)
 			bot.say('Simplecommand (%s) added.  Options saved.  Reloading...' % arg1)
 			blockingCallFromThread(reactor, _reallyReload)
@@ -134,6 +134,6 @@ mappings = [Mapping(command=("simplecommands", "simplecommand", "sc"), function=
 def init(bot):
 	global mappings # oops! Bad things are going to happen
 	# you should very much not do the following. This relies on knowing how the internals of dispatcher setup work!
-	for command, output in bot.getOption("commands", module="simplecommands"):
+	for command, output in bot.getOption("commands", module="pbm_simplecommands"):
 		mappings.append(Mapping(command=command, function=partial(echo_this, output), hidden=True))
 	return True

@@ -124,6 +124,6 @@ def word_synonyms(query):
 	
 def init(bot):
 	global API_KEY # oh nooooooooooooooooo
-	API_KEY = bot.getOption("API_KEY", module="wordsapi")
+	API_KEY = bot.getOption("API_KEY", module="pbm_wordsapi")
 	return True
 

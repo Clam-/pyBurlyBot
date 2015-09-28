@@ -195,7 +195,7 @@ class SteamChat(Thread):
 		self.cmdprefix = cmdprefix
 		self.online = False
 		self.cooldownuntil = 0
-		self.oauth = self.container._getOption("oauthtoken", module="steamchat")
+		self.oauth = self.container._getOption("oauthtoken", module="pbm_steamchat")
 		# users their friendly name, last offline time and their channels
 		# offline time for allowing users to disconnect/reconnect and still keep listened channels
 		self.users = {} # {userid : SteamUser}
@@ -489,8 +489,8 @@ class SteamChat(Thread):
 		print "ATTEMPTING LOGIN"
 		self.checkAndStopPoll()
 		if not self.oauth:
-			username = self.container.getOption("username", module="steamchat")
-			password = self.container.getOption("password", module="steamchat")
+			username = self.container.getOption("username", module="pbm_steamchat")
+			password = self.container.getOption("password", module="pbm_steamchat")
 			if username and password: 
 				# get RSAkey for hashing password
 				d = {"username" : username}
@@ -526,7 +526,7 @@ class SteamChat(Thread):
 			print "FAILED TO LOGIN, DOING COOLDOWN"
 			self.cooldownuntil = time() + COOLDOWN
 			self.checkAndStopPoll()
-		self.container.setOption("oauthtoken", self.oauth, module="steamchat", channel=False)
+		self.container.setOption("oauthtoken", self.oauth, module="pbm_steamchat", channel=False)
 		#persist oauth token
 		blockingCallFromThread(reactor, Settings.saveOptions)
 	
@@ -620,7 +620,7 @@ def init(bot):
 	if bot.getOption("enablestate"):
 		if bot.network not in CHAT_THREADS:
 			CHAT_THREADS[bot.network] = SteamChat(bot.container, bot.getOption("commandprefix"), 
-				bot.getOption("allowedModules", module="steamchat")) # bit silly, but whatever
+				bot.getOption("allowedModules", module="pbm_steamchat")) # bit silly, but whatever
 		else:
 			print "WARNING: Already have thread for (%s) network." % bot.network
 	else:

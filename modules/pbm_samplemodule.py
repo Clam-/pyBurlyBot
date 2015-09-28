@@ -11,7 +11,7 @@ OPTIONS = {
 
 def repeater(event, bot):
 	#repeat things
-	if bot.getOption("repeat", module="samplemodule"):
+	if bot.getOption("repeat", module="pbm_samplemodule"):
 		bot.say("%s : %s" % (event.nick, event.msg))
 
 def printer(event, bot):

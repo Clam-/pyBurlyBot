@@ -27,7 +27,7 @@ RE_STOPWORDS = re.compile(r'^\W*(' + r'|'.join(STOPWORDS) + r')\W*$',
 
 def butt(event, bot):
 	if not event.argument:
-		if bot.getOption("BUTTS", module="butt"):
+		if bot.getOption("BUTTS", module="pbm_butt"):
 			# get random bestbutt
 			items = bot.dbQuery('''SELECT id, butt FROM butts ORDER BY RANDOM() LIMIT 1;''')
 			if not items:
@@ -40,7 +40,7 @@ def butt(event, bot):
 		bot.say(buttify(event.argument))
 
 def butts(event, bot):
-	if not bot.getOption("BUTTS", module="butt"): return
+	if not bot.getOption("BUTTS", module="pbm_butt"): return
 	if not event.argument:
 		items = bot.dbQuery('''SELECT id, butt FROM butts;''')
 		if items:
@@ -62,7 +62,7 @@ def rand_butt(event, bot):
 	msg = event.msg
 	if not msg or not len(msg) > 20:
 		return
-	if random.randint(1, bot.getOption("BUTT_RATE", module="butt")) != 1:
+	if random.randint(1, bot.getOption("BUTT_RATE", module="pbm_butt")) != 1:
 		return
 	result = buttify(msg)
 	# No butt occurred

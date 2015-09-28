@@ -28,7 +28,7 @@ OPTIONS = {
 def update(event, bot):
 	""" update will check for git update and restart bot if core files need updating. """
 
-	gitpath = bot.getOption("git_path", module="updaterelaunch")
+	gitpath = bot.getOption("git_path", module="pbm_updaterelaunch")
 	if not gitpath:
 		gitpath = "git"
 

@@ -85,7 +85,7 @@ def calc(event, bot):
 
 def init(bot):
 	global API_KEY # oh nooooooooooooooooo
-	API_KEY = bot.getOption("API_KEY", module="calc")
+	API_KEY = bot.getOption("API_KEY", module="pbm_calc")
 	return True
 
 #mappings to methods

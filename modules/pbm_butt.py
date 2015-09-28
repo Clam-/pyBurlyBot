@@ -5,7 +5,7 @@ https://code.google.com/p/buttbot/
 This is ported almost directly from old BBM
 """
 
-from util import Mapping, pastehelper, argumentSplit
+from util import Mapping, pastehelper, argumentSplit, fetchone
 from time import sleep
 import re
 import random
@@ -29,11 +29,11 @@ def butt(event, bot):
 	if not event.argument:
 		if bot.getOption("BUTTS", module="pbm_butt"):
 			# get random bestbutt
-			items = bot.dbQuery('''SELECT id, butt FROM butts ORDER BY RANDOM() LIMIT 1;''')
+			items = bot.dbQuery('''SELECT id, butt FROM butts ORDER BY RANDOM() LIMIT 1;''', func=fetchone)
 			if not items:
 				bot.say("butt what?")
 			else:
-				bot.say("%s: %s" % items[0], items[1])
+				bot.say("%s: %s" % (items[0], items[1]))
 		else:	
 			bot.say("butt what?")
 	else:

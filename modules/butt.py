@@ -3,13 +3,9 @@ butt.py - A (poor) python port of buttbot:
 https://code.google.com/p/buttbot/
 
 This is ported almost directly from old BBM
-
-TODO:
-- Tie in configurable variables
-- Look into preventing rand_butt from being called on a dispatched command
 """
 
-from util import Mapping
+from util import Mapping, pastehelper, argumentSplit
 from time import sleep
 import re
 import random
@@ -18,36 +14,61 @@ try:
 except ImportError:
 	raise ImportError('butt.py needs Need TeX Hyphenate: http://nedbatchelder.com/code/modules/hyphenate.py')
 
+OPTIONS = {
+	"BUTT_RATE" : (int, "Rate/chance of butt 1/n.", 500),
+	"BUTTS" : (bool, "Best of butt.", True),
+}
 
-BUTT_RATE = 500 # 1 in 501, this was old rate
 # Words/regexes that are boring/intrinsically unbuttable
 STOPWORDS = (r'[^A-Za-z]+', 'butt', 'a', 'an', 'and', 'or', 'but', 'it', 'is',
 'its', "it's", 'the', 'of', 'you', 'I', 'your')
 RE_STOPWORDS = re.compile(r'^\W*(' + r'|'.join(STOPWORDS) + r')\W*$',
 							flags=re.IGNORECASE | re.UNICODE)
 
-
 def butt(event, bot):
 	if not event.argument:
-		bot.say("butt what?")
+		if bot.getOption("BUTTS", module="butt"):
+			# get random bestbutt
+			items = bot.dbQuery('''SELECT id, butt FROM butts ORDER BY RANDOM() LIMIT 1;''')
+			if not items:
+				bot.say("butt what?")
+			else:
+				bot.say("%s: %s" % items[0], items[1])
+		else:	
+			bot.say("butt what?")
 	else:
 		bot.say(buttify(event.argument))
 
+def butts(event, bot):
+	if not bot.getOption("BUTTS", module="butt"): return
+	if not event.argument:
+		items = bot.dbQuery('''SELECT id, butt FROM butts;''')
+		if items:
+			pastehelper(bot, basemsg="butts: %s", force=True, altmsg="%s", items=("%s: %s" % (row[0], row[1]) for row in items))
+		else:
+			bot.say("no butts.")
+	else:
+		cmd, arg = argumentSplit(event.argument, 2)
+		if cmd == "~del":
+			bot.dbQuery('''DELETE FROM butts WHERE id = ?;''', (arg, ))
+			bot.say("OK.")
+		else:
+			# add a butts
+			bot.dbQuery('''INSERT INTO butts (butt) VALUES(?);''', (event.argument,))
+			bot.say("OK.")
 
 def rand_butt(event, bot):
+	if event.command: return
 	msg = event.msg
 	if not msg or not len(msg) > 20:
 		return
-	if random.randint(0, BUTT_RATE) != 1:
+	if random.randint(1, bot.getOption("BUTT_RATE", module="butt")) != 1:
 		return
 	result = buttify(msg)
 	# No butt occurred
 	if result == msg:
 		return
-	# TODO: callLater
-	sleep(random.randint(2, 8))
-	bot.say(result)
-
+	bot.later(random.randint(2, 8), bot.say, result)
 
 def buttify(msg):
 	"""Return buttified msg."""
@@ -133,6 +154,13 @@ def _weighted_butt_words(sortedlist):
 		weight -= 1
 	return weighted_butt_words
 
+def init(bot):
+	bot.dbCheckCreateTable("butts", 
+		'''CREATE TABLE butts(
+			id INTEGER PRIMARY KEY,
+			butt TEXT
+		);''')
+	return True
 
-mappings = (Mapping(command="butt", function=butt),
+mappings = (Mapping(command="butt", function=butt), Mapping(command="butts", function=butts),
 			Mapping(types=["privmsged"], function=rand_butt))

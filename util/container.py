@@ -112,15 +112,9 @@ class Container:
 
 	# Option getter/setters	
 	def getOption(self, opt, **kwargs):
-		return blockingCallFromThread(reactor, self._getOption, opt, **kwargs)
-	
-	def _getOption(self, opt, **kwargs):
 		return self._settings.getOption(opt, **kwargs)
 	
 	def getOptions(self, opts, **kwargs):
-		return blockingCallFromThread(reactor, self._getOptions, opts, **kwargs)
-	
-	def _getOptions(self, opts, **kwargs):
 		return self._settings.getOptions(opts, **kwargs)
 		
 	def setOption(self, opt, value, **kwargs):
@@ -213,6 +207,13 @@ class Container:
 	
 	def dbCheckCreateTable(self, tablename, createstmt):
 		return self._settings.databasemanager.dbCheckCreateTable(self.network, tablename, createstmt)
+		
+	# helper for modules. Module code that using this shouldn't be in the reactor thread
+	# (which should be all the time, unless it's in init() )
+	def later(self, delay, callable, *args, **kw):
+		try: callable = callable.func # assume callable will be a functools.partial object returned from Container.__getattr__
+		except AttributeError: pass
+		reactor.callFromThread(reactor.callLater, delay, callable, *args, inreactor=True, **kw)
 
 # provide special container to use when feeding "init()" of modules
 # doesn't try to call methods inside reactor because already inside reactor
@@ -229,10 +230,10 @@ class SetupContainer(object):
 		return self.container._isModuleAvailable(modname)
 		
 	def getOption(self, opt, **kwargs):
-		return self.container._getOption(opt, **kwargs)
+		return self.container.getOption(opt, inreactor=True, **kwargs)
 	
 	def getOptions(self, opts, **kwargs):
-		return self.container._getOptions(opts, **kwargs)
+		return self.container.getOptions(opts, inreactor=True, **kwargs)
 	
 	def setOption(self, opt, value, **kwargs):
 		return self.container._setOption(opt, value, **kwargs)

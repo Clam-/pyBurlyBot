@@ -7,7 +7,6 @@ from twisted.python.failure import Failure
 from traceback import format_tb
 
 class BotWrapper:
-
 	def __init__(self, event, botcont):
 		self.event = event
 		self._botcont = botcont
@@ -32,16 +31,22 @@ class BotWrapper:
 		else:
 			return self.checkSendMsg(self.event.target, msg)
 	
-	def isadmin(self, module=None):
-		return blockingCallFromThread(reactor, self._isadmin, module)
+	def isadmin(self, module=None, inreactor=False):
+		if inreactor:
+			return self._isadmin(module)
+		else:
+			return blockingCallFromThread(reactor, self._isadmin, module)
 	
 	#_isadmin bypasses the containers get*Option methods so that it
 	# only makes 1 call in the reactor and not 2 (in the case of module admin)
 	def _isadmin(self, module=None):
 		if not self.event.nick: return None
-		admins = self._botcont._settings.getOption("admins")
+		admins = self._botcont._settings.getOption("admins", inreactor=True)
 		if module:
-			madmins = self._botcont._settings.getOption("admins", module=module)
+			madmins = None
+			try:
+				madmins = self._botcont._settings.getOption("admins", module=module, inreactor=True)
+			except AttributeError: pass
 			if madmins:
 				admins.extend(madmins)
 		return self.event.nick.lower() in admins
@@ -51,22 +56,24 @@ class BotWrapper:
 	# otherwise duplicated from container
 	def getOption(self, opt, channel=None, **kwargs):
 		if not self.event.isPM() and channel is None:
-			return blockingCallFromThread(reactor, self._botcont._settings.getOption, opt, channel=self.event.target, **kwargs)
+			return self._botcont._settings.getOption(opt, channel=self.event.target, **kwargs)
 		else:
-			return blockingCallFromThread(reactor, self._botcont._settings.getOption, opt, channel=channel, **kwargs)
+			return self._botcont._settings.getOption(opt, channel=channel, **kwargs)
 	
 	def getOptions(self, opts, channel=None, **kwargs):
 		if not self.event.isPM() and channel is None:
-			return blockingCallFromThread(reactor, self._botcont._settings.getOptions, opts, channel=self.event.target, **kwargs)
+			return self._botcont._settings.getOptions(opts, channel=self.event.target, **kwargs)
 		else:
-			return blockingCallFromThread(reactor, self._botcont._settings.getOptions, opts, channel=channel, **kwargs)
+			return self._botcont._settings.getOptions(opts, channel=channel, **kwargs)
 	
 	# Default target channel for setOption is to target current channel unless argument of "channel" is False
-	def setOption(self, opt, value, channel=None, **kwargs):
+	def setOption(self, opt, value, channel=None, inreactor=False, **kwargs):
 		if not self.event.isPM() and channel is None:
-			blockingCallFromThread(reactor, self._botcont._settings.setOption, opt, value, channel=self.event.target, **kwargs)
+			if inreactor: self._botcont._settings.setOption(opt, value, channel=self.event.target, **kwargs)
+			else: blockingCallFromThread(reactor, self._botcont._settings.setOption, opt, value, channel=self.event.target, **kwargs)
 		else:
-			blockingCallFromThread(reactor, self._botcont._settings.setOption, opt, value, channel=channel, **kwargs)
+			if inreactor: self._botcont._settings.setOption(opt, value, channel=channel, **kwargs)
+			else: blockingCallFromThread(reactor, self._botcont._settings.setOption, opt, value, channel=channel, **kwargs)
 
 	#callback to handle module errors
 	def _moduleerr(self, e):

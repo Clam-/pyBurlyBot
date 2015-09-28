@@ -32,9 +32,9 @@ def nickCheckAndRecover(event=None, bot=None):
 			# TODO: Should these values be higher? To allow for latency spike? (Currently works with latency of ~200ms)
 			# (Ideally it would happen before bot joins channels. Join is delayed further if we don't have desired nick.)
 			bot.sendmsg("nickserv", "RECOVER %s %s" % (snick, snickpass))
-			reactor.callLater(0.3, bot._botinst.sendmsg, "nickserv", "RELEASE %s %s" % (snick, snickpass))
+			reactor.callFromThread(reactor.callLater, 0.3, bot._botinst.sendmsg, "nickserv", "RELEASE %s %s" % (snick, snickpass))
 			# delayed call for setting nick after ghost. (and hope we didn't DC in the meantime??
-			reactor.callLater(0.6, bot._botinst.setNick, snick)
+			reactor.callFromThread(reactor.callLater, 0.6, bot._botinst.setNick, snick)
 		else:
 			bot.setNick(snick)
 
@@ -50,17 +50,17 @@ def identify(bot, snick=None):
 		# send notice to self to see if prefix changed, allow for some latency:
 		# special magic to not get the wrapped bot function for call inside reactor (Don't do this.)
 		# this may do odd things if bot disconnects while preJoin (or nickChanged) got sent.
-		reactor.callLater(0.8, bot._botinst.notice, bot.nickname, "\x1b")
+		reactor.callFromThread(reactor.callLater, 0.8, bot._botinst.notice, bot.nickname, "\x1b")
 		return True
 	return False
 
 def preJoin(event, bot):
 	if identify(bot):
 		# if identified on connect, join sooner
-		reactor.callLater(1.5, delayedJoin, bot._botinst.join, bot.getOption("channels"))
+		reactor.callFromThread(reactor.callLater, 1.5, delayedJoin, bot._botinst.join, bot.getOption("channels"))
 	else:
 		# if not identified on connect, join sometime after nick reclaim hopefully happens
-		reactor.callLater(5.5, delayedJoin, bot._botinst.join, bot.getOption("channels"))
+		reactor.callFromThread(reactor.callLater, 5.5, delayedJoin, bot._botinst.join, bot.getOption("channels"))
 
 def nickChanged(event, bot):
 	if bot.getOption("restorenick", module="nicktools"):

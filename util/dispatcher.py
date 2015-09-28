@@ -101,7 +101,7 @@ class Dispatcher:
 					self.NOTLOADED[modulename] = "Invalid number of parameters for OPTIONS. Require: type, desc, default."
 					return None
 				#using getOption because it already has all the functionality coded in to do this default option setting.
-				self.settings.getOption(opt, server=False, module=modulename, default=params[2], setDefault=True)
+				self.settings.getOption(opt, server=False, module=modulename, default=params[2], setDefault=True, inreactor=True)
 		# load init() per dispatcher/server
 		# Catch errors that might be thrown on running module.init()
 		if hasattr(module, "init"):

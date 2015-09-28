@@ -16,6 +16,7 @@ try:
 except:
 	SSL = None
 from twisted.internet import reactor
+from twisted.internet.threads import blockingCallFromThread
 
 #BurlyBot
 from util.libs import OrderedSet
@@ -211,7 +212,7 @@ class Server(BaseServer):
 	# if channel or server is set, retrieve for that specific thing.
 	# if channel or server is False, retrieve "global" for that thing.
 	# TODO: make sure this optimized as it can be
-	def getOption(self, opt, module=None, channel=None, server=None, default=NoDefault, setDefault=True):
+	def getOption(self, opt, module=None, channel=None, server=None, default=NoDefault, setDefault=True, inreactor=False):
 		if opt in KEYS_DENY: raise ValueError("Access denied. (%s)" % opt)
 		if module:
 			if server or server is None:
@@ -226,11 +227,13 @@ class Server(BaseServer):
 					mod = moduleopts[module]
 					if channel and "_channels" in mod and channel in mod["_channels"] and opt in mod["_channels"][channel]:
 						value = mod["_channels"][channel][opt]
-						if type(value) in TYPE_COPY: return deepcopy(value) # copy value if compound datatype
+						if type(value) in TYPE_COPY: # copy value if compound datatype
+							return deepcopy(value) if inreactor else blockingCallFromThread(reactor, deepcopy, value)
 						else: return value
 					if opt in mod:
 						value = mod[opt]
-						if type(value) in TYPE_COPY: return deepcopy(value) # copy value if compound datatype
+						if type(value) in TYPE_COPY: # copy value if compound datatype
+							return deepcopy(value) if inreactor else blockingCallFromThread(reactor, deepcopy, value)
 						else: return value
 			# fall back to global moduleopts (or server was False)
 			moduleopts = Settings.moduleopts
@@ -239,11 +242,13 @@ class Server(BaseServer):
 				mod = moduleopts[module]
 				if channel and "_channels" in mod and channel in mod["_channels"] and opt in mod["_channels"][channel]:
 					value = mod["_channels"][channel][opt]
-					if type(value) in TYPE_COPY: return deepcopy(value) # copy value if compound datatype
+					if type(value) in TYPE_COPY: # copy value if compound datatype
+						return deepcopy(value) if inreactor else blockingCallFromThread(reactor, deepcopy, value)
 					else: return value
 				if opt in mod:
 					value = mod[opt]
-					if type(value) in TYPE_COPY: return deepcopy(value) # copy value if compound datatype
+					if type(value) in TYPE_COPY: # copy value if compound datatype
+						return deepcopy(value) if inreactor else blockingCallFromThread(reactor, deepcopy, value)
 					else: return value
 			if default is NoDefault:
 				raise AttributeError("No setting (%s) for module: %s" % (opt, module))
@@ -271,7 +276,8 @@ class Server(BaseServer):
 				#case where a server setting is specifically attempted to be got, but it's not in KEYS_SERVER
 				# instead of falling back to KEYS_MAIN, raise error
 				raise ValueError("Server setting has no option: (%s) to get." % opt)
-		if opt in KEYS_COPY: return deepcopy(value)
+		if opt in KEYS_COPY: # copy value if compound datatype
+			return deepcopy(value) if inreactor else blockingCallFromThread(reactor, deepcopy, value)
 		else: return value
 	
 	def setOption(self, opt, value, module=None, channel=None, server=None):

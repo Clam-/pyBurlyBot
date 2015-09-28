@@ -129,10 +129,8 @@ class Container:
 	def getModule(self, modname):
 		return blockingCallFromThread(reactor, self._getModule, modname)
 	
-	def _isModuleAvailable(self, modname):
-		return self._settings.isModuleAvailable(modname)
 	def isModuleAvailable(self, modname):
-		return blockingCallFromThread(reactor, self._isModuleAvailable, modname)
+		return self._settings.isModuleAvailable(modname)
 		
 	def _getAddon(self, addonname):
 		return self._settings.getAddon(addonname)
@@ -227,7 +225,7 @@ class SetupContainer(object):
 		return self.container._getModule(modname)
 	
 	def isModuleAvailable(self, modname):
-		return self.container._isModuleAvailable(modname)
+		return self.container.isModuleAvailable(modname)
 		
 	def getOption(self, opt, **kwargs):
 		return self.container.getOption(opt, inreactor=True, **kwargs)

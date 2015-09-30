@@ -129,7 +129,7 @@ def google_youtube_check(id):
 	""" helper to ask google if youtube ID is valid."""
 	if not API_KEY:
 		raise ConfigException("Require API_KEY for googleapi. Reload after setting.")
-	d = {"id" : quote(id), "part" : "id,status", "key" : API_KEY}
+	d = {"id" : quote(id.encode("utf-8")), "part" : "id,status", "key" : API_KEY}
 	
 	f = urlopen(YOUTUBE_INFO_URL % (urlencode(d)))
 	ytdata = load(f)
@@ -142,7 +142,7 @@ def google_youtube_details(vidid):
 	if not API_KEY:
 		raise ConfigException("Require API_KEY for googleapi. Reload after setting.")
 	# TODO: make module option for safesearch
-	d = {"id" : quote(vidid), "part" : "contentDetails,id,snippet,statistics,status", "key" : API_KEY}
+	d = {"id" : quote(vidid.encode("utf-8")), "part" : "contentDetails,id,snippet,statistics,status", "key" : API_KEY}
 	
 	f = urlopen(YOUTUBE_INFO_URL % (urlencode(d)))
 	ytdata = load(f)

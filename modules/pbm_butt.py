@@ -81,7 +81,6 @@ def buttify(msg):
 	random.shuffle(words_to_butt)
 
 	while butt_passes > 0 and words_to_butt:
-		# set().pop() pops left
 		word = words_to_butt.pop(0)
 		matches = list(re.finditer(re.escape(word), msg))
 		if not matches:
@@ -116,10 +115,8 @@ def _butt_word(word, butt_pass=0):
 		x += len(part)
 		points.append(x)
 
-	offset_index = random.randrange(len(points))
+	offset_index = random.randrange(len(points) - 1)
 
-	# Append last offset since we might be replacing rightmost hyphenated_part
-	points.append(len(actual_word))
 	l = points[offset_index]
 	r = points[offset_index + 1] - l
 	# Scan left and right to consume all leading b's and trailing t's to avoid e.g.

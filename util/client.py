@@ -493,9 +493,13 @@ class BurlyBot(IRCClient, TimeoutMixin):
 		"""
 		seen = set()
 		nick, ident, host = processHostmask(user)
-		if nick == self.nickname:
+		###
+		# Commented because the prefix variable here will throw a NameError
+		# and not sure how to fix
+		###
+		# if nick == self.nickname:
 			# take note of our prefix! (for message length calculation
-			self.prefixlen = len(prefix)
+			# self.prefixlen = len(prefix)
 		for tag, data in messages:
 			if tag not in seen:
 				#dispatch event
@@ -503,7 +507,7 @@ class BurlyBot(IRCClient, TimeoutMixin):
 					data=data, nick=nick, ident=ident, host=host)
 			seen.add(tag)
 
-	def ctcp_unknown(self, user, channel, tag, data):
+	def ctcpUnknownQuery(self, user, channel, tag, data):
 		if self.settings.debug:
 			print 'Unknown CTCP query from %r: %r %r' % (user, tag, data)
 

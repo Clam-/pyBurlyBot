@@ -165,6 +165,7 @@ class Network:
 				del self.users[nick]
 			else:
 				if ident or host or hostmask: u._refresh(ident, host, hostmask)
+				u.channels.remove(channel)
 		else:
 			# TODO: remove this print, debug
 			print "WARNING: user (%s) was never known about... 2SPOOKY" % user

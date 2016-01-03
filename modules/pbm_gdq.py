@@ -17,14 +17,16 @@ def _searchGame(data, title):
 	upcoming = []
 	eta = None
 	for gdata in data:
+		# ignore silly entires:
+		if len(gdata) < 4: continue
 		if found:
-			upcoming.append("\x02%s\x02 by %s (%s)" % (gdata[1], gdata[2], gdata[4].lstrip("0:")[:-3]))
+			upcoming.append("\x02%s\x02 by %s (%s)" % (gdata[1], gdata[2], gdata[3].lstrip("0:")[:-3]))
 		elif gdata[1].lower() == title:
 			found = True
-			eta = gdata[4]
+			eta = gdata[3]
 	return upcoming, eta
 
-def agdq(event, bot):
+def gdq(event, bot):
 	upcoming = []
 	o = build_opener()
 	o.addheaders = [('Accept', 'application/vnd.twitchtv.v2+json')]
@@ -42,13 +44,12 @@ def agdq(event, bot):
 		# http://stackoverflow.com/a/9920703
 		page = parse(f)
 		rows = page.xpath("body/div/table/tbody")[0].findall("tr")
-
+		
 		data = []
 		for row in rows:
 			data.append([c.text for c in row.getchildren()])
 		# find current
 		upcoming = None
-		
 		# try searching for incorrect name in timetable because bads...
 		for igametitle in (ngame, ngame.replace(":", ""), ngame.split(":")[0], ngame.split(u"\u2013")[0].strip(), 
 				ngame.replace("two", "2"), ngame.replace(":", "").replace("two", "2"), ngame.rstrip("!"), ngame.replace("the ", "")):
@@ -67,4 +68,4 @@ def agdq(event, bot):
 	bot.say(RPL % (game, eta, "http://www.twitch.tv/gamesdonequick/popout", "https://gamesdonequick.com/schedule"), 
 		strins=", ".join(upcoming))
 
-mappings = (Mapping(command=("gdq", "agdq"), function=agdq),)
+mappings = (Mapping(command=("gdq", "agdq", "sgdq"), function=gdq),)

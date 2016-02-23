@@ -30,7 +30,17 @@ SELFREMINDFORMAT = u"{0}, reminder: {1} - set {2}, arrived {3}."
 
 MAX_REMIND_TIME = 31540000 # 1 year
 
+def _gatherGroupUsers(qfunc, s):
+	users = []
+	g = USERS_MODULE.ALIAS_MODULE.get_groupname(qfunc, s)
+	if g:
+		users = ((user, user) for user in USERS_MODULE.ALIAS_MODULE.group_list(qfunc, g))
+	return users
+
 def _generate_users(bot, s, nick, skipself=True):
+	alias = False
+	if bot.isModuleAvailable("pbm_alias"):
+		alias = True
 	uset = set()
 	dupes = False
 	users = [] # user,called
@@ -40,26 +50,39 @@ def _generate_users(bot, s, nick, skipself=True):
 	while targets:
 		t = targets.popleft()
 		u = USERS_MODULE.get_username(bot, t, nick)
+		# check for user, then group (put user in list to make iteration easier)
 		if u: 
-			if skipself and u == nick: hasself = True
-			else: 
-				if u in uset: dupes = True
+			u = (u,t),
+		elif alias:
+			u = _gatherGroupUsers(bot.dbQuery, t)
+		
+		if u: 
+			for iu,it in u:
+				if skipself and iu == nick: hasself = True
 				else: 
-					users.append((u, t))
-					uset.add(u)
+					if iu in uset: dupes = True
+					else: 
+						users.append((iu, it))
+						uset.add(iu)
 		else:
+			# Note: the following is silly code for allowing of groups/users with commas in them... silly.
 			l = [t]
 			while not u and targets:
 				l.append(targets.popleft())
 				u = USERS_MODULE.get_username(bot, ",".join(l), nick)
+				if u: 
+					u = (u, ",".join(l)),
+				elif alias: 
+					u = _gatherGroupUsers(bot.dbQuery, ",".join(l))
 			# at this point we either have u or ran out of deque, if latter, throw l[1:] back on queue
 			if u: 
-				if skipself and u == nick: hasself = True
-				else: 
-					if u in uset: dupes = True
-					else:
-						users.append((u,",".join(l)))
-						uset.add(u)
+				for iu,it in u:
+					if skipself and iu == nick: hasself = True
+					else: 
+						if iu in uset: dupes = True
+						else:
+							users.append((iu,it))
+							uset.add(iu)
 			else: 
 				if l[0]:
 					unknown.append(l[0])

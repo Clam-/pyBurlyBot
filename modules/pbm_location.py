@@ -14,7 +14,8 @@ def getlocation(qfunc, user):
 	if row: return (row['name'], row['lat'], row['lon'])
 	else: return None
 
-def getLocationWithError(bot, arg, nick):
+# if group, return False,msg if error, True,loc if noerror
+def getLocationWithError(bot, arg, nick, group=False):
 	target = arg
 	user = None
 	isself = True
@@ -26,13 +27,21 @@ def getLocationWithError(bot, arg, nick):
 	if user:
 		#get location
 		loc = getlocation(bot.dbQuery, user)
-		if not loc: 
-			if isself: return bot.say("Your location isn't known. Try using location.")
-			else: return bot.say("Location not known for (%s). Try getting them to set it." % target)
+		if not loc:
+			if isself: 
+				if group: return False, "Your location isn't known. Try using location."
+				else: return bot.say("Your location isn't known. Try using location.")
+			else: 
+				if group: return False, "Location not known for (%s). Try getting them to set it." % target
+				else: return bot.say("Location not known for (%s). Try getting them to set it." % target)
 	else:
 		# lookup location
 		loc = lookup_location(target)
-		if not loc: return bot.say("I don't know where (%s) is." % target)
+		if not loc: 
+			if group: False, "I don't know where (%s) is." % target
+			else: return bot.say("I don't know where (%s) is." % target)
+	
+	if group: return True, loc
 	return loc
 
 def lookup_location(query):

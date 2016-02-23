@@ -26,6 +26,21 @@ def _searchGame(data, title):
 			eta = gdata[3]
 	return upcoming, eta
 
+def modifyNameIter(gamename):
+	yield gamename
+	if ":" in gamename:
+		for x in (gamename.replace(":", ""), gamename.split(":")[0]):
+			yield x
+		if "two" in gamename: yield gamename.replace(":", "").replace("two", "2")
+	if u"\u2013" in gamename:
+		yield gamename.split(u"\u2013")[0].strip()
+	if "two" in gamename:
+		yield gamename.replace("two", "2")
+	if "!" in gamename:
+		yield gamename.rstrip("!")
+	if "the" in gamename:
+		yield gamename.replace("the ", "")
+
 def gdq(event, bot):
 	upcoming = []
 	o = build_opener()
@@ -51,8 +66,7 @@ def gdq(event, bot):
 		# find current
 		upcoming = None
 		# try searching for incorrect name in timetable because bads...
-		for igametitle in (ngame, ngame.replace(":", ""), ngame.split(":")[0], ngame.split(u"\u2013")[0].strip(), 
-				ngame.replace("two", "2"), ngame.replace(":", "").replace("two", "2"), ngame.rstrip("!"), ngame.replace("the ", "")):
+		for igametitle in modifyNameIter(ngame):
 			upcoming, eta = _searchGame(data, igametitle)
 			if upcoming: break
 		else:

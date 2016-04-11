@@ -122,7 +122,6 @@ class Network:
 		self._nukechannel(channel)
 
 	def _userjoin(self, channel, nick, ident=None, host=None, hostmask=None):
-		u = None
 		if nick not in self.users:
 			u = User(nick, ident, host, hostmask)
 			self.users[nick] = u
@@ -149,6 +148,7 @@ class Network:
 
 	def _userrename(self, oldnick, newnick, ident, host, hostmask):
 		user = self.users[oldnick]
+		user.nick = newnick
 		user._refresh(ident, host, hostmask)
 		del self.users[oldnick]
 		self.users[newnick] = user

@@ -2,7 +2,7 @@ from twisted.internet.threads import deferToThread
 
 from sys import stderr
 from traceback import format_exc, print_exc
-from os.path import join
+from os.path import join, exists
 from operator import attrgetter
 from uuid import uuid1
 from imp import find_module, load_module
@@ -16,7 +16,8 @@ from event import Event
 class Dispatcher:
 	MODULEDICT = {}
 	NOTLOADED = {}
-	
+	NOTICE = {}
+
 	def __init__(self, settings):
 		self.moddir = join(settings.botdir, "modules")
 		self.waitmap = {}
@@ -44,27 +45,35 @@ class Dispatcher:
 		# load modules
 		for modulename in self.allowedmodules:
 			self.loadModule(modulename)
-	
+
+
 	def checkAndLoadReqs(self, module, resolvedModules):
 		reqs = module.REQUIRES
 		if not isIterable(reqs):
-			reqs = (reqs,) #assume string?
+			reqs = (reqs,)
+		notallowed = set()
+		failed = set()
 		for req in reqs:
 			if req in self.loadedModules: continue
 			else:
 				#attempt to load
 				if req not in self.allowedmodules:
-					return False
+					notallowed.add(req)
 				if not self.loadModule(req, resolvedModules):
-					return None
+					failed.add(req)
+		if notallowed or failed:
+			return (notallowed, failed)
 		return True
-	
+
+
 	def loadModule(self, modulename, resolvedModules=None):
 		if modulename in self.loadedModules: return True
 		print "Loading %s..." % modulename
 		if not modulename.startswith("pbm_"):
-			self.NOTLOADED[modulename] = "Won't load modules that don't start with \"pbm_\""
-			return None
+			if exists(join(self.moddir, "pbm_%s.py" % modulename)):
+				self.NOTICE[modulename] = "pbm_%s found, attempting to load instead of \"%s\" " \
+										  "(modules must start with \"pbm_\")" % (modulename, modulename)
+				modulename = 'pbm_%s' % modulename
 		if resolvedModules and modulename in resolvedModules:
 			self.NOTLOADED[modulename] = "Circular module dependency. Parents: %s" % (resolvedModules)
 			return None
@@ -89,14 +98,22 @@ class Dispatcher:
 			if not resolvedModules: resolvedModules = set([modulename])
 			else: resolvedModules.add(modulename)
 			reqsloaded = self.checkAndLoadReqs(module, resolvedModules)
-			# TODO: consider telling the user what requirement was failed.
-			if reqsloaded is False:
-				self.NOTLOADED[modulename] = "Requirement cannot be loaded because they are not allowed. (add to modules/allowmodules)"
-				return None
-			elif reqsloaded is None:
+			if reqsloaded is None:
 				self.NOTLOADED[modulename] = "Requirements cannot be loaded."
 				return None
-		
+			elif type(reqsloaded) is tuple:
+				notallowed, failed = reqsloaded
+				self.NOTLOADED[modulename] = ""
+				if notallowed and failed:
+					self.NOTLOADED[modulename] += "Requirement(s) \"%s\" not allowed (add to modules/allowmodules), \"%s\" " \
+												  "failed." % (', '.join(notallowed), ', '.join(failed))
+				elif notallowed:
+					self.NOTLOADED[modulename] += "Requirement(s) \"%s\" not loaded because they are not allowed (add to " \
+												  "modules/allowmodules)." % ', '.join(notallowed)
+				else:
+					self.NOTLOADED[modulename] += "Requirement(s) \"%s\" failed to load." % ', '.join(failed)
+				return None
+
 		# process module default settings
 		if hasattr(module, "OPTIONS"):
 			for opt, params in module.OPTIONS.iteritems():
@@ -295,8 +312,13 @@ class Dispatcher:
 		
 	@classmethod
 	def showLoadErrors(cls):
+		if cls.NOTICE:
+			print >> stderr, "\nNOTICE: MODULE LOAD(S) MODIFIED:"
+			for module, reason in cls.NOTICE.iteritems():
+				stderr.write('  %s: %s\n' % (module, reason))
+			print >> stderr, "\n"
 		if cls.NOTLOADED:
-			print "WARNING: MODULE(S) NOT LOADED: %s" % ', '.join(cls.NOTLOADED.iterkeys())
+			print >> stderr, "\nWARNING: MODULE(S) NOT LOADED:"
 			for module, reason in cls.NOTLOADED.iteritems():
-				print >> stderr, module + ':'
-				print >> stderr, reason
+				stderr.write('  %s: %s\n' % (module, reason))
+			print >> stderr, "\n"

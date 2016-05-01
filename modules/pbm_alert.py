@@ -5,7 +5,7 @@ from calendar import timegm
 from collections import deque
 
 from util import Mapping, argumentSplit, functionHelp, distance_of_time_in_words,\
-	pastehelper, englishlist, parseDateTime
+	pastehelper, english_list, parseDateTime
 from util.settings import ConfigException
 
 
@@ -170,8 +170,8 @@ def alert(event, bot):
 			targets.append("you")
 		else:
 			targets.append(target)
-	bot.say(RPL_ALERT_FORMAT % (event.nick, englishlist(targets), distance_of_time_in_words(ntime, t),
-		UNKNOWN % englishlist(unknown) if unknown else "", MULTIUSER % "Alerting" if dupes else ""))
+	bot.say(RPL_ALERT_FORMAT % (event.nick, english_list(targets), distance_of_time_in_words(ntime, t),
+		UNKNOWN % english_list(unknown) if unknown else "", MULTIUSER % "Alerting" if dupes else ""))
 
 
 def _user_rename(old, new):

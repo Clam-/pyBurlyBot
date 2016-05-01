@@ -1,14 +1,11 @@
-# utils for modules to import
 from re import compile as recompile, IGNORECASE, UNICODE, VERBOSE
-
 from timer import Timers, TimerExists, TimerInvalidName, TimerNotFound
 from container import TimeoutException
 from helpers import distance_of_time_in_words, processHostmask, commandSplit, argumentSplit, \
 	commandlength, functionHelp, coerceToUnicode, parseDateTime, match_hostmask
-
 from mapping import Mapping
-
 from db import fetchone, fetchall, fetchmany
+
 
 def pastehelper(bot, basemsg, items=None, altmsg=None, sep=(", ","\n"), force=False, **kwargs):
 	""" If using items, altmsg is an alternate basestring to use for interpolation with the items list."""
@@ -44,9 +41,15 @@ def pastehelper(bot, basemsg, items=None, altmsg=None, sep=(", ","\n"), force=Fa
 		print "ATTEMPTED PASTEHELPER MSG: %r" % tmsg
 		raise
 
-def englishlist(l):
-	if len(l) > 1: return "%s and %s" % (", ".join(l[:-1]), l[-1])
-	else: return l[0]
+
+def english_list(l):
+	"""Stringify a list into 'arg1, arg2 and arg3', or 'arg1' if single-argument."""
+	if not isinstance(l, (list, tuple)):
+		l = (l, )
+	if len(l) > 1:
+		return "%s, and %s" % (", ".join(l[:-1]), l[-1])
+	else:
+		return l[0]
 
 URLREGEX = recompile(r"""
 \bhttps?\://					# schema

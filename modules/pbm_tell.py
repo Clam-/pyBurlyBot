@@ -5,7 +5,7 @@ from calendar import timegm # silly python... I just want UTC seconds
 from collections import deque
 
 from util import Mapping, argumentSplit, functionHelp, distance_of_time_in_words, fetchone,\
-	pastehelper, englishlist, parseDateTime
+	pastehelper, english_list, parseDateTime
 from util.settings import ConfigException
 # added dependency on user module only for speed. Means can keep reference to user module without having
 # to dive in to the reactor twice? per message
@@ -169,11 +169,11 @@ def tell(event, bot):
 		#~ print "GUNNA WARNING"
 	if len(users) > 1:
 		bot.say(RPLFORMAT % (event.nick, PASSON if cmd == "tell" else ASKTHAT,
-			englishlist(targets), "are", UNKNOWN % englishlist(unknown) if unknown else "", 
+			english_list(targets), "are", UNKNOWN % english_list(unknown) if unknown else "",
 			URSELF if hasself else "", MULTIUSER % "Telling" if dupes else ""))
 	else:
 		bot.say(RPLFORMAT % (event.nick, PASSON if cmd == "tell" else ASKTHAT,
-			englishlist(targets), "is", UNKNOWN % englishlist(unknown) if unknown else "", 
+			english_list(targets), "is", UNKNOWN % english_list(unknown) if unknown else "",
 			URSELF if hasself else "", MULTIUSER % "Telling" if dupes else ""))
 	
 def remind(event, bot):
@@ -246,8 +246,8 @@ def remind(event, bot):
 			(user, int(ntime), int(origintime), 1, source, msg))
 		if not source: targets.append("you")
 		else: targets.append(target)
-	bot.say(RPLREMINDFORMAT % (event.nick, englishlist(targets), distance_of_time_in_words(ntime, t), 
-		UNKNOWN % englishlist(unknown) if unknown else "", MULTIUSER % "Reminding" if dupes else ""))
+	bot.say(RPLREMINDFORMAT % (event.nick, english_list(targets), distance_of_time_in_words(ntime, t),
+		UNKNOWN % english_list(unknown) if unknown else "", MULTIUSER % "Reminding" if dupes else ""))
 		
 
 def _user_rename(old, new):

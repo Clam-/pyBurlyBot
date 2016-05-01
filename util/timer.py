@@ -6,14 +6,18 @@ from twisted.internet import reactor
 from twisted.internet.task import LoopingCall
 from twisted.internet.threads import deferToThread, blockingCallFromThread
 
+
 class TimerExists(Exception):
 	pass
 
+
 class TimerInvalidName(Exception):
 	pass
-	
+
+
 class TimerNotFound(Exception):
 	pass
+
 
 class Timer(object):
 	# reps <= 0 means forever
@@ -27,6 +31,14 @@ class Timer(object):
 		self.lc = LoopingCall(Timers.runTimer, self)
 		self.lc.start(interval, startnow)
 
+	def restart(self):
+		try:
+			self.lc.stop()
+		except AssertionError:
+			pass
+		self.lc.start(self.interval, now=True)
+
+
 class TimerInfo(object):
 	def __init__(self, timer):
 		self.name = timer.name
@@ -35,17 +47,18 @@ class TimerInfo(object):
 		self.reps = timer.reps
 		self.interval = timer.interval
 
+
 class Timers:
 	timers = {}
-	
+
 	@classmethod
 	def _addTimer(cls, name, interval, f, reps=1, startnow=False, *args, **kwargs):
 		if name in cls.timers:
-			raise TimerExists("Timer already exists.")
+			raise TimerExists("Timer (%s) already exists." % name)
 		else:
 			cls.timers[name] = Timer(name, interval, f, reps, startnow, *args, **kwargs)
 			return True
-	
+
 	# _timers are for internal use only
 	@classmethod
 	def addtimer(cls, name, interval, f, reps=1, startnow=False, *args, **kwargs):
@@ -68,8 +81,8 @@ class Timers:
 			del cls.timers[name]
 			return True
 		else:
-			raise TimerNotFound("Timer %s not found." % name)
-		
+			raise TimerNotFound("Timer (%s) not found." % name)
+
 	@classmethod
 	def deltimer(cls, name):
 		try:
@@ -78,7 +91,24 @@ class Timers:
 		except AttributeError:
 			raise TimerInvalidName("Invalid name (%s)." % name)
 		return blockingCallFromThread(reactor, cls._deltimer, name)
-	
+
+	@classmethod
+	def _restarttimer(cls, name):
+		if name in cls.timers:
+			cls.timers[name].restart()
+		else:
+			raise TimerNotFound("Timer (%s) not found." % name)
+
+
+	@classmethod
+	def restarttimer(cls, name):
+		try:
+			if name.startswith("_"):
+				raise TimerInvalidName("Invalid name (%s)." % name)
+		except AttributeError:
+			raise TimerInvalidName("Invalid name (%s)." % name)
+		return blockingCallFromThread(reactor, cls._restarttimer, name)
+
 	#run the desired function in a thread but manage the timer in the reactor
 	@classmethod
 	def runTimer(cls, timerobj):

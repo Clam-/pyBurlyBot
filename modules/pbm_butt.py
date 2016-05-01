@@ -26,6 +26,12 @@ RE_STOPWORDS = re.compile(r'^\W*(' + r'|'.join(STOPWORDS) + r')\W*$',
 							flags=re.IGNORECASE | re.UNICODE)
 
 def butt(event, bot):
+	""" butt [input].  Use the power of computing to make a sentence dumber.
+	Replace random syllables of _input_ with 'butt', courtesy of Knuth:
+	https://en.wikipedia.org/wiki/Hyphenation_algorithm
+	-- If no input is supplied a choice entry from the bestbutts quote database will be returned.
+	e.g. .butt what is love
+	"""
 	if not event.argument:
 		if bot.getOption("BUTTS", module="pbm_butt"):
 			# get random bestbutt
@@ -40,6 +46,10 @@ def butt(event, bot):
 		bot.say(buttify(event.argument))
 
 def butts(event, bot):
+	""" butts [~del] [input].  Add or delete an entry in the bestbutts quote database.
+	If no input is supplied the entire database will be dumped.
+	e.g. .butts <@bbm> butt is love
+	"""
 	if not bot.getOption("BUTTS", module="pbm_butt"): return
 	if not event.argument:
 		items = bot.dbQuery('''SELECT id, butt FROM butts;''')

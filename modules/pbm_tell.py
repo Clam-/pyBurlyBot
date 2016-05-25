@@ -30,12 +30,14 @@ SELFREMINDFORMAT = u"{0}, reminder: {1} - set {2}, arrived {3}."
 
 MAX_REMIND_TIME = 31540000 # 1 year
 
+
 def _gatherGroupUsers(qfunc, s):
 	users = []
 	g = USERS_MODULE.ALIAS_MODULE.get_groupname(qfunc, s)
 	if g:
 		users = ((user, user) for user in USERS_MODULE.ALIAS_MODULE.group_list(qfunc, g))
 	return users
+
 
 def _generate_users(bot, s, nick, skipself=True):
 	alias = False
@@ -138,7 +140,7 @@ def deliver_tell(event, bot):
 			msg = "Tells/reminds for (%s): %%s" % event.nick
 			title = "Tells/reminds for (%s)" % event.nick
 			pastehelper(bot, msg, items=lines, altmsg="%s", force=True, title=title)
-			
+
 
 def tell(event, bot):
 	""" tell target msg. Will tell a user <target> a message <msg>."""
@@ -175,9 +177,11 @@ def tell(event, bot):
 		bot.say(RPLFORMAT % (event.nick, PASSON if cmd == "tell" else ASKTHAT,
 			english_list(targets), "is", UNKNOWN % english_list(unknown) if unknown else "",
 			URSELF if hasself else "", MULTIUSER % "Telling" if dupes else ""))
-	
+
+
 def remind(event, bot):
-	""" remind target datespec msg. Will remind a user <target> about a message <msg> at datespec time. datespec can be relative (in) or calendar/day based (on), e.g. 'in 5 minutes"""
+	""" remind target datespec msg. Will remind a user <target> about a message <msg> at <datespec> time.
+		datespec can be relative (in) or calendar/day based (on), e.g. 'in 5 minutes'"""
 	target, dtime1, dtime2, msg = argumentSplit(event.argument, 4)
 	if not target: return bot.say(functionHelp(tell))
 	if dtime1.lower() == "tomorrow":
@@ -248,11 +252,12 @@ def remind(event, bot):
 		else: targets.append(target)
 	bot.say(RPLREMINDFORMAT % (event.nick, english_list(targets), distance_of_time_in_words(ntime, t),
 		UNKNOWN % english_list(unknown) if unknown else "", MULTIUSER % "Reminding" if dupes else ""))
-		
+
 
 def _user_rename(old, new):
 	return (('''UPDATE tell SET user=? WHERE user=?;''', (new, old)),)
-	
+
+
 def init(bot):
 	global USERS_MODULE # oh nooooooooooooooooo
 	bot.dbCheckCreateTable("tell", 

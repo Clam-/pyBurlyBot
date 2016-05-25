@@ -25,33 +25,28 @@ def _reallyReload():
 	Settings.reloadStage2()
 
 
+# TODO: Move to database
 def simplecommands(event, bot):
-	""" simplecommands [(~del, ~list)] input[,alias1,alias2,etc] output.  Simple interface for adding/removing simplecommands.
+	""" simplecommands [(~del, ~list)] input[,alias1,alias2,...] output.  Simple interface for adding/removing simplecommands.
 	If only input is supplied, output is retrieved.  If ~del is specified, input is deleted if found.
 	e.g. .simplecommands google google.com
 	"""
 
 	arg1, arg2 = argumentSplit(event.argument, 2)
-	# For non-admins just list commands no matter what
-	if not bot.isadmin() or arg1 == '~list':
+	commands = bot.getOption("commands", module="pbm_simplecommands")
+	if not arg1:
+		return bot.say(functionHelp(simplecommands))
+	elif arg1 == '~list':
 		commands = bot.getOption("commands", module="pbm_simplecommands")
 		cmdlist = []
 		commands.sort()
-
 		for command, output in commands:
-			if (isinstance(command, list) or isinstance(command, tuple)) and len(command) > 1:
+			if isinstance(command, (list, tuple)) and len(command) > 1:
 				cmdlist.append('(%s)' % ', '.join(command))
 			else:
 				cmdlist.extend(command)
 		return bot.say('Simplecommands: %s' % ', '.join(cmdlist))
-
-	if not arg1:
-		return bot.say(functionHelp(simplecommands))
-
-	# [[["paste", "dpaste"], "http://dpaste.com"], [. . . ]]
-	commands = bot.getOption("commands", module="pbm_simplecommands")
-	# Delete a simplecommand
-	if arg1 == '~del' and arg2:
+	elif arg1 == '~del' and arg2:
 		match = None
 		temp_match = None
 		newcmds = arg2.split(',')

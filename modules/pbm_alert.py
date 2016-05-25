@@ -126,8 +126,8 @@ def deliver_alerts(chan_or_user=None, alerts=None, bot=None):
 
 
 def alert(event, bot):
-	""" alert target datespec msg. Will remind a user <target> about a message <msg> at datespec time.
-		datespec can be relative (in) or calendar/day based (on), e.g. 'in 5 minutes"""
+	""" alert target datespec msg. Alert a user <target> about a message <msg> at <datespec> time.
+		datespec can be relative (in) or calendar/day based (on), e.g. 'in 5 minutes'"""
 	target, dtime1, dtime2, msg = argumentSplit(event.argument, 4)
 	if not target:
 		return bot.say(functionHelp(alert))
@@ -250,5 +250,5 @@ def init(bot):
 	return True
 
 
-mappings = (Mapping(command=("alert"), function=alert),
+mappings = (Mapping(command=("alert", "alarm"), function=alert),
 			Mapping(types=("signedon",), function=setup_timer))

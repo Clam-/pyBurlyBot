@@ -21,11 +21,10 @@ def _searchGame(data, title):
 		if len(gdata) < 4: continue
 		if found:
 			# fix for mid 2016 in gdata[3]
-			print gdata
 			upcoming.append("\x02%s\x02 by %s (%s)" % (gdata[1], gdata[2], gdata[3].strip().lstrip("0:")[:-3]))
 		elif gdata[1].lower() == title:
 			found = True
-			eta = gdata[3]
+			eta = gdata[3].strip()
 	return upcoming, eta
 
 def modifyNameIter(gamename):

@@ -20,7 +20,9 @@ def _searchGame(data, title):
 		# ignore silly entires:
 		if len(gdata) < 4: continue
 		if found:
-			upcoming.append("\x02%s\x02 by %s (%s)" % (gdata[1], gdata[2], gdata[3].lstrip("0:")[:-3]))
+			# fix for mid 2016 in gdata[3]
+			print gdata
+			upcoming.append("\x02%s\x02 by %s (%s)" % (gdata[1], gdata[2], gdata[3].strip().lstrip("0:")[:-3]))
 		elif gdata[1].lower() == title:
 			found = True
 			eta = gdata[3]
@@ -58,11 +60,11 @@ def gdq(event, bot):
 		f = o.open(GDQ_URL)
 		# http://stackoverflow.com/a/9920703
 		page = parse(f)
-		rows = page.xpath("body/div/table/tbody")[0].findall("tr")
+		rows = page.xpath("body/div//table/tbody")[0].findall("tr")
 		
 		data = []
 		for row in rows:
-			data.append([c.text for c in row.getchildren()])
+			data.append([c.text_content() for c in row.getchildren()])
 		# find current
 		upcoming = None
 		# try searching for incorrect name in timetable because bads...

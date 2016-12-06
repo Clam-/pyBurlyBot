@@ -36,7 +36,7 @@ TEMPLATE = """<!DOCTYPE html>
 <head>
 	<meta charset="utf-8" />
 	<title>%s</title>
-	<link href='http://fonts.googleapis.com/css?family=Oxygen+Mono' rel='stylesheet' type='text/css'>
+	<link href='https://fonts.googleapis.com/css?family=Oxygen+Mono' rel='stylesheet' type='text/css'>
 	<link rel="stylesheet" href="style/style.css">
 </head>
 <body>

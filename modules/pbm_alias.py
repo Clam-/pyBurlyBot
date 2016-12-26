@@ -5,6 +5,7 @@ from sys import modules
 REQUIRES = ("pbm_users",)
 USERS_MODULE = None
 
+
 def lookup_alias(qfunc, alias):
 	result = qfunc('''SELECT user FROM alias WHERE alias = ?;''', (alias,), fetchone)
 	#check rows...
@@ -15,38 +16,46 @@ def lookup_alias(qfunc, alias):
 	except IndexError:
 		print "This shouldn't happen, invalid alias?"
 
+
 def lookup_groupalias(qfunc, alias):
 	result = qfunc('''SELECT grp FROM aliasgrpalias WHERE alias = ?;''', (alias,), fetchone)
 	if not result: return None
 	return result['grp']
-	
+
+
 def add_alias(qfunc, source, alias):
 	qfunc('''INSERT OR REPLACE INTO alias (alias, user) VALUES (?,?);''', (alias, source))
+
 
 def add_groupalias(qfunc, source, alias):
 	qfunc('''INSERT OR REPLACE INTO aliasgrpalias (alias, grp) VALUES (?,?);''', (alias, source))
 
+
 def alias_list(qfunc, nick):
 	result = qfunc('''SELECT alias FROM alias WHERE user = ?;''', (nick,))
 	return [row['alias'] for row in result]
+
 
 def group_list(qfunc, group):
 	groupa = lookup_groupalias(qfunc, group)
 	if groupa: group = groupa
 	result = qfunc('''SELECT user FROM aliasgrp WHERE grp = ?;''', (groupa,))
 	return [row['user'] for row in result]
-	
+
 def get_groupname(qfunc, group):
 	g = lookup_groupalias(qfunc, group)
 	if g: return g
 	g = qfunc('''SELECT grp FROM aliasgrp WHERE grp = ?;''', (group,), fetchone)
 	if g: return g['grp']
 
+
 def group_add(qfunc, group, user):
 	qfunc('''INSERT OR REPLACE INTO aliasgrp (grp, user) VALUES(?,?);''', (group, user))
 
+
 def group_check(qfunc, group, nick):
 	return qfunc('''SELECT 1 FROM aliasgrp WHERE grp = ? AND user = ?;''', (group, nick), fetchone)
+
 
 def subscripe(event, bot):
 	""" subscripe [groupname]. subscripe will list all groups you are a member of. If groupname is supplied you will become
@@ -64,7 +73,8 @@ def subscripe(event, bot):
 	else:
 		#list groups
 		listgroups(bot, user)
-		
+
+
 def unsubscripe(event, bot):
 	""" unsubscripe groupname. unsubscripe will remove you from group groupname"""
 	user = USERS_MODULE.get_username(bot, event.nick, _inalias=True)
@@ -78,6 +88,7 @@ def unsubscripe(event, bot):
 		return bot.say("You have been removed from (%s) group." % gtarget)
 	else:
 		bot.say(functionHelp(unsubscripe))
+
 
 def listgroups(bot, user=None):
 	# [[group, [aliases]],]
@@ -103,7 +114,7 @@ def listgroups(bot, user=None):
 	else:
 		msg = "Groups: %s"
 	return pastehelper(bot, msg, items=nglist, title=msg[:-3])
-	
+
 
 def listgroupusers(bot, groupname):
 	# querying a group
@@ -113,7 +124,7 @@ def listgroupusers(bot, groupname):
 		return pastehelper(bot, msg, items=members, title="Members of (%s)" % groupname)
 	else:
 		return bot.say("Group not found: (%s)" % groupname)
-	
+
 
 def group(event, bot):
 	""" group [groupname [user]]. group will display all groups. If groupname is supplied will list all users in group.
@@ -178,12 +189,12 @@ def group(event, bot):
 
 		group_add(bot.dbQuery, group, nick)
 		return bot.say("User (%s) added to group (%s)." % (nick, group))
-				
+
 	elif arg1:
 		return listgroupusers(bot, arg1)
-
 	# if nothing else show help
 	return listgroups(bot)
+
 
 # process adding an alias for a group. Returns False is group doesn't exist (for error display in caller)
 def aliasgroup(bot, groupname, alias):
@@ -203,6 +214,7 @@ def aliasgroup(bot, groupname, alias):
 		return bot.say("(%s) is already an alias for (%s)" % (alias, target))
 	add_groupalias(bot.dbQuery, source, alias)
 	bot.say("(%s) alias added for group (%s)" % (alias, source))
+
 
 # process adding an alias for a user
 def aliasuser(bot, arg1, arg2, source):
@@ -240,7 +252,8 @@ def aliasuser(bot, arg1, arg2, source):
 	add_alias(bot.dbQuery, source, arg2)
 	
 	return bot.say("Added (%s) to (%s)" % (arg2, source))
-	
+
+
 # delete a user and/or group alias
 def del_alias(bot, alias):
 	#attempt user alias delete
@@ -261,6 +274,7 @@ def del_alias(bot, alias):
 	else:
 		return bot.say("Alias (%s) not found." % arg2)
 
+
 def alias(event, bot):
 	""" alias [target] aliasname. If only aliasname is supplied, aliases for aliasname are retrieved. 
 	Otherwise if target is also supplied, aliasname will become an alias of target (can also be a group.)
@@ -272,7 +286,7 @@ def alias(event, bot):
 
 	if arg1 == "~del":
 		if arg2:
-			return del_alias(arg2)
+			return del_alias(bot, arg2)
 		else:
 			# show help for del
 			return bot.say(functionHelp(alias, "~del"))
@@ -305,6 +319,7 @@ def alias(event, bot):
 	# if none of the above, show help	
 	bot.say(functionHelp(alias))
 	return
+
 
 #init should always be here to setup needed DB tables or objects or whatever
 def init(bot):

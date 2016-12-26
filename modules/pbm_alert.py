@@ -219,7 +219,7 @@ def alert(event, bot):
 
 
 def _user_rename(old, new):
-	return (('''UPDATE alert SET user=? WHERE user=?;''', (new, old)),)
+	return ('''UPDATE alert SET target_user=? WHERE target_user=?;''', (new, old)),
 
 
 def setup_timer(event, bot):

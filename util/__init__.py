@@ -46,8 +46,10 @@ def english_list(l):
 	"""Stringify a list into 'arg1, arg2 and arg3', or 'arg1' if single-argument."""
 	if not isinstance(l, (list, tuple)):
 		l = (l, )
-	if len(l) > 1:
+	if len(l) > 2:
 		return "%s, and %s" % (", ".join(l[:-1]), l[-1])
+	elif len(l) == 2:
+		return "%s and %s" % (l[0], l[1])
 	else:
 		return l[0]
 

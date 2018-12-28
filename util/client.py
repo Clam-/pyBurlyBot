@@ -473,7 +473,7 @@ class BurlyBot(IRCClient, TimeoutMixin):
 				#call handler if defined:
 				method = getattr(self, 'ctcpQueryB_%s' % tag, None)
 				if method is not None: method(user, channel, data)
-				else: self.ctcp_unknownQuery(user, channel, tag, data)
+				else: self.ctcpUnknownQuery(user, channel, tag, data)
 			seen.add(tag)
 	
 	# borrowed mostly from IRCClient

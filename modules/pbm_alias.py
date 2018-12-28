@@ -272,7 +272,7 @@ def del_alias(bot, alias):
 	elif origin_group:
 		return bot.say("Alias (%s) for group (%s) removed." % (alias, origin_group))
 	else:
-		return bot.say("Alias (%s) not found." % arg2)
+		return bot.say("Alias (%s) not found." % alias)
 
 
 def alias(event, bot):

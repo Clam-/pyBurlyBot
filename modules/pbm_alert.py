@@ -16,6 +16,7 @@ TELLDELIVER_OBJ = None
 # Seconds
 LOOP_INTERVAL = 30.0
 
+MULTIUSER = u" %s someone once is enough."
 RPL_ALERT_FORMAT = u"%s: I will alert %s about that %s.%s%s"
 ALERT_FORMAT = u"{0}, alert from {1}: {2} - set {3}."
 SELF_ALERT_FORMAT = u"{0}, alert: {1} - set {2}."

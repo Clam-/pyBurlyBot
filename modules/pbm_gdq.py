@@ -156,5 +156,4 @@ def init(bot):
 	setup_timer(bot.container)
 	return True
 
-mappings = (Mapping(command=("gdq", "agdq", "sgdq"), function=gdq),
-			Mapping(types=("signedon",), function=setup_timer))
+mappings = (Mapping(command=("gdq", "agdq", "sgdq"), function=gdq),)

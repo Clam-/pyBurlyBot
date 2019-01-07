@@ -55,7 +55,7 @@ def modifyNameIter(gamename):
 		yield gamename.replace("the ", "")
 
 def gdq(event, bot):
-	""" gdq [gamename|~list|~del gamename]. Show gdq info. If gamename is provided, alert will be given when gamename is seen.
+	""" gdq [gamename,~list,~del gamename]. Show gdq info. If gamename is provided, alert will be given when gamename is seen.
 		gamename is searched in the time of the stream game, so "kirby" is possible for all kirby games."""
 	gamename = argumentSplit(event.argument, 1)[0]
 	if gamename:

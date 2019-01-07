@@ -70,8 +70,12 @@ class Timers:
 			raise TimerInvalidName("Invalid name (%s)." % name)
 		else:
 			# force interval and rep in to float and int respectivly in case module forgot (I forgot)
-			return blockingCallFromThread(reactor, cls._addTimer, name, float(interval), f, int(reps), startnow, *args, **kwargs)
-		
+			from threading import currentThread
+			if currentThread().getName() == 'MainThread':
+				return cls._addTimer(name, float(interval), f, int(reps), startnow, *args, **kwargs)
+			else:
+				return blockingCallFromThread(reactor, cls._addTimer, name, float(interval), f, int(reps), startnow, *args, **kwargs)
+
 	@classmethod
 	def _deltimer(cls, name):
 		if name in cls.timers:
@@ -90,7 +94,12 @@ class Timers:
 				raise TimerInvalidName("Invalid name (%s)." % name)
 		except AttributeError:
 			raise TimerInvalidName("Invalid name (%s)." % name)
-		return blockingCallFromThread(reactor, cls._deltimer, name)
+
+		from threading import currentThread
+		if currentThread().getName() == 'MainThread':
+			return cls._deltimer(name)
+		else:
+			return blockingCallFromThread(reactor, cls._deltimer, name)
 
 	@classmethod
 	def _restarttimer(cls, name):
@@ -119,7 +128,7 @@ class Timers:
 			if timerobj.reps == 0:
 				cls.timers[timerobj.name].lc.stop()
 				del cls.timers[timerobj.name]
-	
+
 	@classmethod
 	def _stopall(cls):
 		for timername in cls.timers:
@@ -127,18 +136,18 @@ class Timers:
 				cls.timers[timername].lc.stop()
 			except AssertionError:
 				continue
-			
+
 	@classmethod
 	def _getTimers(cls):
 		d = {}
 		for t in cls.timers:
 			d[t] = TimerInfo(cls.timers[t])
 		return d
-		
+
 	@classmethod
 	def getTimers(cls):
 		return blockingCallFromThread(reactor, cls._getTimers)
-		
+
 	@classmethod
 	def _delPrefix(cls, prefix):
 		for timername in cls.timers.keys():
@@ -146,7 +155,7 @@ class Timers:
 				try: cls.timers[timername].lc.stop()
 				except AssertionError: pass
 				del cls.timers[timername]
-				
+
 	@classmethod
 	def delPrefix(cls, prefix):
 		return blockingCallFromThread(reactor, cls._delPrefix, prefix)

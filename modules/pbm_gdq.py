@@ -1,11 +1,12 @@
 # GDQ
 
-from util import Mapping
+from util import Mapping, argumentSplit
 from urllib2 import build_opener
 from lxml.html import parse
 from json import load
 from time import gmtime, strptime
 from calendar import timegm # silly python... I just want UTC seconds
+from util import Timers, TimerExists
 
 OPTIONS = {
 	"TWITCH_CLIENTID" : (unicode, "Client ID for use in Twitch API calls.", u""),
@@ -15,6 +16,11 @@ GDQ_URL = "https://gamesdonequick.com/schedule"
 TWITCH_API_URL = "https://api.twitch.tv/kraken/channels/gamesdonequick"
 RPL = "Current: \x02%s\x02 (%s) Upcoming: {0} \x0f| %s %s"
 TWITCH_CLIENTID = None
+TIMER_NAME = 'gdq_timer'
+LOOP_INTERVAL = 40.0 # Seconds
+REPEAT_NOTIFY_TIME = 60*30 # 30mins between same game notifies
+
+FORMAT = u"{0}, GAME ({1}) IS AVAILABLE."
 
 def _searchGame(data, title):
 	# try searching for incorrect name in timetable take 3:
@@ -48,6 +54,23 @@ def modifyNameIter(gamename):
 		yield gamename.replace("the ", "")
 
 def gdq(event, bot):
+	""" gdq [gamename|~list|~del gamename]. Show gdq info. If gamename is provided, alert will be given when gamename is seen.
+		gamename is searched in the time of the stream game, so "kirby" is possible for all kirby games."""
+	gamename = argumentSplit(event.argument, 1)[0]
+	if gamename:
+		if gamename.startswith("~"):
+			#process ~list, ~del
+			bot.say("Griff halp pls.")
+			return
+		item = bot.dbQuery('''SELECT source, source_name, game_text
+				FROM gdq_alert WHERE source=? AND source_name=? AND game_text=?; ''', (event.target, event.nick, gamename))
+		if item:
+			bot.say("I'm already going to tell you about (%s)" % gamename)
+			return
+		bot.dbQuery('''INSERT INTO gdq_alert(source, source_name, game_text, notified_time) VALUES (?,?,?,?);''',
+				(event.target, event.nick, gamename, 0))
+		bot.say("I'll let you know when (%s) is on." % gamename)
+		return
 	upcoming = []
 	o = build_opener()
 	o.addheaders = [('Client-ID', TWITCH_CLIENTID)]
@@ -65,7 +88,7 @@ def gdq(event, bot):
 		# http://stackoverflow.com/a/9920703
 		page = parse(f)
 		rows = page.xpath("body/div//table/tbody")[0].findall("tr")
-		
+
 		data = []
 		for row in rows:
 			data.append([c.text_content() for c in row.getchildren()])
@@ -78,20 +101,59 @@ def gdq(event, bot):
 		else:
 			if ngame[:4] == "the ":
 				upcoming, eta = _searchGame(data, ngame[4:])
-		
+
 		if eta:
 			curr = timegm(gmtime())
 			neta = timegm(strptime(eta, "%H:%M:%S")) - timegm(strptime("0:00:00", "%H:%M:%S"))
 			eta = "%s/%s" % (eta.lstrip("0:")[:-3], (neta - (curr-gstart))/60)
 		else: eta = "?"
 	if not upcoming: upcoming = ["Don't know"]
-	bot.say(RPL % (game, eta, "http://www.twitch.tv/gamesdonequick/popout", "https://gamesdonequick.com/schedule"), 
+	bot.say(RPL % (game, eta, "http://www.twitch.tv/gamesdonequick/popout", "https://gamesdonequick.com/schedule"),
 		strins=", ".join(upcoming))
 
+def check_games_callback(bot=None):
+	current_time = timegm(gmtime())
+	timecheck = current_time - REPEAT_NOTIFY_TIME
+	# only notify user 30mins after last notified of same game
+	alerts = bot.dbQuery('''SELECT id, source, source_name, game_text, notified_time
+			FROM gdq_alert WHERE notified_time<? ORDER BY notified_time;''', (timecheck,))
+
+	o = build_opener()
+	o.addheaders = [('Client-ID', TWITCH_CLIENTID)]
+	f = o.open(TWITCH_API_URL)
+	game = "Don't know"
+	if f.getcode() == 200:
+		data = load(f)
+		game = data['game'].lower()
+
+	for alert in alerts:
+		if alert['game_text'].lower() in game:
+			bot.sendmsg(alert['source'], FORMAT, strins=[alert['source_name'],alert['game_text']])
+			bot.dbQuery('''UPDATE gdq_alert SET notified_time=?	WHERE id=?;''', (current_time,alert['id']))
+
+def setup_timer(bot):
+	Timers.addtimer(TIMER_NAME, LOOP_INTERVAL, check_games_callback, reps=-1, startnow=False, bot=bot)
+
+def unload():
+	Timers.deltimer(TIMER_NAME)
 
 def init(bot):
 	global TWITCH_CLIENTID # oh nooooooooooooooooo
 	TWITCH_CLIENTID = bot.getOption("TWITCH_CLIENTID", module="pbm_gdq")
+
+	bot.dbCheckCreateTable("gdq_alert",
+		'''CREATE TABLE gdq_alert(
+			id INTEGER PRIMARY KEY,
+			source TEXT,
+			source_name TEXT,
+		 	game_text TEXT,
+			notified_time INTEGER
+		);''')
+
+	bot.dbCheckCreateTable("gdq_alert_idx", '''CREATE INDEX gdq_alert_idx ON gdq_alert(notified_time);''')
+	bot.dbCheckCreateTable("gdq_alert2_idx", '''CREATE INDEX gdq_alert2_idx ON gdq_alert(source, source_name, game_text);''')
+	setup_timer(bot.container)
 	return True
 
-mappings = (Mapping(command=("gdq", "agdq", "sgdq"), function=gdq),)
+mappings = (Mapping(command=("gdq", "agdq", "sgdq"), function=gdq),
+			Mapping(types=("signedon",), function=setup_timer))

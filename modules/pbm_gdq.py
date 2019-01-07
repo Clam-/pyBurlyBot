@@ -7,9 +7,14 @@ from json import load
 from time import gmtime, strptime
 from calendar import timegm # silly python... I just want UTC seconds
 
+OPTIONS = {
+	"TWITCH_CLIENTID" : (unicode, "Client ID for use in Twitch API calls.", u""),
+}
+
 GDQ_URL = "https://gamesdonequick.com/schedule"
 TWITCH_API_URL = "https://api.twitch.tv/kraken/channels/gamesdonequick"
 RPL = "Current: \x02%s\x02 (%s) Upcoming: {0} \x0f| %s %s"
+TWITCH_CLIENTID = None
 
 def _searchGame(data, title):
 	# try searching for incorrect name in timetable take 3:
@@ -45,7 +50,7 @@ def modifyNameIter(gamename):
 def gdq(event, bot):
 	upcoming = []
 	o = build_opener()
-	o.addheaders = [('Accept', 'application/vnd.twitchtv.v2+json')]
+	o.addheaders = [('Client-ID', TWITCH_CLIENTID)]
 	f = o.open(TWITCH_API_URL)
 	game = "Don't know"
 	eta = None
@@ -82,5 +87,11 @@ def gdq(event, bot):
 	if not upcoming: upcoming = ["Don't know"]
 	bot.say(RPL % (game, eta, "http://www.twitch.tv/gamesdonequick/popout", "https://gamesdonequick.com/schedule"), 
 		strins=", ".join(upcoming))
+
+
+def init(bot):
+	global TWITCH_CLIENTID # oh nooooooooooooooooo
+	TWITCH_CLIENTID = bot.getOption("TWITCH_CLIENTID", module="pbm_gdq")
+	return True
 
 mappings = (Mapping(command=("gdq", "agdq", "sgdq"), function=gdq),)

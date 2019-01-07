@@ -17,7 +17,7 @@ TWITCH_API_URL = "https://api.twitch.tv/kraken/channels/gamesdonequick"
 RPL = "Current: \x02%s\x02 (%s) Upcoming: {0} \x0f| %s %s"
 TWITCH_CLIENTID = None
 TIMER_NAME = 'gdq_timer'
-LOOP_INTERVAL = 40.0 # Seconds
+LOOP_INTERVAL = 120.0 # Seconds
 REPEAT_NOTIFY_TIME = 60*30 # 30mins between same game notifies
 
 FORMAT = u"{0}, GAME ({1}) IS AVAILABLE."

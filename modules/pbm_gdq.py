@@ -27,15 +27,16 @@ def _searchGame(data, title):
 	found = False
 	upcoming = []
 	eta = None
-	for gdata in data:
+	# Join every 2 entries
+	for gdata, etadata in zip(data[0::2], data[1::2]):
 		# ignore silly entires:
 		if len(gdata) < 4: continue
 		if found:
 			# fix for mid 2016 in gdata[3]
-			upcoming.append("\x02%s\x02 by %s (%s)" % (gdata[1], gdata[2], gdata[3].strip().lstrip("0:")[:-3]))
+			upcoming.append("\x02%s\x02 by %s (%s)" % (gdata[1], gdata[2], etadata[0].strip().lstrip("0:")[:-3]))
 		elif gdata[1].lower() == title:
 			found = True
-			eta = gdata[3].strip()
+			eta = etadata[0].strip()
 	return upcoming, eta
 
 def modifyNameIter(gamename):

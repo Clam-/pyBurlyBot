@@ -145,7 +145,7 @@ def deliver_tell(event, bot):
 def tell(event, bot):
 	""" tell target msg. Will tell a user <target> a message <msg>."""
 	target, msg = argumentSplit(event.argument, 2)
-	if not target: return bot.say(bot.say(functionHelp(tell)))
+	if not target: return bot.say(functionHelp(tell))
 	if not msg:
 		return bot.say("Need something to tell (%s)" % target)
 	users, unknown, dupes, hasself = _generate_users(bot, target, USERS_MODULE.get_username(bot, event.nick))

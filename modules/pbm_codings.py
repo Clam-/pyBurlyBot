@@ -104,6 +104,6 @@ def fdecode(event, bot):
 	except (UnicodeEncodeError, UnicodeDecodeError): bot.say("Can't decode.")
 	
 #mappings to methods
-mappings = (Mapping(command="hash", function=hash), Mapping(command="pbm_md5", function=md5), Mapping(command="rot13", function=rot13),
+mappings = (Mapping(command="hash", function=hash), Mapping(command="md5", function=pbm_md5), Mapping(command="rot13", function=rot13),
 	Mapping(command="crc", function=crc), Mapping(command="unquote", function=funquote), Mapping(command="quote", function=fquote),
 	Mapping(command="encode", function=fencode), Mapping(command="decode", function=fdecode),)

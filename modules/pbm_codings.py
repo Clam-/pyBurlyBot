@@ -26,7 +26,7 @@ def hash(event, bot):
 	h.update(content.encode("utf-8"))
 	bot.say("%s - %s" % (h.hexdigest(), repr(content)))
 
-def md5(event, bot):
+def pbm_md5(event, bot):
 	""" md5 content. content will be md5 hashed (after encoding to UTF-8.)"""
 	arg = event.argument
 	if not arg:
@@ -104,6 +104,6 @@ def fdecode(event, bot):
 	except (UnicodeEncodeError, UnicodeDecodeError): bot.say("Can't decode.")
 	
 #mappings to methods
-mappings = (Mapping(command="hash", function=hash), Mapping(command="md5", function=md5), Mapping(command="rot13", function=rot13),
+mappings = (Mapping(command="hash", function=hash), Mapping(command="pbm_md5", function=md5), Mapping(command="rot13", function=rot13),
 	Mapping(command="crc", function=crc), Mapping(command="unquote", function=funquote), Mapping(command="quote", function=fquote),
 	Mapping(command="encode", function=fencode), Mapping(command="decode", function=fdecode),)

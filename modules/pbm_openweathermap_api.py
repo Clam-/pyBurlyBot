@@ -19,7 +19,9 @@ API_KEY = None
 CSE_ID = None
 
 def get_weather(lat, lon):
-	""" helper to ask WU for current weather. Includes forecast also!"""
+	""" Query OpenWeatherMap for current weather conditions.
+	https://openweathermap.org/current
+	"""
 	if not API_KEY:
 		raise ConfigException("Require API_KEY for OpenWeather API. Reload after setting.")
 	f = urlopen(URL % ('weather', API_KEY, lat, lon))
@@ -32,7 +34,9 @@ def get_weather(lat, lon):
 
 # Not used for weather because doesn't contain "display_location"
 def get_forecast(lat, lon):
-	""" helper to ask WU for forecasted weather."""
+	""" Query OpenWeatherMap for 5 day / 3 hour forecast
+	https://openweathermap.org/forecast5
+	"""
 	if not API_KEY:
 		raise ConfigException("Require API_KEY for OpenWeather API. Reload after setting.")
 	f = urlopen(URL % ('forecast', API_KEY, lat, lon))
@@ -41,6 +45,22 @@ def get_forecast(lat, lon):
 		return forecast
 	else:
 		raise RuntimeError("Error (%s): %s" % (f.getcode(), forecast.replace("\n", " ")))
+
+
+def get_dailyforecast(lat, lon, days=5):
+	""" Query OpenWeatherMap for 16 day / daily forecast data
+	https://openweathermap.org/forecast16
+	:param days: Number of days for which to get a forecast, current max of 16
+	"""
+	if not API_KEY:
+		raise ConfigException("Require API_KEY for OpenWeather API. Reload after setting.")
+	f = urlopen(URL % ('forecast/daily', API_KEY, lat, lon) + '&cnt=%d' % days)
+	forecast = load(f)
+	if f.getcode() == 200:
+		return forecast
+	else:
+		raise RuntimeError("Error (%s): %s" % (f.getcode(), forecast.replace("\n", " ")))
+
 
 def init(bot):
 	global API_KEY # oh nooooooooooooooooo

@@ -6,18 +6,22 @@ from textwrap import wrap as textwrap, dedent
 from json import load as jsonload
 from urllib import urlopen, quote as urlquote
 from util.irctools import bold
+from re import compile as re_compile
 
 DEFINITION_LENGTH = 250
 TOTAL_LENGTH = 325
 API_URL = 'http://api.urbandictionary.com/v0/define?term='
 RANDOM_URL = 'http://api.urbandictionary.com/v0/random'
+R_SQUAREBRACKETS = re_compile(r'\[([a-zA-Z0-9.\'"!@#$%^&*()+=\\/\|\-_;:<>{} ]*?)\]')
 
 
 def format_definition(json_obj):
 	""" Format an API-provided JSON object for display"""
 	word = json_obj['word']
 	definition = dedent(json_obj['definition']).replace('\r\n', ' ')
+	definition = R_SQUAREBRACKETS.sub(r'\1', definition)
 	example = dedent(json_obj['example']).replace('\r\n', ' ')
+	example = R_SQUAREBRACKETS.sub(r'\1', example)
 	permalink = json_obj['permalink']
 
 	parts = textwrap(definition, DEFINITION_LENGTH)

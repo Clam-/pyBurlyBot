@@ -2,10 +2,16 @@
 
 from util import Mapping, commandSplit, functionHelp, fetchone
 from re import compile as recompile, IGNORECASE, UNICODE
-from urlparse import urlparse, parse_qs
+try:
+	# Python 2.6-2.7
+	from HTMLParser import HTMLParser
+except ImportError:
+	# Python 3
+	from html.parser import HTMLParser
 
 from time import strftime, strptime
 
+HTMLPARSER = HTMLParser()
 REQUIRES = ("pbm_googleapi",)
 GAPI_MODULE = None
 
@@ -93,7 +99,8 @@ def youtube(event, bot):
 				links.append(SHORTURL % item['id']['videoId'])
 			elif id['kind'] == 'youtube#channel':
 				links.append(CHANNELURL % item['id']['channelId'])
-			titles.append(item['snippet']['title'])
+			title = HTMLPARSER.unescape(item['snippet']['title'])
+			titles.append(title)
 		rpl = (rpl % tuple(xrange(lr))) % tuple(links)
 		
 		bot.say(rpl, fcfs=False, strins=titles)

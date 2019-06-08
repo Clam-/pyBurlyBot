@@ -5,7 +5,7 @@
 # TODO: maybe implement some of these neat filters:
 # https://developers.google.com/custom-search/json-api/v1/reference/cse/list#request
 
-from urllib2 import Request, urlopen, HTTPError, URLError
+from urllib2 import urlopen, URLError
 from urllib import urlencode, quote
 from json import load
 

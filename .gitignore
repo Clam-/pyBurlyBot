@@ -7,6 +7,9 @@ data/
 *.log
 logindex/
 
+#cert dir
+cert/
+
 #testing
 modules/pbm_test.py
 modules/pbm_dispatchtest.py

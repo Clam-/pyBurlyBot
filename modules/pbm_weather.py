@@ -76,13 +76,18 @@ def weather(event, bot):
 	temp_min_c = weather['main']['temp_min']
 	humidity = weather['main']['humidity']
 	wind_kph = weather['wind']['speed']
-	wind_cardinal = degrees_to_cardinal(weather['wind']['deg'])
+	if 'deg' in weather['wind']:
+		wind_cardinal = degrees_to_cardinal(weather['wind']['deg'])
+	else:
+		wind_cardinal = None
 	simple_conditions = weather['weather'][0]['main']
 	windchill_c = wind_chill(temp_c, wind_kph)
 	if wind_kph <= 4:
 		wind = 'Calm wind.'
-	else:
+	elif wind_cardinal:
 		wind = "Wind from the %s at %.1f/%.1f MPH/KPH." % (wind_cardinal, kph2mph(wind_kph), wind_kph)
+	else:
+		wind = '%.1f/%.1f MPH/KPH Wind' % (kph2mph(wind_kph), wind_kph)
 	if windchill_c:
 		bot.say(WEATHER_RPL_WC % (_build_locname(place_name, country_code), c2f(temp_c), temp_c, c2f(windchill_c), windchill_c,
 			c2f(temp_min_c), c2f(temp_max_c), temp_min_c, temp_max_c, simple_conditions, humidity, wind))

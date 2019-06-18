@@ -99,6 +99,7 @@ class DBManager(object):
 	def _dbcommit(self):
 		for db in self.serverDBMap.itervalues():
 			db.commit()
+		self.mainDB.commit()
 		
 	def dbcommit(self):
 		self.managerThread.call(self._dbcommit)

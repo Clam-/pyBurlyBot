@@ -10,6 +10,7 @@ from os import getcwdu
 from os.path import join
 from sys import exit, stdout, path
 from argparse import ArgumentParser
+import signal
 
 # twisted imports
 from twisted.python import log
@@ -17,6 +18,15 @@ from twisted.internet import reactor
 
 #BurlyBot imports
 from util.settings import Settings, ConfigException
+
+def setup_sighup_handler():
+	"""
+	Handle SIGHUP, received by screen children when screen receives SIGTERM
+	"""
+	def sighup_handler(*args):
+		reactor.callFromThread(reactor.stop)
+
+	signal.signal(signal.SIGHUP, sighup_handler)
 
 if __name__ == '__main__':
 	
@@ -65,7 +75,9 @@ if __name__ == '__main__':
 		exit(2)
 	
 	Settings.initialize(logger=templog)
-	
+
+	# Handle SIGHUP, signal received by screen children when screen receives SIGTERM
+	setup_sighup_handler()
 	# start reactor (which in a sense starts bot proper)
 	reactor.run()
 	Settings.hardshutdown()

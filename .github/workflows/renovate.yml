@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   renovate:
-    uses: yuzuyuzuyu/repo-automation/.github/workflows/renovate-runner.yml@2a415c09434b3c351f88dad878f3ba7766419b6b # v1.0.7
+    uses: yuzuyuzuyu/repo-automation/.github/workflows/renovate-runner.yml@bafecef23e3e78a650eeda22b43691f03b49298d # v1.0.8
     with:
       app-client-id: ${{ vars.RENOVATE_APP_CLIENT_ID }}
       native-automerge: true
